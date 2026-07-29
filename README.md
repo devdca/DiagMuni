@@ -10,7 +10,16 @@ Proyecto presentado a **GovTech Connect** (BID Lab / Red de Innovación Local), 
 
 ## Estado
 
-En desarrollo temprano — sin release todavía.
+En desarrollo temprano — sin release todavía. Motor determinista, modelo de datos y API REST del backend ya funcionan (ver `backend/`); la capa de IA (F1/F3/F9) y las pantallas del frontend están pendientes.
+
+## Cómo correr el proyecto
+
+```
+cp .env.example .env
+docker compose up -d
+```
+
+Documentación técnica completa en `docs/` (producto, arquitectura, esquema de datos, flujo de la aplicación) y `entregables/` (catálogo normativo del motor de diagnóstico, teoría de cambio).
 
 ## Licencia
 

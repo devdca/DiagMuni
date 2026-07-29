@@ -1,0 +1,26 @@
+# entregables/fase-2/modelo-diagnostico.md, sección 6
+version: "1.0"
+variable: mecanismo_identidad
+criterio_deteccion: 'mecanismo_identidad == "ninguno"'
+acciones:
+  mx:
+    paso_administrativo: "Evaluar adopción de Llave MX como acceso único"
+    paso_tecnico: "Integración con proveedor de identidad federada nacional (categoría, no marca)"
+    paso_organizacional: "Informar al ciudadano el nuevo mecanismo de acceso al trámite"
+    prerrequisitos: ["Trámite con canal digital habilitado"]
+    por_que_importa: "Refuerza el paso a índice 3-4; mejora la trazabilidad de usos exigida por LNETB art. 15"
+    fuente_normativa: "Llave MX — LNETB arts. 64-75"
+    categoria_catalogo: "identidad_federada"
+  uy:
+    paso_administrativo: "Evaluar adopción de ID Uruguay (Agesic)"
+    paso_tecnico: "Integración con proveedor de identidad federada nacional (categoría, no marca)"
+    paso_organizacional: "Informar al ciudadano el nuevo mecanismo de acceso al trámite"
+    prerrequisitos: ["Trámite con canal digital habilitado"]
+    # HALLAZGO (28-jul-2026, detectado al correr el punto de control de fase C, no corregido
+    # aquí): entregables/fase-2/modelo-diagnostico.md marca esta celda "Igual" a la de México,
+    # citando LNETB art. 15 — pero la LNETB es ley exclusivamente mexicana, no aplica a Uruguay.
+    # Transcrito fielmente del entregable aprobado (no se inventa una cita normativa uruguaya
+    # de reemplazo); pendiente de corrección por transformacion-digital/legislacion.
+    por_que_importa: "Refuerza el paso a índice 3-4; mejora la trazabilidad de usos exigida por LNETB art. 15"
+    fuente_normativa: "ID Uruguay/usuario gub.uy — art. 33 Ley 18.600 + Decreto 70/018"
+    categoria_catalogo: "identidad_federada"

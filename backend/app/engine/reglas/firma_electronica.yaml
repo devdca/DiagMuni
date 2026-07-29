@@ -1,0 +1,21 @@
+# docs/TRD.md, "Catálogo de reglas brecha→acción — formato concreto" (formato ya fijado ahí)
+version: "1.0"
+variable: firma_electronica_habilitada
+criterio_deteccion: "firma_electronica_habilitada == false"
+acciones:
+  mx:
+    paso_administrativo: "Suscribir convenio de homologación con la e.firma del SAT + ley estatal aplicable"
+    paso_tecnico: "Integrar verificación de firma con estándar abierto (PAdES/XAdES)"
+    paso_organizacional: "Capacitar a funcionarios de mostrador en uso del certificado y verificación de firmas"
+    prerrequisitos: ["Conectividad estable"]
+    por_que_importa: "Bloquea el paso de índice 2 a 3"
+    fuente_normativa: "LNETB art. 25-III + LFEA y su Reglamento, régimen de homologación de e.firma SAT"
+    categoria_catalogo: "modulo_firma_electronica"
+  uy:
+    paso_administrativo: "Acogerse a la habilitación del art. 8 de la Ley 18.600"
+    paso_tecnico: "Integrar verificación de firma con estándar abierto (PAdES/XAdES); considerar custodia centralizada (Ley 19.535)"
+    paso_organizacional: "Capacitar a funcionarios de mostrador en uso del certificado y verificación de firmas"
+    prerrequisitos: ["Conectividad estable"]
+    por_que_importa: "Bloquea el paso de índice 2 a 3"
+    fuente_normativa: "Ley 18.600 art. 8 + arts. 31-33 (agregados por art. 28 Ley 19.535)"
+    categoria_catalogo: "modulo_firma_electronica"

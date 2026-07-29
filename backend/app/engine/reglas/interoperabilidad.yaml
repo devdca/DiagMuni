@@ -1,0 +1,21 @@
+# entregables/fase-2/modelo-diagnostico.md, sección 4
+version: "1.0"
+variable: interoperabilidad
+criterio_deteccion: "interoperabilidad == false"
+acciones:
+  mx:
+    paso_administrativo: "Habilitar el intercambio de datos del trámite conforme al Expediente Digital Ciudadano (LNETB arts. 76-84) y a las obligaciones generales de plataformas digitales (LNETB art. 16, fracs. III, IV, VII, XI)"
+    paso_tecnico: "Conector de interoperabilidad nacional (categoría, no marca)"
+    paso_organizacional: "Designar enlace técnico responsable del intercambio de datos"
+    prerrequisitos: ["Trámite ya digitalizado (depende de la brecha documentos_digitalizados)"]
+    por_que_importa: "Requisito de índice 4 (proactivo e interoperable)"
+    fuente_normativa: "LNETB arts. 16 (fracs. III, IV, VII, XI) y 76-84"
+    categoria_catalogo: "conector_interoperabilidad"
+  uy:
+    paso_administrativo: "Integrar con la Plataforma de Interoperabilidad (PDI) de AGESIC"
+    paso_tecnico: "Cliente PDI de AGESIC (ya en catálogo OSS, docs/stack-tecnologico.md)"
+    paso_organizacional: "Designar enlace técnico responsable del intercambio de datos"
+    prerrequisitos: ["Trámite ya digitalizado (depende de la brecha documentos_digitalizados)"]
+    por_que_importa: "Requisito de índice 4 (proactivo e interoperable)"
+    fuente_normativa: "Ley 18.719 arts. 157-160"
+    categoria_catalogo: "conector_interoperabilidad"

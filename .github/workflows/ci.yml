@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+      # 1. lint
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check .
+      # 2. type-check
+      - name: Type-check (mypy)
+        working-directory: backend
+        run: mypy app
+      # 3. tests
+      - name: Tests (pytest)
+        working-directory: backend
+        run: pytest
+      # 4. chequeo de licencias (docs/TRD.md; Principio 2 de docs/stack-tecnologico.md).
+      # Deny-list, no allow-list: muchos paquetes MIT/BSD/Apache reales (anyio, click,
+      # idna, packaging...) no traen un clasificador de licencia limpio en su metadata
+      # y pip-licenses los reporta como "UNKNOWN" — un allow-only estricto fallaría el
+      # build por eso, no por un riesgo real. El gate duro es AGPL/GPL (contaminación
+      # de licencia real); "UNKNOWN" se imprime para revisión humana, no bloquea.
+      - name: Chequeo de licencias de dependencias (gate duro: GPL/AGPL)
+        working-directory: backend
+        run: |
+          pip-licenses --fail-on="GNU General Public License (GPL);GNU General Public License v2 (GPLv2);GNU General Public License v2 or later (GPLv2+);GNU General Public License v3 (GPLv3);GNU General Public License v3 or later (GPLv3+);GNU Affero General Public License v3 (AGPLv3);GNU Affero General Public License v3 or later (AGPLv3+)"
+      - name: Licencias sin clasificar (revisión humana, no bloquea el build)
+        working-directory: backend
+        run: pip-licenses | grep -i unknown || echo "Ninguna licencia sin clasificar."
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar dependencias
+        working-directory: frontend
+        run: npm install
+      # 2. type-check (frontend aún no tiene lint/tests propios — fase F de docs/plan-implementacion.md)
+      - name: Type-check (tsc)
+        working-directory: frontend
+        run: npx tsc -b
+
+  build-images:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 5. build de imágenes Docker
+      - name: Build imagen backend
+        run: docker build -f backend/Dockerfile -t diagmuni-backend:ci .
+      - name: Build imagen nginx (incluye build de frontend)
+        run: docker build -f nginx/Dockerfile -t diagmuni-nginx:ci .
+
+  preview:
+    needs: [backend, frontend]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+      # 6. deploy de preview a Cloudflare Pages — solo en PRs, nunca en main (docs/stack-tecnologico.md)
+      - name: Deploy preview a Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: diagmuni
+          directory: frontend/dist
