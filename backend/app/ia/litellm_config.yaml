@@ -1,0 +1,21 @@
+# Capa de IA (docs/TRD.md, sección "Capa de IA — configuración concreta").
+#
+# Reproduce fielmente el model_list acordado en el TRD. No se transcribe a código
+# Python (mismo principio que backend/app/engine/reglas/*.yaml): app/ia/config.py
+# lo carga en tiempo de ejecución.
+#
+# Asignación de piezas (docs/TRD.md):
+#   - economico -> F1 (asistente de captura) y F9 (verificador): tareas de bajo costo.
+#   - calidad   -> F3 (generador de plan): redacción compleja y trazabilidad normativa.
+#
+# "api_key: os.environ/VAR" es la convención de LiteLLM para indicar "leer esta key
+# de la variable de entorno VAR en tiempo de ejecución" -- nunca un valor literal.
+model_list:
+  - model_name: economico
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: calidad
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
