@@ -1,0 +1,14 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+alembic==1.14.0
+# psycopg es LGPL-3.0, no GPL — LGPL permite explícitamente el linking dinámico sin
+# obligar a que el proyecto que lo usa también sea GPL (a diferencia de GPL a secas).
+# Es más permisivo que el carve-out "GPL solo como servicio separado" del Principio 2
+# de docs/stack-tecnologico.md, no una excepción a él.
+psycopg[binary]==3.2.10
+pydantic==2.10.4
+pydantic-settings==2.7.1
+pyjwt==2.10.1
+argon2-cffi==23.1.0
+pyyaml==6.0.2

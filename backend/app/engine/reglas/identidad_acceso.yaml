@@ -1,0 +1,23 @@
+# entregables/fase-2/modelo-diagnostico.md, sección 6
+version: "1.0"
+variable: mecanismo_identidad
+criterio_deteccion: 'mecanismo_identidad == "ninguno"'
+acciones:
+  mx:
+    paso_administrativo: "Evaluar adopción de Llave MX como acceso único"
+    paso_tecnico: "Integración con proveedor de identidad federada nacional (categoría, no marca)"
+    paso_organizacional: "Informar al ciudadano el nuevo mecanismo de acceso al trámite"
+    prerrequisitos: ["Trámite con canal digital habilitado"]
+    por_que_importa: "Refuerza el paso a índice 3-4; mejora la trazabilidad de usos exigida por LNETB art. 15"
+    fuente_normativa: "Llave MX — LNETB arts. 64-75"
+    categoria_catalogo: "identidad_federada"
+  uy:
+    paso_administrativo: "Evaluar adopción de ID Uruguay (Agesic)"
+    paso_tecnico: "Integración con proveedor de identidad federada nacional (categoría, no marca)"
+    paso_organizacional: "Informar al ciudadano el nuevo mecanismo de acceso al trámite"
+    prerrequisitos: ["Trámite con canal digital habilitado"]
+    # A diferencia de la rama mx, no se cita una obligación legal de "trazabilidad
+    # de usos" porque ninguna norma uruguaya la sustenta.
+    por_que_importa: "Reduce la fricción de registro del ciudadano al reutilizar una credencial de identidad digital con equivalencia funcional a la identificación presencial (art. 33 Ley 18.600 y Decreto 70/018), ya exigida operativamente por la Intendencia de Montevideo para su portal de facturas (anexo_legislacion_uy.md §6)."
+    fuente_normativa: "ID Uruguay/usuario gub.uy — art. 33 Ley 18.600 + Decreto 70/018"
+    categoria_catalogo: "identidad_federada"

@@ -1,0 +1,21 @@
+# entregables/fase-2/modelo-diagnostico.md, sección 2
+version: "1.0"
+variable: motor_pagos
+criterio_deteccion: "motor_pagos == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar alternativas de pago en el Portal Ciudadano Único; evaluar obligación de CFDI si el trámite genera cobro"
+    paso_tecnico: "Adaptador de pago en línea configurable — nunca una pasarela única fija"
+    paso_organizacional: "Capacitar a caja/tesorería en conciliación de pagos en línea"
+    prerrequisitos: ["Cuenta bancaria institucional habilitada para cobros electrónicos"]
+    por_que_importa: "Bloquea el paso a índice 3 (transaccional completo)"
+    fuente_normativa: "LNETB art. 54-XI; CFDI — CFF art. 29 y LISR art. 86 5º párr. [NO VERIFICADO]"
+    categoria_catalogo: "adaptador_pasarela_pago"
+  uy:
+    paso_administrativo: "Evaluar solución de pago propia de la intendencia (sin pasarela estatal única)"
+    paso_tecnico: "Adaptador de pago en línea configurable — nunca una pasarela única fija"
+    paso_organizacional: "Capacitar a caja/tesorería en conciliación de pagos en línea"
+    prerrequisitos: ["Cuenta bancaria institucional habilitada para cobros electrónicos"]
+    por_que_importa: "Bloquea el paso a índice 3 (transaccional completo)"
+    fuente_normativa: "Estándar Agesic para pasarelas de pago + soluciones propias por intendencia; ausencia de pasarela estatal única [NO VERIFICADO — hallazgo negativo]"
+    categoria_catalogo: "adaptador_pasarela_pago"

@@ -1,0 +1,21 @@
+# entregables/fase-2/modelo-diagnostico.md, sección 1
+version: "1.0"
+variable: documentos_digitalizados
+criterio_deteccion: "documentos_digitalizados == false"
+acciones:
+  mx:
+    paso_administrativo: "Iniciar gestión documental electrónica del expediente conforme a la Ley General de Archivos"
+    paso_tecnico: "Digitalizar el expediente y adoptar un gestor de expediente electrónico (categoría, no marca)"
+    paso_organizacional: "Capacitar al personal de archivo/mostrador en captura y resguardo digital"
+    prerrequisitos: ["Definir política de resguardo/retención documental"]
+    por_que_importa: "Bloquea el paso de índice 0 a 1 como mínimo; prerrequisito de cualquier transaccionalidad completa"
+    fuente_normativa: "LNETB arts. 76-78 (Expediente Digital Ciudadano) + Ley General de Archivos arts. 41-49, 62"
+    categoria_catalogo: "gestor_expediente_electronico"
+  uy:
+    paso_administrativo: "Adoptar expediente electrónico conforme a la Ley 16.736"
+    paso_tecnico: "Digitalizar el expediente y adoptar un gestor de expediente electrónico (categoría, no marca)"
+    paso_organizacional: "Capacitar al personal de archivo/mostrador en captura y resguardo digital"
+    prerrequisitos: ["Definir política de resguardo/retención documental"]
+    por_que_importa: "Bloquea el paso de índice 0 a 1 como mínimo; prerrequisito de cualquier transaccionalidad completa"
+    fuente_normativa: "Ley 16.736 arts. 694-696 + Ley 19.355 art. 76"
+    categoria_catalogo: "gestor_expediente_electronico"

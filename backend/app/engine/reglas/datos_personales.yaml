@@ -1,0 +1,22 @@
+# entregables/fase-2/modelo-diagnostico.md, sección 5 — transversal, no gatilla un nivel
+# específico del índice (ver docs/PRD.md); es requisito de cumplimiento en cualquier nivel >= 1.
+version: "1.0"
+variable: proteccion_datos_incompleta
+criterio_deteccion: "proteccion_datos_incompleta == true"
+acciones:
+  mx:
+    paso_administrativo: "Publicar aviso de privacidad conforme a la LGPDPPSO; identificar responsable ante la Secretaría Anticorrupción y Buen Gobierno"
+    paso_tecnico: "Cifrado en tránsito/reposo de los datos personales capturados (estándar, no marca)"
+    paso_organizacional: "Capacitar al personal en tratamiento de datos personales"
+    prerrequisitos: ["Inventario de datos personales tratados por trámite"]
+    por_que_importa: "Obligación legal transversal — no bloquea un nivel específico del índice, pero es requisito de cumplimiento en cualquier nivel >= 1"
+    fuente_normativa: "LGPDPPSO arts. 20-22 (aviso de privacidad) y 25-28 (medidas de seguridad); Secretaría Anticorrupción y Buen Gobierno, art. 3-XXVI"
+    categoria_catalogo: "modulo_cifrado_datos"
+  uy:
+    paso_administrativo: "Designar delegado de protección de datos conforme a la Ley 18.331 + 19.670"
+    paso_tecnico: "Cifrado en tránsito/reposo de los datos personales capturados (estándar, no marca)"
+    paso_organizacional: "Capacitar al personal en tratamiento de datos personales"
+    prerrequisitos: ["Inventario de datos personales tratados por trámite"]
+    por_que_importa: "Obligación legal transversal — no bloquea un nivel específico del índice, pero es requisito de cumplimiento en cualquier nivel >= 1"
+    fuente_normativa: "Ley 18.331 + Ley 19.670 arts. 37-40 (delegado de protección de datos obligatorio)"
+    categoria_catalogo: "modulo_cifrado_datos"
