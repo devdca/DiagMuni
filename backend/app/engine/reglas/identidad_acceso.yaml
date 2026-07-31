@@ -16,11 +16,20 @@ acciones:
     paso_tecnico: "Integración con proveedor de identidad federada nacional (categoría, no marca)"
     paso_organizacional: "Informar al ciudadano el nuevo mecanismo de acceso al trámite"
     prerrequisitos: ["Trámite con canal digital habilitado"]
-    # HALLAZGO (28-jul-2026, detectado al correr el punto de control de fase C, no corregido
-    # aquí): entregables/fase-2/modelo-diagnostico.md marca esta celda "Igual" a la de México,
-    # citando LNETB art. 15 — pero la LNETB es ley exclusivamente mexicana, no aplica a Uruguay.
-    # Transcrito fielmente del entregable aprobado (no se inventa una cita normativa uruguaya
-    # de reemplazo); pendiente de corrección por transformacion-digital/legislacion.
-    por_que_importa: "Refuerza el paso a índice 3-4; mejora la trazabilidad de usos exigida por LNETB art. 15"
+    # HALLAZGO (28-jul-2026, detectado al correr el punto de control de fase C) — CORREGIDO
+    # (31-jul-2026, por legislacion/transformacion-digital): el texto anterior de
+    # `por_que_importa` decía "Refuerza el paso a índice 3-4; mejora la trazabilidad de usos
+    # exigida por LNETB art. 15", transcrito por error desde la celda de México en
+    # entregables/fase-2/modelo-diagnostico.md (marcada "Igual" a México). La LNETB es ley
+    # exclusivamente mexicana y no aplica a Uruguay. `legislacion` investigó si existe un
+    # fundamento normativo uruguayo real para "trazabilidad de usos" del mecanismo de
+    # identidad (Decreto 70/018, Modelo de Trazabilidad de Agesic, Ley 18.719 arts. 157-160 /
+    # Decreto 178/013) y el resultado fue negativo: ninguna norma lo sustenta. Por instrucción
+    # explícita de no inventar una cita, el campo se reescribió sin atribuir obligación legal
+    # de trazabilidad, apoyado únicamente en la misma fuente ya verificada en
+    # `fuente_normativa` (equivalencia funcional, art. 33 Ley 18.600 + Decreto 70/018) y en la
+    # adopción operativa de "usuario gub.uy" por la Intendencia de Montevideo para su portal
+    # de facturas (verificado en anexo_legislacion_uy.md).
+    por_que_importa: "Reduce la fricción de registro del ciudadano al reutilizar una credencial de identidad digital con equivalencia funcional a la identificación presencial (art. 33 Ley 18.600 y Decreto 70/018), ya exigida operativamente por la Intendencia de Montevideo para su portal de facturas (anexo_legislacion_uy.md §6)."
     fuente_normativa: "ID Uruguay/usuario gub.uy — art. 33 Ley 18.600 + Decreto 70/018"
     categoria_catalogo: "identidad_federada"

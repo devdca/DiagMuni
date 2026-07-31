@@ -83,7 +83,7 @@ Primer borrador del catálogo de reglas brecha→acción (formato acordado en `d
 | Paso técnico | Integración con proveedor de identidad federada nacional (categoría) | Igual |
 | Paso organizacional | Informar al ciudadano el nuevo mecanismo de acceso al trámite | Igual |
 | Prerrequisitos | Trámite con canal digital habilitado | Igual |
-| Por qué importa | Refuerza el paso a índice 3-4; mejora la trazabilidad de usos exigida por LNETB art. 15 | Igual |
+| Por qué importa | Refuerza el paso a índice 3-4; mejora la trazabilidad de usos exigida por LNETB art. 15 | Reduce la fricción de registro del ciudadano al reutilizar una credencial de identidad digital con equivalencia funcional a la identificación presencial (art. 33 Ley 18.600 y Decreto 70/018), ya exigida operativamente por la Intendencia de Montevideo para su portal de facturas (anexo_legislacion_uy.md §6) |
 | Fuente normativa | Llave MX — LNETB arts. 64-75 (verificado) | ID Uruguay/usuario gub.uy — art. 33 Ley 18.600 + Decreto 70/018 (verificado existencia y operación; cifras de usuarios `[NO VERIFICADO]`) |
 | Categoría de catálogo | `identidad_federada` | `identidad_federada` |
 

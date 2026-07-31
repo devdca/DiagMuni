@@ -57,7 +57,7 @@ Sin RLS (es la tabla raíz que define el aislamiento, no tiene `tenant_id` propi
 | `id` | uuid, PK | |
 | `tramite_id` | uuid, FK → tramite | |
 | `tenant_id` | uuid, FK → tenant | Denormalizado a propósito — RLS no debe depender de un join a `tramite` |
-| `respuestas` | jsonb | Variables capturadas: documentos papel/digital, motor de pagos, firma-e, interoperabilidad, datos personales, identidad/acceso ciudadano (ver `docs/PRD.md`) |
+| `respuestas` | jsonb | Variables capturadas: documentos papel/digital, motor de pagos, firma-e, interoperabilidad, datos personales, identidad/acceso ciudadano (ver `docs/PRD.md`). Incluye además la clave opcional `aclaraciones` (objeto anidado, una entrada de texto libre por variable como máximo) — campo de apoyo del asistente de captura F1, nunca requiere migración por ser una clave nueva dentro del mismo jsonb; detalle completo, categorías de clasificación y mecanismo de confirmación humana en `entregables/fase-2/asistente-captura-f1.md` |
 | `indice_madurez` | smallint (0-4) | Calculado por `engine/`, síncrono |
 | `version_motor` | text | Ej. `"1.0"` — liga el diagnóstico a la versión de reglas que lo produjo (`docs/TRD.md`, versionado) |
 | `completado_en` | timestamptz, nullable | Null mientras `estado = en_progreso` |
