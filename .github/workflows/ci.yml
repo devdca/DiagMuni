@@ -34,7 +34,7 @@ jobs:
       # y pip-licenses los reporta como "UNKNOWN" — un allow-only estricto fallaría el
       # build por eso, no por un riesgo real. El gate duro es AGPL/GPL (contaminación
       # de licencia real); "UNKNOWN" se imprime para revisión humana, no bloquea.
-      - name: Chequeo de licencias de dependencias (gate duro: GPL/AGPL)
+      - name: "Chequeo de licencias de dependencias (gate duro: GPL/AGPL)"
         working-directory: backend
         run: |
           pip-licenses --fail-on="GNU General Public License (GPL);GNU General Public License v2 (GPLv2);GNU General Public License v2 or later (GPLv2+);GNU General Public License v3 (GPLv3);GNU General Public License v3 or later (GPLv3+);GNU Affero General Public License v3 (AGPLv3);GNU Affero General Public License v3 or later (AGPLv3+)"
