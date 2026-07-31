@@ -34,7 +34,7 @@ jobs:
       # y pip-licenses los reporta como "UNKNOWN" — un allow-only estricto fallaría el
       # build por eso, no por un riesgo real. El gate duro es AGPL/GPL (contaminación
       # de licencia real); "UNKNOWN" se imprime para revisión humana, no bloquea.
-      - name: Chequeo de licencias de dependencias (gate duro: GPL/AGPL)
+      - name: "Chequeo de licencias de dependencias (gate duro: GPL/AGPL)"
         working-directory: backend
         run: |
           pip-licenses --fail-on="GNU General Public License (GPL);GNU General Public License v2 (GPLv2);GNU General Public License v2 or later (GPLv2+);GNU General Public License v3 (GPLv3);GNU General Public License v3 or later (GPLv3+);GNU Affero General Public License v3 (AGPLv3);GNU Affero General Public License v3 or later (AGPLv3+)"
@@ -72,6 +72,9 @@ jobs:
     needs: [backend, frontend]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -82,8 +85,11 @@ jobs:
         run: |
           npm install
           npm run build
-      # 6. deploy de preview a Cloudflare Pages — solo en PRs, nunca en main (docs/stack-tecnologico.md)
+      # 6. deploy de preview a Cloudflare Pages — solo en PRs, nunca en main (docs/stack-tecnologico.md).
+      # Se salta limpio (no falla el build) mientras los secrets de Cloudflare no estén
+      # configurados en el repo -- todavía no hay proyecto de Cloudflare Pages creado.
       - name: Deploy preview a Cloudflare Pages
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
