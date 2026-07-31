@@ -12,3 +12,15 @@ pydantic-settings==2.7.1
 pyjwt==2.10.1
 argon2-cffi==23.1.0
 pyyaml==6.0.2
+# litellm: MIT (docs/stack-tecnologico.md, "Nota sobre LiteLLM (licencia)"), verificado
+# contra github.com/BerriAI/litellm/LICENSE -- DiagMuni solo usa el SDK core
+# (litellm.completion), nunca el paquete separado `enterprise/` (licencia propietaria).
+# Versión 1.94.0 confirmada como la más reciente en PyPI el 30-jul-2026 (`pip index
+# versions litellm`, y github.com/BerriAI/litellm/releases). Nota de seguridad
+# verificada de forma independiente contra el aviso oficial del proyecto
+# (docs.litellm.ai/blog/security-update-march-2026), GitHub Security Advisory
+# GHSA-5mg7-485q-xm76 y análisis de terceros (Snyk, NetSPI): el 24-mar-2026 dos
+# versiones puntuales (1.82.7 y 1.82.8) fueron comprometidas en PyPI mediante
+# credenciales de CI robadas y puestas en cuarentena ~40 minutos después de su
+# publicación; no afecta a 1.94.0 (muy posterior) ni a ninguna versión fijada aquí.
+litellm==1.94.0
