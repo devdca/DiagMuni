@@ -1,8 +1,6 @@
 """Tests del generador de plan con LLM (F3). Ninguno hace una llamada real --
 `litellm.completion` siempre monkeypatcheado."""
 
-import pytest
-
 from app.engine.plantillas import _narrativa_plantilla, generar_contenido_degradado
 from app.ia import generador_plan
 from app.ia.generador_plan import generar_contenido_llm
