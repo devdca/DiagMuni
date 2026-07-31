@@ -1,11 +1,5 @@
-"""Tests del generador de plan con LLM (docs/plan-implementacion.md, fase E2).
-
-Regla de docs/TRD.md, "Testing": "tests de que la degradación a plantilla ocurre
-correctamente cuando la API no responde o falla -- no se testea la calidad de la
-prosa del LLM". Por eso ninguno de estos tests hace una llamada real: la función de
-LLM (`litellm.completion`) se monkeypatchea siempre -- nunca red real, nunca una API
-key real ni de prueba que golpee un endpoint.
-"""
+"""Tests del generador de plan con LLM (F3). Ninguno hace una llamada real --
+`litellm.completion` siempre monkeypatcheado."""
 
 import pytest
 

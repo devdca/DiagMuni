@@ -1,10 +1,5 @@
-"""Tests del verificador (docs/plan-implementacion.md, fase E3, F9 en docs/TRD.md).
-
-Regla de docs/TRD.md, "Testing": ninguna llamada real a un LLM -- `litellm.completion`
-se monkeypatchea siempre, mismo patrón defensivo que `test_generador_plan.py`. Este
-módulo no toma ninguna decisión sobre qué mostrar: solo produce un booleano
-fail-closed, que es exactamente lo que se prueba acá.
-"""
+"""Tests del verificador (F9). Ninguna llamada real a un LLM --
+`litellm.completion` siempre monkeypatcheado. Cubre el booleano fail-closed."""
 
 from app.ia import verificador
 from app.ia.verificador import verificar_contenido
