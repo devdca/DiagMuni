@@ -1,9 +1,14 @@
 """Job asíncrono de generación de plan (docs/TRD.md, "Job asíncrono — ciclo de vida").
 
-Fase D2 de docs/plan-implementacion.md: dispara la generación **en modo degradado
-únicamente** (motor determinista, engine/plantillas.py) — la fase E (LLM, F3 real)
-reemplaza el cuerpo de este job más adelante sin tocar su contrato (tabla job,
-estados pending/running/done/failed).
+`_generar_contenido_y_modo` nunca persiste `verificado=False` (docs/backend-schema.md:
+un plan no verificado nunca se muestra). Sin ruta `calidad` disponible, genera
+directo en modo degradado; si el verificador aprueba el contenido LLM, se persiste
+en modo `llm`; si lo rechaza o el verificador falla, se descarta y se persiste el
+contenido determinista. Los tres caminos terminan en `verificado=True` -- el
+degradado es correcto por construcción, el LLM ya pasó auditoría.
+
+Es una función pura (sin sesión de DB) para poder testearla sin Postgres real; el
+resto del job sigue siendo el único responsable de la sesión y de la tabla `job`.
 """
 
 from uuid import UUID
@@ -12,7 +17,30 @@ from sqlalchemy import select
 
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.engine.plantillas import generar_contenido_degradado
+from app.ia.config import esta_disponible
+from app.ia.generador_plan import generar_contenido_llm
+from app.ia.verificador import verificar_contenido
 from app.models import DiagnosticoTramite, Job, PlanModernizacion, Tenant, Tramite
+
+# Ruta que generador_plan.py usa para redactar -- si no está disponible, no hay
+# nada que generar vía LLM.
+_RUTA_GENERACION = "calidad"
+
+
+def _generar_contenido_y_modo(respuestas: dict, pais: str) -> tuple[str, dict, bool]:
+    """Devuelve `(modo, contenido, verificado)` -- `verificado` siempre `True`."""
+    if not esta_disponible(_RUTA_GENERACION):
+        return "degradado", generar_contenido_degradado(respuestas, pais), True
+
+    contenido_llm = generar_contenido_llm(respuestas, pais)
+    contenido_determinista = generar_contenido_degradado(respuestas, pais)
+
+    if verificar_contenido(contenido_llm, contenido_determinista):
+        return "llm", contenido_llm, True
+
+    # verificar_contenido ya es fail-closed (rechazo, fallo o no disponible = no
+    # aprobado); en cualquier caso se descarta el LLM y se persiste el determinista.
+    return "degradado", contenido_determinista, True
 
 
 def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_id: UUID) -> None:
@@ -36,7 +64,7 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
             db.commit()
             return
 
-        contenido = generar_contenido_degradado(diagnostico.respuestas, tenant.pais)
+        modo, contenido, verificado = _generar_contenido_y_modo(diagnostico.respuestas, tenant.pais)
 
         version_previa = db.execute(
             select(PlanModernizacion.version)
@@ -49,12 +77,9 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
             diagnostico_tramite_id=diagnostico_tramite_id,
             tenant_id=tenant_id,
             version=(version_previa or 0) + 1,
-            modo="degradado",
+            modo=modo,
             contenido=contenido,
-            # Sin LLM en el camino (fase E aún no existe), no hay nada que F9 verifique
-            # contra el catálogo — el contenido ya viene directo de engine/, correcto
-            # por construcción (docs/backend-schema.md, campo verificado).
-            verificado=True,
+            verificado=verificado,
         )
         db.add(plan)
 

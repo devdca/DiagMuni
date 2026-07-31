@@ -18,7 +18,7 @@ backend/
     ia/                      # las 3 piezas de IA del producto (Guía sec. 6)
       asistente_captura.py   # F1
       generador_plan.py      # F3
-      verificador_plan.py    # F9
+      verificador.py         # F9
       litellm_config.yaml    # ver sección "Capa de IA"
     jobs/                    # BackgroundTasks + tabla job
     db/                      # sesión, migraciones Alembic

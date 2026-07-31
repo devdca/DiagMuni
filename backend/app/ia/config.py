@@ -1,34 +1,15 @@
-"""Carga de la configuración de la capa de IA (docs/TRD.md, "Capa de IA —
-configuración concreta") y detección de disponibilidad de API key por ruta.
+"""Carga de la configuración de la capa de IA (`litellm_config.yaml`) y detección
+de disponibilidad de API key por ruta. Solo config y detección — ninguna llamada
+real a un LLM vive en este módulo.
 
-Alcance de E1 (docs/plan-implementacion.md, fase E, pieza 1): SOLO config y
-detección de disponibilidad. Ninguna llamada real a un LLM vive en este módulo --
-eso queda para E2 (generador de plan, F3), E3 (verificador, F9) y E4 (asistente de
-captura, F1), que se asignan después de que esta pieza esté auditada.
+El YAML nunca se transcribe a código Python, igual que el catálogo de
+`engine/reglas_loader.py` — cambiar de modelo/ruta es editar un archivo de texto.
 
-Nombre del módulo: se llama `config.py` (no `litellm_client.py`) porque, igual que
-`app/core/config.py`, este archivo no llama a nada -- solo carga y expone
-configuración. Un `litellm_client.py` (o similar) que sí invoque `litellm.completion`
-es tarea de E2/E3/E4, no de E1.
-
-Regla dura de docs/TRD.md ("Estructura de carpetas"): nada dentro de `engine/`
-importa de `ia/`; la dependencia va en un solo sentido, `ia/` -> `engine/`. Este
-módulo, a su vez, no importa nada de `app.engine` -- no lo necesita todavía (eso
-llega con E2, que sí leerá el catálogo de `engine/reglas/` para construir el prompt).
-
-Carga del YAML: igual que `app/engine/reglas_loader.py` con el catálogo brecha->
-acción, `litellm_config.yaml` nunca se transcribe a código Python -- este módulo
-solo lo lee en tiempo de ejecución, para que cambiar de modelo/ruta sea editar un
-archivo de texto, no tocar código.
-
-Fuente de las API keys: se apoya en `app.core.config.Settings` (Pydantic Settings),
-el mismo mecanismo ya usado en el resto del backend -- no se lee `os.environ`
-directamente aquí, para no crear un segundo mecanismo de configuración paralelo.
-`Settings` ya expone `deepseek_api_key` y `anthropic_api_key` como `str | None`,
-opcionales (fases A-D). La convención de pydantic-settings es mapear cada variable
-de entorno a un atributo en minúsculas del mismo nombre (`DEEPSEEK_API_KEY` ->
-`deepseek_api_key`), así que `RutaLLM.env_var_api_key.lower()` localiza el atributo
-correspondiente sin necesidad de una tabla de mapeo adicional.
+Las API keys se leen de `app.core.config.Settings` (nunca de `os.environ`
+directamente), el mismo mecanismo que usa el resto del backend. La convención de
+pydantic-settings mapea cada variable de entorno a un atributo en minúsculas del
+mismo nombre (`DEEPSEEK_API_KEY` -> `deepseek_api_key`), así que
+`RutaLLM.env_var_api_key.lower()` localiza el atributo sin tabla de mapeo aparte.
 """
 
 from dataclasses import dataclass
@@ -47,11 +28,9 @@ _PREFIJO_ENV = "os.environ/"
 
 @dataclass(frozen=True)
 class RutaLLM:
-    """Configuración resuelta de una entrada de `model_list` (una ruta: "economico"
-    o "calidad"). No contiene la API key en sí -- solo el *nombre* de la variable de
-    entorno donde se espera encontrarla; el valor se resuelve al momento de
-    consultar `esta_disponible()` / `api_key_de()`, nunca al cargar el YAML, para
-    que un despliegue pueda montar el secreto después del arranque del proceso."""
+    """Configuración resuelta de una entrada de `model_list`. No contiene la API key
+    en sí, solo el nombre de la variable de entorno — el valor se resuelve al
+    consultar `esta_disponible()`/`api_key_de()`, nunca al cargar el YAML."""
 
     model_name: str  # "economico" | "calidad"
     model: str  # ej. "deepseek/deepseek-chat"
@@ -90,11 +69,9 @@ def cargar_model_list() -> dict[str, RutaLLM]:
 
 
 def obtener_ruta(nombre: str) -> RutaLLM:
-    """nombre: "economico" | "calidad" (docs/TRD.md: F1 y F9 -> economico, F3 ->
-    calidad). Lanza `KeyError` si el YAML no define esa ruta: eso es un error de
-    configuración real (p. ej. quien llama pidió una ruta que no existe), no la
-    ausencia de una API key en tiempo de ejecución -- debe fallar fuerte en
-    desarrollo/CI, nunca degradarse en silencio como sí ocurre con la key ausente."""
+    """`nombre`: "economico" | "calidad". Lanza `KeyError` si el YAML no define esa
+    ruta — es un error de configuración real, no la ausencia de una API key, y debe
+    fallar fuerte en vez de degradarse en silencio."""
     rutas = cargar_model_list()
     if nombre not in rutas:
         raise KeyError(
@@ -117,13 +94,8 @@ def api_key_de(ruta: RutaLLM, cfg: Settings | None = None) -> str | None:
 
 
 def esta_disponible(nombre_ruta: str, cfg: Settings | None = None) -> bool:
-    """True si hay una API key configurada (no vacía) para `nombre_ruta`. False --
-    sin excepción -- si falta o está vacía: quien llama (E2/E3/E4, más adelante) usa
-    este booleano para decidir si degrada a plantilla determinista en vez de
-    intentar una llamada que fallaría, conforme a docs/TRD.md ("Capa de IA"): "Si la
-    API no responde... cae a plantilla determinista -- nunca un error visible al
-    funcionario". El arranque de FastAPI (`app/main.py`) no depende de esta función
-    ni de este módulo en absoluto, así que su resultado no puede romper el arranque
-    en ningún escenario."""
+    """True si hay una API key configurada (no vacía) para `nombre_ruta`. False sin
+    excepción si falta o está vacía — quien llama usa este booleano para degradar a
+    plantilla determinista en vez de intentar una llamada que fallaría."""
     ruta = obtener_ruta(nombre_ruta)
     return api_key_de(ruta, cfg=cfg) is not None
