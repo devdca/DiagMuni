@@ -72,6 +72,9 @@ jobs:
     needs: [backend, frontend]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -82,8 +85,11 @@ jobs:
         run: |
           npm install
           npm run build
-      # 6. deploy de preview a Cloudflare Pages — solo en PRs, nunca en main (docs/stack-tecnologico.md)
+      # 6. deploy de preview a Cloudflare Pages — solo en PRs, nunca en main (docs/stack-tecnologico.md).
+      # Se salta limpio (no falla el build) mientras los secrets de Cloudflare no estén
+      # configurados en el repo -- todavía no hay proyecto de Cloudflare Pages creado.
       - name: Deploy preview a Cloudflare Pages
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
