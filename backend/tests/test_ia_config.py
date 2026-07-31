@@ -1,9 +1,6 @@
-"""Tests de la capa de IA (docs/TRD.md, "Testing"): "tests de que la degradación a
-plantilla ocurre correctamente cuando la API no responde o falla -- no se testea la
-calidad de la prosa del LLM". E1 no hace ninguna llamada a un LLM todavía, así que
-aquí se prueba el equivalente en su alcance: que el YAML cargue correctamente y que
-la ausencia (o vacío) de una API key se *detecte* sin lanzar una excepción no
-controlada -- la pieza que E2/E3/E4 usarán después para decidir la degradación."""
+"""Tests de la config de la capa de IA: que el YAML cargue correctamente y que la
+ausencia (o vacío) de una API key se detecte sin lanzar una excepción no
+controlada."""
 
 import pytest
 

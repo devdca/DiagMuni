@@ -1,15 +1,9 @@
-"""Tests de `_generar_contenido_y_modo` (docs/plan-implementacion.md, fase E3): la
-función pura de `app/jobs/plan_job.py` que decide qué contenido y modo persiste
-`ejecutar_generacion_plan`.
+"""Tests de `_generar_contenido_y_modo`, la función pura de `app/jobs/plan_job.py`
+que decide qué contenido y modo persiste `ejecutar_generacion_plan`.
 
-No requieren una base de datos real -- ni `ejecutar_generacion_plan` (que sí la
-usa) ni el mecanismo de `job.intentos`/estados de ejecución (pending/running/done/
-failed) se tocan ni se testean acá: eso es un contrato aparte, ya completo, que E3
-tiene prohibido reimplementar (ver docstring de `app/jobs/plan_job.py`).
-
-Mismo patrón defensivo que `test_generador_plan.py`: se mockea `litellm.completion`
--- nunca red real. Estos tests son de integración entre `plan_job`, `generador_plan`
-y `verificador` (mockeando solo en el límite de red/config), no stubs de
+No requieren base de datos real -- eso no se toca ni se testea acá. Se mockea
+`litellm.completion`, nunca red real. Son tests de integración entre `plan_job`,
+`generador_plan` y `verificador` (mockeando solo en el límite de red/config), no
 `verificar_contenido` -- así se ejercita la cadena real de decisión, no una
 simulación de su resultado.
 

@@ -1,12 +1,6 @@
-"""Tests del asistente de captura F1 (docs/plan-implementacion.md, fase E4;
-`entregables/fase-2/asistente-captura-f1.md` secciones 2.2, 2.3 y 4).
-
-Regla de docs/TRD.md, "Testing": ninguna llamada real a un LLM -- `litellm.completion`
-se monkeypatchea siempre, mismo patrón de espía que `test_verificador.py`. A
-diferencia de ese módulo (fail-closed), aquí se prueba el sesgo opuesto: cualquier
-fallo cae en `no_concluyente` / `no_clasificable`, nunca en una excepción propagada
-ni en un bloqueo.
-"""
+"""Tests del asistente de captura F1. Ninguna llamada real a un LLM --
+`litellm.completion` siempre monkeypatcheado. Cubre el sesgo fail-safe: cualquier
+fallo cae en `no_concluyente`/`no_clasificable`, nunca en una excepción propagada."""
 
 from app.ia import asistente_captura
 from app.ia.asistente_captura import (
