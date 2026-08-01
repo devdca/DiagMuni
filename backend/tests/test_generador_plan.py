@@ -47,7 +47,8 @@ def test_sin_api_key_cae_a_narrativa_de_plantilla(monkeypatch):
 
 
 def test_sin_api_key_no_intenta_llamar_al_llm(monkeypatch):
-    # Si esta_disponible() es False, ni siquiera debe invocarse litellm.completion.
+    # Si esta_disponible() es False, ni siquiera debe invocarse litellm.completion --
+    # ni la ruta `calidad` (Sonnet) ni la de respaldo `calidad_respaldo` (Fable).
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
@@ -94,6 +95,70 @@ def test_llm_devuelve_respuesta_vacia_cae_a_plantilla(monkeypatch):
     narrativas_llm = {b["variable"]: b["narrativa"] for b in contenido["brechas"]}
     narrativas_degradado = {b["variable"]: b["narrativa"] for b in esperado["brechas"]}
     assert narrativas_llm == narrativas_degradado
+
+
+# --- (b-bis) cadena de respaldo Sonnet -> Fable -> plantilla --------------------
+
+
+def test_sonnet_falla_fable_responde_usa_prosa_de_fable(monkeypatch):
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+
+    def _completion_espia(*args, **kwargs):
+        if kwargs["model"] == "anthropic/claude-sonnet-4-5":
+            raise TimeoutError("simulated timeout en Sonnet")
+        return _mock_respuesta_llm("Prosa generada por Fable.")
+
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
+
+    contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+
+    assert len(contenido["brechas"]) > 0
+    for brecha in contenido["brechas"]:
+        assert brecha["narrativa"] == "Prosa generada por Fable."
+        assert brecha["narrativa"] != _narrativa_plantilla(
+            _accion_de(brecha["variable"], "mx")
+        )
+
+
+def test_sonnet_y_fable_fallan_cae_a_plantilla_sin_propagar(monkeypatch):
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+
+    def _completion_falla_siempre(*args, **kwargs):
+        raise TimeoutError(f"simulated timeout en {kwargs['model']}")
+
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_falla_siempre)
+
+    contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+    esperado = generar_contenido_degradado(RESPUESTAS_SIN_NADA, "mx")
+
+    narrativas_llm = {b["variable"]: b["narrativa"] for b in contenido["brechas"]}
+    narrativas_degradado = {b["variable"]: b["narrativa"] for b in esperado["brechas"]}
+    assert narrativas_llm == narrativas_degradado
+
+
+def test_sonnet_falla_fable_recibe_model_y_api_key_correctos(monkeypatch):
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-respaldo")
+
+    llamadas = []
+
+    def _completion_espia(*args, **kwargs):
+        llamadas.append(kwargs)
+        if kwargs["model"] == "anthropic/claude-sonnet-4-5":
+            raise TimeoutError("simulated timeout en Sonnet")
+        return _mock_respuesta_llm("prosa de fable")
+
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
+
+    generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+
+    llamadas_fable = [k for k in llamadas if k["model"] == "anthropic/claude-fable-5"]
+    assert len(llamadas_fable) > 0
+    for kwargs in llamadas_fable:
+        assert kwargs["api_key"] == "sk-test-respaldo"
+        assert kwargs["timeout"] == generador_plan.TIMEOUT_SEGUNDOS
 
 
 # --- (c) esta_disponible == True y mock exitoso -> usa la prosa del mock -------

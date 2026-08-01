@@ -88,12 +88,16 @@ model_list:
     litellm_params:
       model: anthropic/claude-sonnet-4-5
       api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: calidad_respaldo
+    litellm_params:
+      model: anthropic/claude-fable-5
+      api_key: os.environ/ANTHROPIC_API_KEY
 ```
 
 - F1 (asistente de captura, clasificación de texto libre) usa `economico` (DeepSeek).
-- F3 (generador de plan) usa `calidad` (Claude) — la pieza donde la redacción compleja y la trazabilidad normativa importan más.
+- F3 (generador de plan) usa `calidad` (Claude Sonnet) — la pieza donde la redacción compleja y la trazabilidad normativa importan más. Si `calidad` falla (timeout, red, API, respuesta vacía), F3 intenta `calidad_respaldo` (Claude Fable) antes de degradar; ambas rutas comparten la misma `ANTHROPIC_API_KEY`, así que la disponibilidad se evalúa una sola vez.
 - F9 (verificador) usa `economico` (DeepSeek) — solo compara la salida de F3 contra la estructura de `engine/`, tarea liviana.
-- Si la API no responde, no hay conectividad, o la llamada falla por timeout: excepción capturada en `ia/`, cae a plantilla determinista (string templating simple sobre la misma estructura YAML del catálogo) — nunca un error visible al funcionario.
+- Si la API no responde, no hay conectividad, o la llamada falla por timeout: excepción capturada en `ia/`. En F3 el orden de degradación es Sonnet (`calidad`) -> Fable (`calidad_respaldo`) -> plantilla determinista (string templating simple sobre la misma estructura YAML del catálogo); en F1 y F9 el fallo de `economico` cae directo a plantilla/heurística determinista. Nunca un error visible al funcionario.
 - **Alternativa evaluada y no elegida (28-jul-2026):** modelo local cuantizado servido vía Ollama (candidato: phi3/Phi-3-mini, MIT) para las 3 piezas, eliminando la dependencia de red en el camino crítico. Descartada como default tras benchmark comparativo real (API ~20-30x más rápida, costo marginal insignificante para el volumen de un piloto) — ver `entregables/fase-2/dimensionamiento-costos.md`. Sigue disponible como cambio de `model_list` sin tocar `engine/` ni el resto del backend, si el criterio cambia en el futuro (presupuesto de API, política de datos, u operación sin conexión a internet).
 
 ## Job asíncrono — ciclo de vida
