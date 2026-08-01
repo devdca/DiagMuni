@@ -23,9 +23,9 @@ def _settings_con_keys(
     return Settings(deepseek_api_key=deepseek, anthropic_api_key=anthropic)
 
 
-def test_yaml_carga_ambas_rutas():
+def test_yaml_carga_todas_las_rutas():
     rutas = cargar_model_list()
-    assert set(rutas.keys()) == {"economico", "calidad"}
+    assert set(rutas.keys()) == {"economico", "calidad", "calidad_respaldo"}
 
 
 def test_ruta_economico_es_deepseek():
@@ -37,6 +37,12 @@ def test_ruta_economico_es_deepseek():
 def test_ruta_calidad_es_claude():
     ruta = obtener_ruta("calidad")
     assert ruta.model == "anthropic/claude-sonnet-4-5"
+    assert ruta.env_var_api_key == "ANTHROPIC_API_KEY"
+
+
+def test_ruta_calidad_respaldo_es_claude_fable():
+    ruta = obtener_ruta("calidad_respaldo")
+    assert ruta.model == "anthropic/claude-fable-5"
     assert ruta.env_var_api_key == "ANTHROPIC_API_KEY"
 
 

@@ -17,5 +17,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     ollama_api_base: str | None = None
 
+    # Umbral del watchdog de jobs `running` obsoletos (docs/TRD.md, "Job asíncrono
+    # — ciclo de vida"): sin actualización por más de este tiempo, se asume que el
+    # proceso reinició a medio job y no se asume éxito silencioso.
+    job_umbral_obsoleto_minutos: int = 15
+
 
 settings = Settings()

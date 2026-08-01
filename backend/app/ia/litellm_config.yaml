@@ -1,8 +1,10 @@
 # No se transcribe a código Python (mismo principio que engine/reglas/*.yaml):
 # app/ia/config.py lo carga en tiempo de ejecución.
 #
-# economico -> F1 (asistente de captura) y F9 (verificador): tareas de bajo costo.
-# calidad   -> F3 (generador de plan): redacción compleja y trazabilidad normativa.
+# economico       -> F1 (asistente de captura) y F9 (verificador): tareas de bajo costo.
+# calidad         -> F3 (generador de plan): redacción compleja y trazabilidad normativa.
+# calidad_respaldo -> respaldo de `calidad` en F3 si Sonnet falla, antes de degradar a
+#                     la plantilla determinista. Comparte la misma API key que `calidad`.
 #
 # "api_key: os.environ/VAR" es la convención de LiteLLM para leer la key de esa
 # variable de entorno en tiempo de ejecución, nunca un valor literal.
@@ -14,4 +16,8 @@ model_list:
   - model_name: calidad
     litellm_params:
       model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: calidad_respaldo
+    litellm_params:
+      model: anthropic/claude-fable-5
       api_key: os.environ/ANTHROPIC_API_KEY
