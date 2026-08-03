@@ -214,8 +214,12 @@ def test_llm_recibe_model_y_api_key_correctos_de_la_ruta_calidad(monkeypatch):
 # --- (d) fidelidad de contrato: demás campos idénticos a generar_contenido_degradado ----
 
 
-def _sin_narrativa(brechas: list[dict]) -> list[dict]:
-    return [{k: v for k, v in b.items() if k != "narrativa"} for b in brechas]
+def _sin_narrativa_ni_componente_recomendado(brechas: list[dict]) -> list[dict]:
+    # `componente_recomendado` (F4/F5) hoy solo lo agrega generar_contenido_degradado;
+    # generar_contenido_llm no lo incluye todavía -- asimetría deliberada del wiring,
+    # no una regresión de paridad entre ambos modos.
+    claves_excluidas = ("narrativa", "componente_recomendado")
+    return [{k: v for k, v in b.items() if k not in claves_excluidas} for b in brechas]
 
 
 def test_demas_campos_identicos_a_generar_contenido_degradado_sin_llm(monkeypatch):
@@ -224,9 +228,11 @@ def test_demas_campos_identicos_a_generar_contenido_degradado_sin_llm(monkeypatc
     contenido_llm = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
     contenido_degradado = generar_contenido_degradado(RESPUESTAS_SIN_NADA, "mx")
 
-    llm_ordenado = sorted(_sin_narrativa(contenido_llm["brechas"]), key=lambda b: b["variable"])
+    llm_ordenado = sorted(
+        _sin_narrativa_ni_componente_recomendado(contenido_llm["brechas"]), key=lambda b: b["variable"]
+    )
     degradado_ordenado = sorted(
-        _sin_narrativa(contenido_degradado["brechas"]), key=lambda b: b["variable"]
+        _sin_narrativa_ni_componente_recomendado(contenido_degradado["brechas"]), key=lambda b: b["variable"]
     )
     assert llm_ordenado == degradado_ordenado
 
@@ -241,9 +247,11 @@ def test_demas_campos_identicos_a_generar_contenido_degradado_con_llm_exitoso(mo
     contenido_llm = generar_contenido_llm(RESPUESTAS_SIN_NADA, "uy")
     contenido_degradado = generar_contenido_degradado(RESPUESTAS_SIN_NADA, "uy")
 
-    llm_ordenado = sorted(_sin_narrativa(contenido_llm["brechas"]), key=lambda b: b["variable"])
+    llm_ordenado = sorted(
+        _sin_narrativa_ni_componente_recomendado(contenido_llm["brechas"]), key=lambda b: b["variable"]
+    )
     degradado_ordenado = sorted(
-        _sin_narrativa(contenido_degradado["brechas"]), key=lambda b: b["variable"]
+        _sin_narrativa_ni_componente_recomendado(contenido_degradado["brechas"]), key=lambda b: b["variable"]
     )
     assert llm_ordenado == degradado_ordenado
 

@@ -1,0 +1,64 @@
+# F4 — Catálogo de componentes OSS recomendados (docs/PRD.md líneas 53-54)
+# Una entrada por cada valor único de categoria_catalogo presente en
+# backend/app/engine/reglas/*.yaml (ramas mx/uy). Catálogo finito por diseño,
+# no un proyecto abierto. Detalle de verificación de licencia y actividad en
+# entregables/fase-2/catalogo-componentes-oss.md.
+version: "1.0"
+componentes:
+
+  modulo_cifrado_datos:
+    nombre_componente: "pgcrypto"
+    licencia: "Licencia estilo BSD (permisiva)"
+    url_repositorio: "https://github.com/postgres/postgres/tree/master/contrib/pgcrypto"
+    version_o_release_verificado: "default_version 1.3, incluido en la rama REL_16_STABLE (PostgreSQL 16, ya fijado como motor de base de datos del stack)"
+    evidencia_actividad_comunidad: "Módulo contrib mantenido dentro del propio código fuente de PostgreSQL; recibe cambios en cada ciclo de desarrollo del núcleo (commits recientes sobre la ruta contrib/pgcrypto) y se distribuye con cada release trimestral de PostgreSQL, sin versionado ni ciclo de vida independiente."
+    fuente_licencia: "https://raw.githubusercontent.com/postgres/postgres/master/contrib/pgcrypto/pgcrypto.c"
+    fuente_actividad: "https://api.github.com/repos/postgres/postgres/commits?path=contrib/pgcrypto"
+
+  gestor_expediente_electronico:
+    nombre_componente: "Mayan EDMS"
+    licencia: "Apache-2.0"
+    url_repositorio: "https://github.com/mayan-edms/Mayan-EDMS"
+    version_o_release_verificado: "Rama master verificada; repositorio con 823 estrellas y push más reciente el 2026-05-23"
+    evidencia_actividad_comunidad: "Repositorio activo (última actualización 2026-05-23), 5 issues abiertos (backlog bajo, indicio de atención sostenida), historial reciente con cientos de commits y pull requests en el último año."
+    fuente_licencia: "https://raw.githubusercontent.com/mayan-edms/Mayan-EDMS/master/LICENSE"
+    fuente_actividad: "https://api.github.com/repos/mayan-edms/Mayan-EDMS"
+
+  modulo_firma_electronica:
+    nombre_componente: "DSS (Digital Signature Service) — esig/dss"
+    licencia: "LGPL-2.1"
+    url_repositorio: "https://github.com/esig/dss"
+    version_o_release_verificado: "Release 6.4 (publicado 2026-03-06)"
+    evidencia_actividad_comunidad: "Repositorio con push más reciente el 2026-07-24, 1016 estrellas, solo 4 issues abiertos (backlog muy bajo); mantenido institucionalmente por la Comisión Europea (European Commission Digital Building Blocks) como referencia de firma electrónica PAdES/XAdES/CAdES conforme eIDAS."
+    fuente_licencia: "https://raw.githubusercontent.com/esig/dss/master/LICENSE"
+    fuente_actividad: "https://api.github.com/repos/esig/dss"
+    nota: "LGPL-2.1 (familia GPL de copyleft débil): admisible bajo el Principio 2 de docs/stack-tecnologico.md por tratarse de una recomendación de catálogo que el gobierno local despliega como servicio de validación/firma separado, no linkeado ni empaquetado dentro del repositorio o del servicio de DiagMuni."
+
+  identidad_federada:
+    nombre_componente: "Keycloak"
+    licencia: "Apache-2.0"
+    url_repositorio: "https://github.com/keycloak/keycloak"
+    version_o_release_verificado: "Release 26.7.0 (publicado 2026-07-09)"
+    evidencia_actividad_comunidad: "Repositorio con push más reciente el 2026-08-03, 35967 estrellas, releases con cadencia mensual, 3102 issues abiertos con actividad sostenida de triage — proyecto de referencia en identidad federada (soporta OIDC/SAML) mantenido por Red Hat."
+    fuente_licencia: "https://raw.githubusercontent.com/keycloak/keycloak/main/LICENSE.txt"
+    fuente_actividad: "https://api.github.com/repos/keycloak/keycloak"
+
+  conector_interoperabilidad:
+    nombre_componente: "X-Road"
+    licencia: "MIT"
+    url_repositorio: "https://github.com/nordic-institute/X-Road"
+    version_o_release_verificado: "Rama develop verificada; push más reciente el 2026-08-03"
+    evidencia_actividad_comunidad: "826 estrellas, 43 issues abiertos con actividad reciente, desarrollado y mantenido por el Nordic Institute for Interoperability Solutions (NIIS, consorcio interestatal Estonia/Finlandia); en producción real en varios países (Estonia, Finlandia, Islas Feroe, Islandia) como capa nacional de intercambio de datos entre organismos."
+    fuente_licencia: "https://raw.githubusercontent.com/nordic-institute/X-Road/develop/LICENSE"
+    fuente_actividad: "https://api.github.com/repos/nordic-institute/X-Road"
+    nota: "Se recomienda en lugar del Cliente PDI de AGESIC citado en docs/stack-tecnologico.md: ese repositorio (y también AGESIC-UY/pdi-core) no tiene archivo LICENSE ni licencia declarada en la API de GitHub (campo license devuelve null, endpoint /license responde 404). Para Uruguay, la Plataforma de Interoperabilidad (PDI) de Agesic sigue siendo la integración legalmente exigida (Ley 18.719 arts. 157-160); X-Road se recomienda como el componente de conector con licencia y actividad verificadas para la categoría genérica, no como reemplazo de la obligación legal de integrar con la PDI real."
+
+  adaptador_pasarela_pago:
+    nombre_componente: "django-payments"
+    licencia: "BSD-3-Clause"
+    url_repositorio: "https://github.com/jazzband/django-payments"
+    version_o_release_verificado: "Tag v4.0.0 (commit de changelog para v4.0.0 fusionado 2026-06-20)"
+    evidencia_actividad_comunidad: "Push más reciente el 2026-07-27, pull requests fusionados en julio de 2026 (ej. actualización de compatibilidad con Django 6), 89 issues abiertos con actividad de mantenimiento continua bajo la organización Jazzband (cooperativa de mantenimiento colectivo de paquetes Python)."
+    fuente_licencia: "https://raw.githubusercontent.com/jazzband/django-payments/main/LICENSE"
+    fuente_actividad: "https://api.github.com/repos/jazzband/django-payments"
+    nota: "Es una librería del ecosistema Django (Python), no atada al framework FastAPI del backend de DiagMuni — se recomienda como referencia de patrón adaptador (interfaz común sobre múltiples proveedores de pago, nunca una pasarela única fija) para el sistema de trámites de la propia intendencia, no como dependencia de DiagMuni."
