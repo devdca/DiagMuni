@@ -6,7 +6,8 @@ Recorre el catálogo igual que `generar_contenido_degradado`, campo por campo; s
 cambia cómo se produce el string de cada narrativa. `ia/` importa de `engine/`,
 nunca al revés.
 
-Cualquier fallo del LLM (timeout, red, API, respuesta vacía) cae en
+Cualquier fallo de la ruta `calidad` (timeout, red, API, respuesta vacía) intenta la
+ruta de respaldo `calidad_respaldo` (Claude Fable); si esta también falla, cae en
 `_narrativa_plantilla`, la misma función que usa el modo degradado.
 """
 
@@ -21,6 +22,9 @@ TIMEOUT_SEGUNDOS = 30
 # Una llamada por brecha (no una sola para todo el plan) evita que el LLM mezcle
 # hechos entre brechas distintas.
 _RUTA_LLM = "calidad"
+# Respaldo de `_RUTA_LLM`: se intenta solo si la llamada a `calidad` falla. Comparte
+# la misma API key (`esta_disponible(_RUTA_LLM)` sigue siendo la única puerta).
+_RUTA_LLM_RESPALDO = "calidad_respaldo"
 
 _PROMPT_INSTRUCCIONES = (
     "Redacta un párrafo breve, profesional y en español neutro, dirigido a un "
@@ -46,38 +50,54 @@ def _armar_prompt(accion: AccionPais) -> str:
     )
 
 
+def _intentar_narrativa_via_ruta(nombre_ruta: str, accion: AccionPais) -> str:
+    """Un intento de llamada a `nombre_ruta`. Propaga cualquier excepción hacia quien
+    llama (timeout, red, API, respuesta malformada/vacía) -- es responsabilidad de
+    `_narrativa_llm` decidir qué hacer con el fallo, esta función no degrada nada."""
+    ruta = obtener_ruta(nombre_ruta)
+    api_key = api_key_de(ruta)
+    respuesta = litellm.completion(
+        model=ruta.model,
+        api_key=api_key,
+        messages=[{"role": "user", "content": _armar_prompt(accion)}],
+        timeout=TIMEOUT_SEGUNDOS,
+    )
+    # `respuesta` es un `ModelResponse` de LiteLLM; soporta acceso tipo dict
+    # (y también en los mocks de test_generador_plan.py, que usan dicts planos).
+    narrativa = respuesta["choices"][0]["message"]["content"]
+    narrativa = (narrativa or "").strip()
+    if not narrativa:
+        raise ValueError("Respuesta de LLM vacía")
+    return narrativa
+
+
 def _narrativa_llm(accion: AccionPais) -> str:
     """Narrativa de una brecha vía LLM, con fallback obligatorio a la plantilla
     determinista. Nunca lanza una excepción hacia quien llama: ese es precisamente
-    el contrato de degradación de docs/TRD.md citado arriba."""
+    el contrato de degradación de docs/TRD.md citado arriba.
+
+    Cadena de intentos: `calidad` (Claude Sonnet) -> `calidad_respaldo` (Claude
+    Fable) -> `_narrativa_plantilla`. Ambas rutas comparten la misma API key, por
+    lo que la disponibilidad se decide una sola vez en `generar_contenido_llm`."""
     try:
-        ruta = obtener_ruta(_RUTA_LLM)
-        api_key = api_key_de(ruta)
-        respuesta = litellm.completion(
-            model=ruta.model,
-            api_key=api_key,
-            messages=[{"role": "user", "content": _armar_prompt(accion)}],
-            timeout=TIMEOUT_SEGUNDOS,
-        )
-        # `respuesta` es un `ModelResponse` de LiteLLM; soporta acceso tipo dict
-        # (y también en los mocks de test_generador_plan.py, que usan dicts planos).
-        narrativa = respuesta["choices"][0]["message"]["content"]
-        narrativa = (narrativa or "").strip()
-        if not narrativa:
-            raise ValueError("Respuesta de LLM vacía")
-        return narrativa
+        return _intentar_narrativa_via_ruta(_RUTA_LLM, accion)
     except Exception:
-        # Cualquier fallo (timeout, red, API, respuesta malformada/vacía) cae en la
-        # misma narrativa del modo degradado, nunca se propaga.
+        pass
+
+    try:
+        return _intentar_narrativa_via_ruta(_RUTA_LLM_RESPALDO, accion)
+    except Exception:
+        # Cualquier fallo de ambas rutas (timeout, red, API, respuesta malformada/
+        # vacía) cae en la misma narrativa del modo degradado, nunca se propaga.
         return _narrativa_plantilla(accion)
 
 
 def generar_contenido_llm(respuestas: dict, pais: str) -> dict:
     """Equivalente en forma a `generar_contenido_degradado` (mismo recorrido de
     catálogo, mismos campos por brecha) pero con la `narrativa` de cada brecha
-    redactada vía LLM (ruta `calidad`) cuando hay API key configurada, y con
-    fallback automático a la plantilla determinista en cualquier otro caso --
-    ausencia de key o fallo de la llamada."""
+    redactada vía LLM (ruta `calidad`, con respaldo en `calidad_respaldo`) cuando
+    hay API key configurada, y con fallback automático a la plantilla determinista
+    en cualquier otro caso -- ausencia de key o fallo de ambas rutas."""
     catalogo = cargar_catalogo()
     brechas = []
     for regla in catalogo.values():

@@ -4,6 +4,7 @@ LLM**. Es el modo `degradado` de `plan_modernizacion.modo` (docs/backend-schema.
 debe producir un plan sustantivo por sí solo, sin ninguna key de API configurada.
 """
 
+from app.engine.catalogo_loader import componente_recomendado_para
 from app.engine.reglas_loader import AccionPais, cargar_catalogo, criterio_se_cumple
 
 
@@ -37,6 +38,7 @@ def generar_contenido_degradado(respuestas: dict, pais: str) -> dict:
                 "por_que_importa": accion.por_que_importa,
                 "fuente_normativa": accion.fuente_normativa,
                 "narrativa": _narrativa_plantilla(accion),
+                "componente_recomendado": componente_recomendado_para(accion.categoria_catalogo, pais),
             }
         )
 
