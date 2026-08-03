@@ -14,6 +14,8 @@ distingue la llamada de redacción (E2) de la de auditoría (E3) inspeccionando 
 prompt, en vez de dos `monkeypatch.setattr` independientes que se pisarían entre sí.
 """
 
+from datetime import UTC, datetime, timedelta
+
 from app.engine.plantillas import generar_contenido_degradado
 from app.ia import generador_plan, verificador
 from app.jobs import plan_job
@@ -195,3 +197,41 @@ def test_verificado_nunca_es_false(monkeypatch):
 
     for _modo, _contenido, verificado in escenarios:
         assert verificado is True
+
+
+# --- `_esta_obsoleto` -- watchdog de jobs `running` sin actualizar (sin DB real) ---
+#
+# `revisar_job_obsoleto` y `_persistir_plan_degradado` sí necesitan una sesión real
+# (db.get/db.execute contra tablas con RLS) -- no se testean acá, no existe
+# infraestructura de DB real en el repo. Solo se ejercita la parte pura: el cálculo
+# de staleness. El resto queda verificado por lectura de código.
+
+
+def test_esta_obsoleto_false_si_se_actualizo_hace_poco():
+    ahora = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
+    actualizado_en = ahora - timedelta(minutes=5)
+
+    assert plan_job._esta_obsoleto(actualizado_en, umbral_minutos=15, ahora=ahora) is False
+
+
+def test_esta_obsoleto_true_si_supera_el_umbral():
+    ahora = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
+    actualizado_en = ahora - timedelta(minutes=16)
+
+    assert plan_job._esta_obsoleto(actualizado_en, umbral_minutos=15, ahora=ahora) is True
+
+
+def test_esta_obsoleto_false_justo_en_el_umbral():
+    ahora = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
+    actualizado_en = ahora - timedelta(minutes=15)
+
+    assert plan_job._esta_obsoleto(actualizado_en, umbral_minutos=15, ahora=ahora) is False
+
+
+def test_esta_obsoleto_admite_datetime_naive():
+    """Postgres puede devolver `updated_at` sin tzinfo -- no debe explotar al
+    restarlo contra un `datetime` aware."""
+    ahora = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
+    actualizado_en_naive = datetime(2026, 7, 31, 11, 30)  # sin tzinfo, 30 min antes
+
+    assert plan_job._esta_obsoleto(actualizado_en_naive, umbral_minutos=15, ahora=ahora) is True

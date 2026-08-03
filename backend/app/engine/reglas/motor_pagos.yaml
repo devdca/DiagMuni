@@ -9,7 +9,7 @@ acciones:
     paso_organizacional: "Capacitar a caja/tesorería en conciliación de pagos en línea"
     prerrequisitos: ["Cuenta bancaria institucional habilitada para cobros electrónicos"]
     por_que_importa: "Bloquea el paso a índice 3 (transaccional completo)"
-    fuente_normativa: "LNETB art. 54-XI; CFDI — CFF art. 29 y LISR art. 86 5º párr. [NO VERIFICADO]"
+    fuente_normativa: "LNETB art. 54-XI; CFDI — CFF art. 29 y LISR art. 79-XXIII + art. 86 5º párr. (Federación, entidades federativas y municipios expiden CFDI por las contribuciones, productos y aprovechamientos que cobran)"
     categoria_catalogo: "adaptador_pasarela_pago"
   uy:
     paso_administrativo: "Evaluar solución de pago propia de la intendencia (sin pasarela estatal única)"
@@ -17,5 +17,5 @@ acciones:
     paso_organizacional: "Capacitar a caja/tesorería en conciliación de pagos en línea"
     prerrequisitos: ["Cuenta bancaria institucional habilitada para cobros electrónicos"]
     por_que_importa: "Bloquea el paso a índice 3 (transaccional completo)"
-    fuente_normativa: "Estándar Agesic para pasarelas de pago + soluciones propias por intendencia; ausencia de pasarela estatal única [NO VERIFICADO — hallazgo negativo]"
+    fuente_normativa: "Agesic — 'Pasarela de Pagos: Requisitos (Pagos en Línea en Trámites y Servicios del Estado)' y 'Guía para disponibilizar Pagos en Línea' (estándar técnico, sin rango legal); no existe ley ni decreto de pasarela estatal única — solución propia por intendencia"
     categoria_catalogo: "adaptador_pasarela_pago"
