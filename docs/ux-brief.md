@@ -60,7 +60,7 @@ Reutilizar los componentes ya incluidos en shadcn/ui sin construir variantes pro
 ## Pantallas principales
 
 ### 1. Selección de gobierno (tenant) e ingreso
-Pantalla mínima: nombre del gobierno local (o selector si el funcionario tiene acceso a más de uno — poco común en el MVP), campo de credenciales. Sin branding de terceros, sin distractores. Mensaje de error en lenguaje llano ("La contraseña no coincide", nunca un código de error técnico).
+Pantalla mínima: campo "Clave del gobierno" (texto corto y legible, nunca un identificador técnico) que el funcionario escribe para identificar a su gobierno local; al resolverse contra el backend, se muestra el nombre del gobierno como confirmación antes de revelar los campos de correo y contraseña (o un selector si el funcionario tiene acceso a más de un gobierno — poco común en el MVP). Sin branding de terceros, sin distractores. Mensaje de error en lenguaje llano tanto si la clave no corresponde a ningún gobierno como si la contraseña no coincide ("La contraseña no coincide", nunca un código de error técnico). Mecanismo completo de identificación (columna `tenant.clave`, endpoint público de resolución, y cómo se conecta con `POST /api/auth/login`) en `entregables/fase-2/identificacion-gobierno-login.md`.
 
 ### 2. Panel resumen
 Tarjeta superior con el índice de madurez global (cifra grande + etiqueta, paleta ordinal de arriba) y fecha de último diagnóstico. Debajo, tabla de trámites catalogados con su índice individual (`Badge`) y acceso a "continuar diagnóstico" o "ver plan". Sin gráficas de tendencia en el MVP — un solo número por trámite, no series de tiempo (no hay historia suficiente en un piloto).
