@@ -110,6 +110,7 @@ Tabla `job`: `id, tenant_id, tipo (generacion_plan), estado (pending|running|don
 2. Al abrir la sesión de base de datos por request, el backend ejecuta `SET app.tenant_id = '<valor del claim>'` (session-local, nunca global).
 3. Cada tabla con datos de tenant tiene policy RLS: `USING (tenant_id = current_setting('app.tenant_id')::uuid)`.
 4. Ninguna query de aplicación filtra por `tenant_id` manualmente — la policy es la única barrera; esto es intencional: una columna sola "puede olvidarse" en un query, una policy de RLS no.
+5. `SET LOCAL` (session-local con `is_local=true`) se resetea automáticamente al terminar la transacción — cualquier `db.commit()` o `db.rollback()` lo limpia. Todo código que haga más de un commit en la misma sesión debe volver a llamar a `fijar_contexto_tenant` antes de la siguiente consulta contra una tabla con RLS (ver `backend/tests/test_api_seguimiento.py` y `backend/tests/test_api_diagnosticos.py`).
 
 ## Versionado del motor de reglas
 

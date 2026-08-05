@@ -13,6 +13,7 @@ ruta de respaldo `calidad_respaldo` (Claude Fable); si esta también falla, cae 
 
 import litellm
 
+from app.engine.catalogo_loader import componente_recomendado_para
 from app.engine.plantillas import _narrativa_plantilla
 from app.engine.reglas_loader import AccionPais, cargar_catalogo, criterio_se_cumple
 from app.ia.config import api_key_de, esta_disponible, obtener_ruta
@@ -125,6 +126,7 @@ def generar_contenido_llm(respuestas: dict, pais: str) -> dict:
                 "por_que_importa": accion.por_que_importa,
                 "fuente_normativa": accion.fuente_normativa,
                 "narrativa": narrativa,
+                "componente_recomendado": componente_recomendado_para(accion.categoria_catalogo, pais),
             }
         )
 

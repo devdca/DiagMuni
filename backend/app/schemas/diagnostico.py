@@ -3,6 +3,14 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+# Fuente de verdad: ETIQUETA_MECANISMO en frontend/src/pages/Diagnostico.tsx
+# (docs/ux-brief.md línea 71) -- "otro, especifique" nunca es un valor guardable
+# per se, es una bandera de UI para que el funcionario elija/confirme uno de estos
+# cuatro antes de habilitar el envío. `respuestas` es un dict genérico (sin tipar
+# campo por campo), así que esta validación vive fuera del modelo de campos fijos
+# de abajo -- ver app/api/diagnosticos.py para dónde se aplica.
+MECANISMOS_IDENTIDAD_VALIDOS = frozenset({"llave_mx", "id_uruguay", "propio", "ninguno"})
+
 
 class DiagnosticoGuardar(BaseModel):
     """'Guardar y continuar después' (docs/app-flow.md) — respuestas parciales, no
