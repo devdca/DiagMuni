@@ -1,18 +1,24 @@
 // Almacenamiento de sesión del funcionario en el navegador.
 //
-// El JWT no trae el nombre del gobierno local (ver limitación conocida de F1
-// documentada en el reporte de entrega) — por eso "displayName" es un campo
-// de texto libre que el propio funcionario escribe en el login, guardado
-// junto al token únicamente para poder mostrarlo en la nav.
+// El nombre del gobierno local viaja en el propio JWT (claim "nombre_gobierno",
+// entregables/fase-2/identificacion-gobierno-login.md, sección 4) -- ya no es un
+// campo de texto libre que el funcionario escribe a mano (limitación conocida de
+// F1, ya resuelta).
 
 const TOKEN_KEY = "diagmuni_token";
-const DISPLAY_NAME_KEY = "diagmuni_display_name";
 
+// Manejo defensivo: un JWT sin el claim "nombre_gobierno" no debería ocurrir en
+// operación normal (todo token nuevo lo trae, ver backend/app/core/security.py),
+// pero un token viejo emitido antes de este cambio (mismo `jwt_secret`, todavía
+// sin expirar) sí podría carecer de él -- se prefiere este texto genérico a
+// romper la nav en ese caso de borde transitorio.
 export const NOMBRE_GOBIERNO_GENERICO = "Gobierno local";
 
 interface JwtClaims {
   sub: string;
   tenant_id: string;
+  nombre_gobierno: string;
+  pais: string;
   rol: string;
   exp: number;
 }
@@ -32,14 +38,12 @@ function decodeJwtClaims(token: string): JwtClaims | null {
   }
 }
 
-export function guardarSesion(token: string, nombreAMostrar: string): void {
+export function guardarSesion(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(DISPLAY_NAME_KEY, nombreAMostrar.trim());
 }
 
 export function cerrarSesion(): void {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(DISPLAY_NAME_KEY);
 }
 
 export function obtenerToken(): string | null {
@@ -47,8 +51,26 @@ export function obtenerToken(): string | null {
 }
 
 export function obtenerNombreGobierno(): string {
-  const guardado = localStorage.getItem(DISPLAY_NAME_KEY);
-  return guardado && guardado.length > 0 ? guardado : NOMBRE_GOBIERNO_GENERICO;
+  const token = obtenerToken();
+  if (!token) return NOMBRE_GOBIERNO_GENERICO;
+  const claims = decodeJwtClaims(token);
+  return claims?.nombre_gobierno && claims.nombre_gobierno.length > 0 ? claims.nombre_gobierno : NOMBRE_GOBIERNO_GENERICO;
+}
+
+// "mx" | "uy" -- claim nuevo del JWT (backend/app/core/security.py::create_access_token),
+// solo para que el frontend sepa qué mostrar (ej. qué opción de mecanismo_identidad
+// ofrecer en el cuestionario, F3). Nunca se usa para decidir nada de seguridad: el
+// backend siempre vuelve a resolver `pais` desde `Tenant`, nunca confía en este claim.
+//
+// Devuelve `null` (no un país adivinado) si el token es viejo y no trae el claim
+// todavía -- mismo caso de borde transitorio que `NOMBRE_GOBIERNO_GENERICO`, pero
+// acá no hay un valor genérico seguro: mostrar el país equivocado ofrecería una
+// opción de mecanismo de identidad que no le corresponde a ese gobierno.
+export function obtenerPais(): string | null {
+  const token = obtenerToken();
+  if (!token) return null;
+  const claims = decodeJwtClaims(token);
+  return claims?.pais && claims.pais.length > 0 ? claims.pais : null;
 }
 
 // Fuente de verdad de "sesión inválida": token ausente o JWT expirado
