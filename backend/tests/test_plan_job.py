@@ -15,11 +15,12 @@ prompt, en vez de dos `monkeypatch.setattr` independientes que se pisarían entr
 """
 
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.engine.plantillas import generar_contenido_degradado
 from app.ia import generador_plan, verificador
 from app.jobs import plan_job
+from app.models import AccionSeguimiento, DiagnosticoTramite, Job, PlanModernizacion, Tenant, Tramite
 
 RESPUESTAS_CON_BRECHAS = {
     "documentos_digitalizados": False,
@@ -256,16 +257,71 @@ _TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 _DIAGNOSTICO_ID = UUID("00000000-0000-0000-0000-000000000002")
 
 
-class _SesionEspia:
-    """Sesión mínima que solo registra `commit` -- `revisar_job_obsoleto` no llama
-    a ningún otro método de la sesión directamente cuando `_persistir_plan_degradado`
-    está mockeado, como en los tests de este bloque."""
+class _ResultadoFalso:
+    """`db.execute(...)` solo se usa acá para leer `version_previa` vía
+    `scalar_one_or_none()` -- no hace falta simular ningún otro método de `Result`."""
 
-    def __init__(self, orden: list[str]) -> None:
+    def __init__(self, valor: object) -> None:
+        self._valor = valor
+
+    def scalar_one_or_none(self) -> object:
+        return self._valor
+
+
+class _SesionEspia:
+    """Sesión mínima que registra `commit` -- extendida (sin cambiar el uso existente
+    en los tests de `revisar_job_obsoleto` de este archivo, que solo pasan `orden`)
+    para registrar `.add()` y admitir `.get()`/`.execute()`/`.flush()`/`.close()` como
+    no-op o devolviendo los objetos de prueba fijados en el constructor -- suficiente
+    para ejercitar `_persistir_plan_degradado` y `ejecutar_generacion_plan` completos
+    sin ninguna infraestructura de Postgres real."""
+
+    def __init__(
+        self,
+        orden: list[str],
+        *,
+        job: object | None = None,
+        diagnostico: DiagnosticoTramite | None = None,
+        tenant: Tenant | None = None,
+        tramite: Tramite | None = None,
+        version_previa: int | None = None,
+    ) -> None:
         self._orden = orden
+        self.agregados: list[object] = []
+        self._job = job
+        self._diagnostico = diagnostico
+        self._tenant = tenant
+        self._tramite = tramite
+        self._version_previa = version_previa
 
     def commit(self) -> None:
         self._orden.append("commit")
+
+    def rollback(self) -> None:
+        self._orden.append("rollback")
+
+    def add(self, obj: object) -> None:
+        self.agregados.append(obj)
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def get(self, modelo: type, _id: object) -> object:
+        if modelo is Job:
+            return self._job
+        if modelo is DiagnosticoTramite:
+            return self._diagnostico
+        if modelo is Tenant:
+            return self._tenant
+        if modelo is Tramite:
+            return self._tramite
+        raise AssertionError(f"get inesperado en la sesión de prueba: {modelo}")
+
+    def execute(self, _stmt: object) -> _ResultadoFalso:
+        return _ResultadoFalso(self._version_previa)
 
 
 class _JobFalso:
@@ -340,3 +396,89 @@ def test_revisar_job_obsoleto_running_obsoleto_con_reintento_disponible_refija_c
     assert job.intentos == 1
     assert job.estado == "pending"
     assert orden == ["commit", "fijar_contexto_tenant"]
+
+
+# --- Creación automática de `AccionSeguimiento` al persistir un plan (F5/F6) -----
+#
+# Ambos caminos (degradado directo y camino feliz completo) deben crear exactamente
+# una `AccionSeguimiento` por brecha del plan recién persistido, con los defaults
+# documentados en `_crear_acciones_seguimiento`. Se ejercita con la `_SesionEspia`
+# extendida de arriba -- sigue sin haber Postgres real en este repo.
+
+
+def _tramite_de_prueba(tramite_id: UUID, tenant_id: UUID) -> Tramite:
+    return Tramite(id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan")
+
+
+def _diagnostico_de_prueba(diagnostico_id: UUID, tenant_id: UUID, tramite_id: UUID) -> DiagnosticoTramite:
+    return DiagnosticoTramite(
+        id=diagnostico_id, tenant_id=tenant_id, tramite_id=tramite_id, respuestas=RESPUESTAS_CON_BRECHAS
+    )
+
+
+def _tenant_de_prueba(tenant_id: UUID) -> Tenant:
+    return Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
+
+
+def _verificar_acciones_creadas_una_por_brecha(db: _SesionEspia, tenant_id: UUID) -> None:
+    planes = [obj for obj in db.agregados if isinstance(obj, PlanModernizacion)]
+    acciones = [obj for obj in db.agregados if isinstance(obj, AccionSeguimiento)]
+    assert len(planes) == 1
+    brechas = planes[0].contenido["brechas"]
+    assert len(brechas) > 0
+    assert len(acciones) == len(brechas)
+
+    descripciones_esperadas = {brecha["paso_administrativo"] for brecha in brechas}
+    fecha_objetivo_esperada = datetime.now(UTC).date() + timedelta(days=90)
+    for accion in acciones:
+        assert accion.plan_modernizacion_id == planes[0].id
+        assert accion.tenant_id == tenant_id
+        assert accion.descripcion in descripciones_esperadas
+        assert accion.responsable == "Por asignar"
+        assert accion.fecha_objetivo == fecha_objetivo_esperada
+        # `_crear_acciones_seguimiento` nunca fija `estado_semaforo` -- queda en
+        # `None` acá porque el default Python-side de la columna
+        # (backend/app/models/accion_seguimiento.py) solo se aplica al hacer INSERT
+        # contra un motor real, y esta sesión de prueba no tiene uno (ver módulo).
+        # Confirma la ausencia de asignación explícita, no el valor final en DB.
+        assert accion.estado_semaforo is None
+
+
+def test_persistir_plan_degradado_crea_una_accion_por_brecha():
+    tenant_id, diagnostico_id, tramite_id = uuid4(), uuid4(), uuid4()
+    db = _SesionEspia(
+        [],
+        diagnostico=_diagnostico_de_prueba(diagnostico_id, tenant_id, tramite_id),
+        tenant=_tenant_de_prueba(tenant_id),
+        tramite=_tramite_de_prueba(tramite_id, tenant_id),
+        version_previa=None,
+    )
+
+    resultado = plan_job._persistir_plan_degradado(db, tenant_id, diagnostico_id)
+
+    assert resultado is True
+    _verificar_acciones_creadas_una_por_brecha(db, tenant_id)
+
+
+def test_ejecutar_generacion_plan_camino_feliz_crea_una_accion_por_brecha(monkeypatch):
+    tenant_id, diagnostico_id, tramite_id, job_id = uuid4(), uuid4(), uuid4(), uuid4()
+    job = _JobFalso(estado="pending", intentos=0)
+    db = _SesionEspia(
+        [],
+        job=job,
+        diagnostico=_diagnostico_de_prueba(diagnostico_id, tenant_id, tramite_id),
+        tenant=_tenant_de_prueba(tenant_id),
+        tramite=_tramite_de_prueba(tramite_id, tenant_id),
+        version_previa=None,
+    )
+
+    monkeypatch.setattr(plan_job, "abrir_sesion_tenant", lambda _tenant_id: db)
+    monkeypatch.setattr(plan_job, "fijar_contexto_tenant", lambda _db, _tenant_id: None)
+    # Fuerza el camino degradado -- ya cubierto por `_generar_contenido_y_modo` en
+    # los tests de arriba; acá solo interesa la creación de `AccionSeguimiento`.
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda _ruta: False)
+
+    plan_job.ejecutar_generacion_plan(job_id, tenant_id, diagnostico_id)
+
+    assert job.estado == "done"
+    _verificar_acciones_creadas_una_por_brecha(db, tenant_id)

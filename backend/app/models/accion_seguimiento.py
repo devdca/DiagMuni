@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from sqlalchemy import Date, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,7 +23,7 @@ class AccionSeguimiento(Base):
     descripcion: Mapped[str] = mapped_column(String, nullable=False)
     responsable: Mapped[str] = mapped_column(String, nullable=False)
     fecha_objetivo: Mapped[date] = mapped_column(Date, nullable=False)
-    estado_semaforo: Mapped[str] = mapped_column(
+    estado_semaforo: Mapped[Literal["completado", "en_progreso", "atrasado"]] = mapped_column(
         Enum("completado", "en_progreso", "atrasado", name="estado_semaforo_enum"),
         nullable=False,
         default="en_progreso",
