@@ -27,3 +27,7 @@ export interface PanelResumenResponse {
 export function obtenerPanelResumen(): Promise<PanelResumenResponse> {
   return apiFetch<PanelResumenResponse>("/api/tramites");
 }
+
+export function obtenerTramite(tramiteId: string): Promise<TramiteResponse> {
+  return apiFetch<TramiteResponse>(`/api/tramites/${tramiteId}`);
+}
