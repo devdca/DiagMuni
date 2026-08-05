@@ -45,3 +45,19 @@ def calcular_indice_madurez(respuestas: dict) -> int:
             indice = 4
 
     return indice
+
+
+def calcular_indice_global(indices: list[int | None]) -> float | None:
+    """Índice global del panel resumen (docs/PRD.md línea 32, docs/app-flow.md
+    línea 54 -- ninguno de los dos fija la fórmula, decidida acá): promedio de
+    los trámites que ya tienen diagnóstico completo (`indice_madurez` no nulo).
+    Los trámites sin diagnosticar (`None`) no cuentan en el promedio ni lo
+    penalizan -- nunca se les asume un 0.
+
+    Devuelve `None` si la lista está vacía o si nadie ha sido diagnosticado
+    todavía (ningún trámite catalogado tiene aún un índice que promediar) --
+    nunca lanza una excepción por ese caso."""
+    diagnosticados = [indice for indice in indices if indice is not None]
+    if not diagnosticados:
+        return None
+    return sum(diagnosticados) / len(diagnosticados)

@@ -21,11 +21,17 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(usuario_id: UUID, tenant_id: UUID, rol: str) -> str:
+def create_access_token(usuario_id: UUID, tenant_id: UUID, rol: str, nombre_gobierno: str, pais: str) -> str:
+    # `pais` viaja en el JWT solo para que el frontend sepa qué mostrar (ej. qué
+    # opciones de mecanismo_identidad ofrecer) -- ningún endpoint puede usar este
+    # claim para decidir nada de seguridad: `pais` se vuelve a resolver siempre
+    # desde `Tenant` en el servidor (ver app/api/asistente_captura.py).
     expire = datetime.now(UTC) + timedelta(hours=settings.jwt_expire_hours)
     payload = {
         "sub": str(usuario_id),
         "tenant_id": str(tenant_id),
+        "nombre_gobierno": nombre_gobierno,
+        "pais": pais,
         "rol": rol,
         "exp": expire,
     }

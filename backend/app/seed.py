@@ -23,8 +23,8 @@ def _set_tenant(db, tenant_id) -> None:
 def run() -> None:
     db = SessionLocal()
     try:
-        tenant_mx = Tenant(nombre="Municipio de Prueba (MX)", pais="mx")
-        tenant_uy = Tenant(nombre="Intendencia de Prueba (UY)", pais="uy")
+        tenant_mx = Tenant(nombre="Municipio de Prueba (MX)", clave="prueba-mx", pais="mx")
+        tenant_uy = Tenant(nombre="Intendencia de Prueba (UY)", clave="prueba-uy", pais="uy")
         db.add_all([tenant_mx, tenant_uy])
         db.flush()  # tenant no tiene RLS — puede insertarse sin fijar app.tenant_id
 

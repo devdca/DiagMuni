@@ -13,7 +13,18 @@ import { cerrarSesion, obtenerToken } from "./session";
 // /login sin que cada llamada tenga que saber cómo navegar.
 export const EVENTO_SESION_EXPIRADA = "diagmuni:sesion-expirada";
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  // Expuesto para quien necesite distinguir 404 (ej. "el plan todavía no existe",
+  // usado en el polling de Diagnostico.tsx) de cualquier otro fallo real -- el
+  // resto del código sigue tratando ApiError.message como el texto en lenguaje
+  // llano de siempre.
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 interface OpcionesApi extends RequestInit {
   sinAuth?: boolean;
@@ -60,7 +71,7 @@ export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Pro
       cuerpo && typeof cuerpo === "object" && "detail" in cuerpo ? (cuerpo as { detail: unknown }).detail : null;
     const detalle =
       typeof detalleCrudo === "string" ? detalleCrudo : "No se pudo completar la operación. Intenta de nuevo.";
-    throw new ApiError(detalle);
+    throw new ApiError(detalle, respuesta.status);
   }
 
   return cuerpo as T;

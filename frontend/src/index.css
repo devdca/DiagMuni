@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Modo oscuro por clase (".dark" en <html>) -- Tailwind v4 usa prefers-color-scheme
+   por default, pero docs/ux-brief.md ya fija valores hex de claro Y oscuro para la
+   paleta base, así que se deja el mecanismo listo. No hay todavía un interruptor de
+   UI que agregue la clase ".dark" -- pendiente, ver nota abajo. */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-atenuado: var(--atenuado);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+}
+
+/* Paleta neutral validada, docs/ux-brief.md sección "Paleta -- validada, no elegida
+   a ojo" -- sin marca INAP definida todavía, se sustituye cuando exista identidad
+   oficial sin tocar la estructura de componentes (mismo documento, principio 4). */
+:root {
+  --radius: 0.5rem;
+
+  --background: #f9f9f7; /* superficie de página */
+  --card: #fcfcfb; /* superficie de tarjeta/panel */
+  --card-foreground: #0b0b0b;
+  --foreground: #0b0b0b; /* texto primario */
+  --muted: #fcfcfb;
+  --muted-foreground: #52514e; /* texto secundario */
+  --atenuado: #898781; /* texto atenuado: ayudas, placeholders */
+  --border: #e1e0d9; /* línea divisoria */
+  --input: #e1e0d9;
+  --ring: #898781;
+
+  /* Sin color de marca INAP todavía -- se reutiliza el texto primario/superficie de
+     tarjeta como par primary/primary-foreground neutro, en vez de inventar un hue. */
+  --primary: #0b0b0b;
+  --primary-foreground: #fcfcfb;
+  --secondary: #fcfcfb;
+  --secondary-foreground: #0b0b0b;
+
+  /* No forma parte de la paleta neutral de docs/ux-brief.md -- se toma prestado el
+     "critical" del semáforo de seguimiento (#d03b3b, misma sección del documento)
+     únicamente para el estado de error de formulario (borde/texto), nunca como
+     color de un badge de estado (esa regla es específica de F6). */
+  --destructive: #d03b3b;
+  --destructive-foreground: #fcfcfb;
+}
+
+.dark {
+  --background: #0d0d0d;
+  --card: #1a1a19;
+  --card-foreground: #ffffff;
+  --foreground: #ffffff;
+  --muted: #1a1a19;
+  --muted-foreground: #c3c2b7;
+  --atenuado: #898781;
+  --border: #2c2c2a;
+  --input: #2c2c2a;
+  --ring: #898781;
+
+  --primary: #ffffff;
+  --primary-foreground: #0d0d0d;
+  --secondary: #1a1a19;
+  --secondary-foreground: #ffffff;
+
+  --destructive: #d03b3b;
+  --destructive-foreground: #0d0d0d;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    font-family:
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif; /* docs/ux-brief.md, "Tipografía" -- sin fuente de despliegue */
+  }
+}

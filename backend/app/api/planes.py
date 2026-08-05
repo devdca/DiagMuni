@@ -13,13 +13,20 @@ from app.schemas.plan import PlanOut
 router = APIRouter(prefix="/api/tramites", tags=["planes"])
 
 
+def _construir_plan_out(plan: PlanModernizacion, diagnostico: DiagnosticoTramite) -> PlanOut:
+    """Arma el `PlanOut` explícito -- `PlanModernizacion` no tiene el índice de
+    madurez (vive en `DiagnosticoTramite`, sin relationship ORM entre ambos, ver
+    backend/app/models/plan_modernizacion.py)."""
+    return PlanOut.model_validate(plan).model_copy(update={"indice_madurez": diagnostico.indice_madurez})
+
+
 @router.get("/{tramite_id}/plan", response_model=PlanOut)
 def obtener_plan_vigente(
     tramite_id: UUID,
     token: Annotated[TokenData, Depends(get_current_token)],
     db: Annotated[Session, Depends(get_db)],
     background_tasks: BackgroundTasks,
-) -> PlanModernizacion:
+) -> PlanOut:
     """Última versión del plan — las anteriores no se borran pero no se muestran aquí
     (docs/app-flow.md: la vista siempre muestra la más reciente)."""
     tramite = db.get(Tramite, tramite_id)
@@ -45,4 +52,4 @@ def obtener_plan_vigente(
     ).scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan aún no generado")
-    return plan
+    return _construir_plan_out(plan, diagnostico)
