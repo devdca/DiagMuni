@@ -1,0 +1,106 @@
+# entregables/fase-2/modelo-diagnostico.md -- niveles del índice de madurez (docs/PRD.md):
+# 0 presencial en papel, 1 informativo, 2 transaccional parcial, 3 transaccional
+# completo, 4 proactivo e interoperable.
+#
+# Cada regla otorga `nivel` si TODAS sus `condiciones` se cumplen (Y lógico). Las
+# reglas se evalúan en el orden en que aparecen abajo y gana la primera que aplica;
+# por eso van de la más específica (nivel 4) a la más genérica (nivel 0). Las
+# combinaciones que en otro diseño usarían "O" (una de pagos/firma, no ambas) se
+# enumeran aquí como reglas separadas para el mismo nivel, en vez de introducir un
+# operador "O" en el evaluador.
+#
+# `valor_por_defecto` es el valor que toma el campo cuando no viene en las
+# respuestas capturadas -- documentos_digitalizados/motor_pagos/firma_electronica_habilitada/
+# interoperabilidad son booleanos que faltan si no se han encuestado (por defecto false);
+# mecanismo_identidad es un campo de texto cuya ausencia equivale a "ninguno".
+version: "1.0"
+reglas:
+  - nivel: 4
+    condiciones:
+      - campo: documentos_digitalizados
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: motor_pagos
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: firma_electronica_habilitada
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: interoperabilidad
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: mecanismo_identidad
+        operador: "!="
+        valor: "ninguno"
+        valor_por_defecto: "ninguno"
+
+  - nivel: 3
+    condiciones:
+      - campo: documentos_digitalizados
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: motor_pagos
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: firma_electronica_habilitada
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+
+  - nivel: 2
+    condiciones:
+      - campo: documentos_digitalizados
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: motor_pagos
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: firma_electronica_habilitada
+        operador: "=="
+        valor: false
+        valor_por_defecto: false
+
+  - nivel: 2
+    condiciones:
+      - campo: documentos_digitalizados
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: motor_pagos
+        operador: "=="
+        valor: false
+        valor_por_defecto: false
+      - campo: firma_electronica_habilitada
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+
+  - nivel: 1
+    condiciones:
+      - campo: documentos_digitalizados
+        operador: "=="
+        valor: true
+        valor_por_defecto: false
+      - campo: motor_pagos
+        operador: "=="
+        valor: false
+        valor_por_defecto: false
+      - campo: firma_electronica_habilitada
+        operador: "=="
+        valor: false
+        valor_por_defecto: false
+
+  - nivel: 0
+    condiciones:
+      - campo: documentos_digitalizados
+        operador: "=="
+        valor: false
+        valor_por_defecto: false
