@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { planListo } from "@/lib/planApi";
 import { obtenerPais } from "@/lib/session";
+import { obtenerTramite } from "@/lib/tramitesApi";
 
 // Cuestionario de captura (F1 producto), docs/ux-brief.md sección "3. Cuestionario
 // de captura (F1)": un Card por cada una de las 6 variables reales del catálogo
@@ -374,6 +375,16 @@ export function Diagnostico() {
     enabled: !!tramiteId,
   });
 
+  // Fuente de verdad del estado real del trámite -- distingue un job de plan
+  // efectivamente en curso (estado "generando_plan") de un diagnóstico que
+  // simplemente fue enviado en algún momento del pasado (docs/app-flow.md:
+  // reabrir y modificar respuestas debe regresar el trámite a "en_progreso").
+  const tramiteQuery = useQuery({
+    queryKey: ["tramite", tramiteId],
+    queryFn: () => obtenerTramite(tramiteId!),
+    enabled: !!tramiteId,
+  });
+
   useEffect(() => {
     const datos = diagnosticoQuery.data;
     if (!datos || inicializadoRef.current) return;
@@ -398,10 +409,17 @@ export function Diagnostico() {
       }
       setAclaraciones((prev) => ({ ...prev, ...aclaracionesBooleanas }));
     }
-    if (datos.completado_en) {
+  }, [diagnosticoQuery.data]);
+
+  // Solo un job de plan efectivamente en curso al momento de cargar la
+  // pantalla debe mostrar la espera; "completado_en" por sí solo no lo indica
+  // porque nunca se limpia una vez fijado. Efecto independiente de la precarga
+  // de respuestas para no atar su temporización a la de esta consulta.
+  useEffect(() => {
+    if (tramiteQuery.data?.estado === "generando_plan") {
       setEsperandoPlan(true);
     }
-  }, [diagnosticoQuery.data]);
+  }, [tramiteQuery.data]);
 
   // Polling de "generando plan" (docs/app-flow.md línea 55): el índice F2 ya se
   // calculó de forma síncrona al enviar; el job de plan puede tardar. Nunca

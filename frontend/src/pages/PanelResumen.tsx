@@ -43,9 +43,18 @@ function AccionTramite({ tramite }: { tramite: TramiteResponse }) {
 
   if (tramite.estado === "plan_listo") {
     return (
-      <Button size="sm" onClick={() => navigate(`/tramites/${tramite.id}/plan`)}>
-        Ver plan
-      </Button>
+      <div className="flex justify-end gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/tramites/${tramite.id}/diagnostico`)}
+        >
+          Corregir respuestas
+        </Button>
+        <Button size="sm" onClick={() => navigate(`/tramites/${tramite.id}/plan`)}>
+          Ver plan
+        </Button>
+      </div>
     );
   }
 
