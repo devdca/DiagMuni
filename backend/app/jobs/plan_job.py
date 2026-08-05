@@ -23,7 +23,7 @@ from app.engine.plantillas import generar_contenido_degradado
 from app.ia.config import esta_disponible
 from app.ia.generador_plan import generar_contenido_llm
 from app.ia.verificador import verificar_contenido
-from app.models import DiagnosticoTramite, Job, PlanModernizacion, Tenant, Tramite
+from app.models import AccionSeguimiento, DiagnosticoTramite, Job, PlanModernizacion, Tenant, Tramite
 
 # Ruta que generador_plan.py usa para redactar -- si no está disponible, no hay
 # nada que generar vía LLM.
@@ -33,6 +33,32 @@ _RUTA_GENERACION = "calidad"
 # degradado". Un mismo contador (`Job.intentos`) cuenta tanto fallos por excepción
 # como detecciones de job obsoleto -- ver `revisar_job_obsoleto`.
 LIMITE_INTENTOS = 2
+
+# Sin blueprint que fije un plazo -- 90 días (un trimestre) como horizonte por
+# defecto, editable por el funcionario desde el panel de seguimiento (F6).
+_DIAS_PLAZO_ACCION_SEGUIMIENTO = 90
+_RESPONSABLE_SIN_ASIGNAR = "Por asignar"
+
+
+def _crear_acciones_seguimiento(db: Session, plan: PlanModernizacion, tenant_id: UUID) -> None:
+    """Una `AccionSeguimiento` por brecha del plan recién persistido (F6, docs/
+    app-flow.md paso 5) -- `descripcion` toma `paso_administrativo`, el paso corto y
+    accionable de cada brecha (presente en ambos modos, `degradado` y `llm`, ver
+    app/engine/plantillas.py y app/ia/generador_plan.py), no la `narrativa` completa
+    que ya se muestra en el plan. `fecha_objetivo` se calcula en Python -- no se
+    puede leer `plan.generado_en` sin refrescar la fila porque es `server_default`.
+    Requiere que `plan.id` ya exista (llamar después de `db.flush()`)."""
+    fecha_objetivo = datetime.now(UTC).date() + timedelta(days=_DIAS_PLAZO_ACCION_SEGUIMIENTO)
+    for brecha in plan.contenido["brechas"]:
+        db.add(
+            AccionSeguimiento(
+                plan_modernizacion_id=plan.id,
+                tenant_id=tenant_id,
+                descripcion=brecha["paso_administrativo"],
+                responsable=_RESPONSABLE_SIN_ASIGNAR,
+                fecha_objetivo=fecha_objetivo,
+            )
+        )
 
 
 def _generar_contenido_y_modo(respuestas: dict, pais: str) -> tuple[str, dict, bool]:
@@ -78,6 +104,8 @@ def _persistir_plan_degradado(db: Session, tenant_id: UUID, diagnostico_tramite_
         verificado=True,
     )
     db.add(plan)
+    db.flush()
+    _crear_acciones_seguimiento(db, plan, tenant_id)
 
     tramite = db.get(Tramite, diagnostico.tramite_id)
     if tramite is not None:
@@ -124,6 +152,8 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
             verificado=verificado,
         )
         db.add(plan)
+        db.flush()
+        _crear_acciones_seguimiento(db, plan, tenant_id)
 
         tramite = db.get(Tramite, diagnostico.tramite_id)
         if tramite is not None:
