@@ -215,10 +215,16 @@ def revisar_job_obsoleto(db: Session, tenant_id: UUID, job: Job) -> bool:
             else:
                 job.estado = "failed"
             db.commit()
+            # commit() termina la transacción y con ella el app.tenant_id local (ver
+            # app/db/rls.py) — hay que volver a fijarlo antes de la siguiente consulta.
+            fijar_contexto_tenant(db, tenant_id)
             return False
 
         job.estado = "pending"
         db.commit()
+        # mismo motivo que el commit anterior en esta función: hay que refijar el
+        # contexto de tenant tras cada commit (ver comentario de arriba).
+        fijar_contexto_tenant(db, tenant_id)
         return True
 
     if job.estado == "running" and _esta_obsoleto(job.updated_at, settings.job_umbral_obsoleto_minutos):
@@ -229,10 +235,16 @@ def revisar_job_obsoleto(db: Session, tenant_id: UUID, job: Job) -> bool:
             else:
                 job.estado = "failed"
             db.commit()
+            # mismo motivo que el primer commit de esta función: hay que refijar el
+            # contexto de tenant tras cada commit.
+            fijar_contexto_tenant(db, tenant_id)
             return False
 
         job.estado = "pending"
         db.commit()
+        # mismo motivo que el primer commit de esta función: hay que refijar el
+        # contexto de tenant tras cada commit.
+        fijar_contexto_tenant(db, tenant_id)
         return True
 
     return False

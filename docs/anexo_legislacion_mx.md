@@ -132,17 +132,23 @@ El **art. 115, fracción IV, CPEUM** reserva a los municipios su hacienda (contr
 
 ### 4.3 CFDI por cobros municipales
 - **Art. 29 del CFF**: quien recaude contribuciones debe expedir comprobante fiscal digital por internet (CFDI).
-- **Art. 86, quinto párrafo, de la Ley del ISR**: la Federación, las entidades federativas y los municipios están obligados a **expedir CFDI por las contribuciones, productos y aprovechamientos que cobran** y por los apoyos o estímulos que otorgan. (Verificado en materiales fiscales gubernamentales de Aguascalientes y Guanajuato y en prensa fiscal especializada; el texto íntegro de la LISR no se cotejó en esta corrida — cotejar párrafo exacto antes de citar textualmente.)
+- **Mecanismo de dos piezas en la Ley del ISR** (ambas necesarias; ninguna basta por sí sola):
+  - **Art. 79, fracción XXIII, de la LISR**: clasifica expresamente a la Federación, las entidades federativas, **los municipios** y las instituciones que por ley estén obligadas a entregar al Gobierno Federal el importe íntegro de su remanente de operación, como personas morales con fines no lucrativos del Título III. Esta fracción es la que sitúa jurídicamente al municipio dentro de este régimen (verificado vía `sat.gob.mx/articulo/23073/articulo-79`; ver detalle y fuentes en `entregables/fase-2/verificacion-motor-pagos.md`, sección 1.3).
+  - **Art. 86, quinto párrafo, de la LISR**: para esos mismos entes del Título III (Federación, entidades federativas, municipios e instituciones obligadas a entregar su remanente), impone la obligación específica de **expedir CFDI por las contribuciones, productos y aprovechamientos que cobran**, y por los apoyos o estímulos que otorgan.
+  - En conjunto, el art. 79-XXIII es la pieza que **clasifica/habilita** (el municipio es un ente del Título III) y el art. 86, 5º párr., es la pieza que **obliga en concreto** a expedir el CFDI; ninguna de las dos por separado sustenta completa la afirmación "el municipio debe emitir CFDI por lo que cobra". (Verificado por concordancia de fuentes oficiales/oficiales-adyacentes independientes — SAT, materiales de capacitación fiscal de gobiernos estatales de Aguascalientes y Guanajuato, compendios fiscales especializados y la guía de llenado de CFDI del propio SAT —, **no por lectura directa del texto íntegro de la LISR**; cotejar párrafo exacto en el PDF oficial de LeyesBiblio antes de citar textualmente. Ver `entregables/fase-2/verificacion-motor-pagos.md`, sección 1.3, que documenta el detalle de fuentes de esta verificación.)
 - Consecuencia práctica documentada: sin CFDI del municipio, el contribuyente no puede deducir predial o derechos; muchos municipios aún no emiten CFDI de forma automática, lo que lo convierte en un excelente indicador de madurez.
 
-**Variables de diagnóstico derivadas:** ¿existe motor de pagos en línea para derechos y contribuciones municipales? (LNETB art. 54-XI); ¿acepta transferencia SPEI/CoDi además de tarjeta y ventanilla bancaria?; ¿el municipio emite CFDI automáticamente por cada cobro? (CFF 29; LISR 86); ¿los pagos se concilian con el trámite (folio de pago vinculado al expediente)?
+**Variables de diagnóstico derivadas:** ¿existe motor de pagos en línea para derechos y contribuciones municipales? (LNETB art. 54-XI); ¿acepta transferencia SPEI/CoDi además de tarjeta y ventanilla bancaria?; ¿el municipio emite CFDI automáticamente por cada cobro? (CFF art. 29; LISR arts. 79-XXIII y 86, 5º párr.); ¿los pagos se concilian con el trámite (folio de pago vinculado al expediente)?
 
 **Fuentes:**
 - CoDi Banxico: https://www.banxico.org.mx/sistemas-de-pago/codi-avances-banco-mexico.html y https://www.codi.org.mx/secundarias/cobrar.html
 - Circular 14/2017 (reglas SPEI): https://www.banxico.org.mx/marco-normativo/normativa-emitida-por-el-banco-de-mexico/circular-14-2017/sistema-pagos-spei-disposicio.html
 - CFF: http://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf
+- LISR art. 79, fracción XXIII (clasificación de municipios como entes del Título III): https://www.sat.gob.mx/articulo/23073/articulo-79
+- Guía de llenado de CFDI del SAT para entes públicos (LISR art. 86, 5º párr.): https://www.sat.gob.mx/minisitio/Factura/documentos/Guia_llenadoCFDI_DPA.pdf
 - Obligaciones fiscales gubernamentales (LISR 86, CFDI municipal): https://caceg.guanajuato.gob.mx/sites/default/files/training/C_FISCALES_GUBERNAMENTALES_.pdf
 - CFDI predial/tenencia: https://www.elcontribuyente.mx/2025/02/pide-tu-factura-sin-cfdi-no-podras-deducir-el-pago-de-predial-y-tenencia/
+- Verificación del mecanismo completo (dos artículos) y detalle de fuentes: `entregables/fase-2/verificacion-motor-pagos.md`, sección 1.3
 
 ---
 
@@ -202,7 +208,7 @@ El **art. 115, fracción IV, CPEUM** reserva a los municipios su hacienda (contr
 | LGA | Art. 62 | Uso de nube con controles → infraestructura del municipio |
 | LFEA (2012, ref. 14-nov-2025) + Reglamento | Régimen de homologación | Convenio para aceptar e.firma (SAT) en trámites municipales |
 | Ley estatal de firma-e / gobierno digital | Según entidad | Qué firma electrónica estatal aplica y si el municipio la usa |
-| CFF art. 29 + LISR art. 86 (5º párr.) | Comprobantes | El municipio **emite CFDI automático** por derechos y aprovechamientos |
+| CFF art. 29 + LISR arts. 79, fracc. XXIII y 86 (5º párr.) | Comprobantes | El municipio **emite CFDI automático** por derechos y aprovechamientos |
 | Circular 14/2017 Banxico (SPEI/CoDi) | Habilitador | El motor de pagos acepta SPEI/CoDi |
 | CPEUM art. 115-IV + Ley de Ingresos municipal | Hacienda | Catálogo tarifario vinculado a cada trámite |
 | Nueva LGPDPPSO (DOF 20-mar-2025) | Arts. 20–22 | Aviso de privacidad en cada formulario/trámite |
@@ -223,7 +229,7 @@ El **art. 115, fracción IV, CPEUM** reserva a los municipios su hacienda (contr
 
 **Verificado solo en fuentes secundarias (usar con cautela / cotejar antes de citar textualmente):**
 - Transitorios de la LNETB (plazo de 180 días hábiles para adecuación estatal/municipal; 30 días hábiles para lineamientos ATDT): el texto de los transitorios no aparecía en la extracción del PDF; confirmado por síntesis jurídicas (TaxToday, Garrigues).
-- LISR art. 86, quinto párrafo (CFDI municipal obligatorio): confirmado en materiales fiscales de gobiernos estatales y prensa especializada, no en el PDF de la LISR.
+- LISR art. 79, fracción XXIII (clasificación de los municipios como entes del Título III) y art. 86, quinto párrafo (CFDI municipal obligatorio): confirmado por concordancia de fuentes oficiales/oficiales-adyacentes independientes (SAT, materiales fiscales de gobiernos estatales, compendios fiscales y guía de llenado de CFDI del SAT), no por lectura directa del PDF de la LISR. Verificación ampliada documentada en `entregables/fase-2/verificacion-motor-pagos.md`, sección 1.3.
 - CFF arts. 17-D y 29: citados por notoriedad, no cotejados en esta corrida.
 
 **No confirmado / pendiente:**

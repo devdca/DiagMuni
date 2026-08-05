@@ -15,6 +15,7 @@ prompt, en vez de dos `monkeypatch.setattr` independientes que se pisarían entr
 """
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from app.engine.plantillas import generar_contenido_degradado
 from app.ia import generador_plan, verificador
@@ -205,6 +206,12 @@ def test_verificado_nunca_es_false(monkeypatch):
 # (db.get/db.execute contra tablas con RLS) -- no se testean acá, no existe
 # infraestructura de DB real en el repo. Solo se ejercita la parte pura: el cálculo
 # de staleness. El resto queda verificado por lectura de código.
+#
+# Los tests de `revisar_job_obsoleto` más abajo cubren que `plan_job.py` invoca
+# `fijar_contexto_tenant` la cantidad correcta de veces tras cada `db.commit()` --
+# con una sesión espía, sin Postgres real. Que el contexto de tenant efectivamente
+# se vuelva a fijar a nivel de RLS en Postgres queda pendiente de confirmar contra
+# una instancia real.
 
 
 def test_esta_obsoleto_false_si_se_actualizo_hace_poco():
@@ -235,3 +242,101 @@ def test_esta_obsoleto_admite_datetime_naive():
     actualizado_en_naive = datetime(2026, 7, 31, 11, 30)  # sin tzinfo, 30 min antes
 
     assert plan_job._esta_obsoleto(actualizado_en_naive, umbral_minutos=15, ahora=ahora) is True
+
+
+# --- `revisar_job_obsoleto` -- vuelve a fijar el contexto de tenant tras cada commit ---
+#
+# `db.execute`/`db.get` reales (adentro de `_persistir_plan_degradado`) se mockean
+# directamente en `plan_job`, no se simulan con una sesión falsa -- eso ya está
+# fuera de alcance acá (ver nota arriba). Lo que se ejercita es que
+# `revisar_job_obsoleto`, tras cada uno de sus `db.commit()`, llama a
+# `fijar_contexto_tenant` exactamente una vez y en ese orden.
+
+_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
+_DIAGNOSTICO_ID = UUID("00000000-0000-0000-0000-000000000002")
+
+
+class _SesionEspia:
+    """Sesión mínima que solo registra `commit` -- `revisar_job_obsoleto` no llama
+    a ningún otro método de la sesión directamente cuando `_persistir_plan_degradado`
+    está mockeado, como en los tests de este bloque."""
+
+    def __init__(self, orden: list[str]) -> None:
+        self._orden = orden
+
+    def commit(self) -> None:
+        self._orden.append("commit")
+
+
+class _JobFalso:
+    def __init__(self, estado: str, intentos: int, updated_at: datetime | None = None) -> None:
+        self.estado = estado
+        self.intentos = intentos
+        self.diagnostico_tramite_id = _DIAGNOSTICO_ID
+        self.updated_at = updated_at
+
+
+def _espiar_fijar_contexto_tenant(monkeypatch, orden: list[str]) -> None:
+    def _fijar_contexto_espia(db, tenant_id) -> None:
+        assert tenant_id == _TENANT_ID
+        orden.append("fijar_contexto_tenant")
+
+    monkeypatch.setattr(plan_job, "fijar_contexto_tenant", _fijar_contexto_espia)
+
+
+def test_revisar_job_obsoleto_failed_con_limite_agotado_refija_contexto_tenant(monkeypatch):
+    monkeypatch.setattr(plan_job, "_persistir_plan_degradado", lambda db, tenant_id, diagnostico_id: True)
+    orden: list[str] = []
+    _espiar_fijar_contexto_tenant(monkeypatch, orden)
+    db = _SesionEspia(orden)
+    job = _JobFalso(estado="failed", intentos=plan_job.LIMITE_INTENTOS)
+
+    resultado = plan_job.revisar_job_obsoleto(db, _TENANT_ID, job)
+
+    assert resultado is False
+    assert job.estado == "done"
+    assert orden == ["commit", "fijar_contexto_tenant"]
+
+
+def test_revisar_job_obsoleto_failed_con_reintento_disponible_refija_contexto_tenant(monkeypatch):
+    orden: list[str] = []
+    _espiar_fijar_contexto_tenant(monkeypatch, orden)
+    db = _SesionEspia(orden)
+    job = _JobFalso(estado="failed", intentos=0)
+
+    resultado = plan_job.revisar_job_obsoleto(db, _TENANT_ID, job)
+
+    assert resultado is True
+    assert job.estado == "pending"
+    assert orden == ["commit", "fijar_contexto_tenant"]
+
+
+def test_revisar_job_obsoleto_running_obsoleto_con_limite_agotado_refija_contexto_tenant(monkeypatch):
+    monkeypatch.setattr(plan_job, "_esta_obsoleto", lambda *args, **kwargs: True)
+    monkeypatch.setattr(plan_job, "_persistir_plan_degradado", lambda db, tenant_id, diagnostico_id: False)
+    orden: list[str] = []
+    _espiar_fijar_contexto_tenant(monkeypatch, orden)
+    db = _SesionEspia(orden)
+    job = _JobFalso(estado="running", intentos=plan_job.LIMITE_INTENTOS - 1, updated_at=datetime.now(UTC))
+
+    resultado = plan_job.revisar_job_obsoleto(db, _TENANT_ID, job)
+
+    assert resultado is False
+    assert job.intentos == plan_job.LIMITE_INTENTOS
+    assert job.estado == "failed"
+    assert orden == ["commit", "fijar_contexto_tenant"]
+
+
+def test_revisar_job_obsoleto_running_obsoleto_con_reintento_disponible_refija_contexto_tenant(monkeypatch):
+    monkeypatch.setattr(plan_job, "_esta_obsoleto", lambda *args, **kwargs: True)
+    orden: list[str] = []
+    _espiar_fijar_contexto_tenant(monkeypatch, orden)
+    db = _SesionEspia(orden)
+    job = _JobFalso(estado="running", intentos=0, updated_at=datetime.now(UTC))
+
+    resultado = plan_job.revisar_job_obsoleto(db, _TENANT_ID, job)
+
+    assert resultado is True
+    assert job.intentos == 1
+    assert job.estado == "pending"
+    assert orden == ["commit", "fijar_contexto_tenant"]
