@@ -120,6 +120,75 @@ def test_sonnet_falla_fable_responde_usa_prosa_de_fable(monkeypatch):
         )
 
 
+def test_sonnet_falla_fable_falla_local_responde_usa_prosa_local(monkeypatch):
+    def disponibilidad(ruta: str) -> bool:
+        return ruta in {"calidad", "calidad_respaldo", "local"}
+
+    def api_key(ruta):
+        if ruta in {"calidad", "calidad_respaldo"}:
+            return "sk-test"
+        return None
+
+    def api_base(ruta):
+        if ruta == "local":
+            return "http://localhost:11434"
+        return None
+
+    monkeypatch.setattr(generador_plan, "esta_disponible", disponibilidad)
+    monkeypatch.setattr(generador_plan, "api_key_de", api_key)
+    monkeypatch.setattr(generador_plan, "api_base_de", api_base)
+
+    def _completion_espia(*args, **kwargs):
+        if kwargs["model"] in {"anthropic/claude-sonnet-4-5", "anthropic/claude-fable-5"}:
+            raise TimeoutError("simulated timeout en Claude")
+        assert kwargs["model"] == "ollama/phi3"
+        assert kwargs["api_base"] == "http://localhost:11434"
+        assert kwargs["timeout"] == 180
+        return _mock_respuesta_llm("Prosa generada por Ollama local.")
+
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
+
+    contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+
+    assert len(contenido["brechas"]) > 0
+    for brecha in contenido["brechas"]:
+        assert brecha["narrativa"] == "Prosa generada por Ollama local."
+
+
+def test_antropic_no_disponible_local_disponible_usa_prosa_local(monkeypatch):
+    def disponibilidad(ruta: str) -> bool:
+        return ruta == "local"
+
+    def api_key(ruta):
+        return None
+
+    def api_base(ruta):
+        if ruta == "local":
+            return "http://localhost:11434"
+        return None
+
+    llamadas = []
+
+    def _completion_espia(*args, **kwargs):
+        llamadas.append(kwargs)
+        assert kwargs["model"] == "ollama/phi3"
+        assert kwargs["api_base"] == "http://localhost:11434"
+        assert kwargs["timeout"] == 180
+        return _mock_respuesta_llm("Prosa Ollama directo.")
+
+    monkeypatch.setattr(generador_plan, "esta_disponible", disponibilidad)
+    monkeypatch.setattr(generador_plan, "api_key_de", api_key)
+    monkeypatch.setattr(generador_plan, "api_base_de", api_base)
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
+
+    contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+
+    assert len(llamadas) > 0
+    assert all(call["model"] == "ollama/phi3" for call in llamadas)
+    for brecha in contenido["brechas"]:
+        assert brecha["narrativa"] == "Prosa Ollama directo."
+
+
 def test_sonnet_y_fable_fallan_cae_a_plantilla_sin_propagar(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")

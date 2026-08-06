@@ -1,11 +1,15 @@
 """Datos semilla (docs/plan-implementacion.md, tarea B4): 2 tenants (MX y UY, para
 ejercitar ambas ramas normativas), 1 usuario cada uno, 3 trámites de prueba cada uno.
 
+Fixture de desarrollo/pruebas únicamente — nunca fuente de verdad para datos de un
+municipio o intendencia real. Se niega a correr si ENVIRONMENT=production.
+
 Uso: python -m app.seed
 """
 
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import Tenant, Tramite, Usuario
@@ -21,6 +25,12 @@ def _set_tenant(db, tenant_id) -> None:
 
 
 def run() -> None:
+    if settings.environment == "production":
+        raise RuntimeError(
+            "seed.py crea un usuario con password fijo ('cambiar123') conocido públicamente en el "
+            "repo — nunca debe correr contra producción. ENVIRONMENT=production detectado, abortando."
+        )
+
     db = SessionLocal()
     try:
         tenant_mx = Tenant(nombre="Municipio de Prueba (MX)", clave="prueba-mx", pais="mx")

@@ -12,8 +12,9 @@ Cuarto de los 6 documentos de blueprint de producto. Cubre todas las páginas de
 | `/tramites/:tramiteId/diagnostico` | Cuestionario de captura (F1) | Requiere sesión |
 | `/tramites/:tramiteId/plan` | Plan de modernización (F3 + F9) | Requiere sesión, requiere diagnóstico completo |
 | `/seguimiento` | Panel de seguimiento (F6) | Requiere sesión |
+| `/gobierno/perfil` | Perfil del gobierno (variables de contexto y capacidad institucional) | Requiere sesión |
 
-Nav superior fija en todas las pantallas con sesión: nombre del gobierno local (tenant, texto plano — nunca un selector visible, ver `docs/ux-brief.md` pantalla 1), enlaces "Inicio" y "Seguimiento", botón "Cerrar sesión". Sin sidebar — 5 rutas no lo justifican.
+Nav superior fija en todas las pantallas con sesión: nombre del gobierno local (tenant, texto plano — nunca un selector visible, ver `docs/ux-brief.md` pantalla 1), enlaces "Inicio", "Perfil del gobierno" y "Seguimiento", botón "Cerrar sesión". Sin sidebar — 6 rutas no lo justifican.
 
 ## Diagrama de navegación
 
@@ -23,6 +24,7 @@ flowchart TD
     B -->|clic en trámite sin iniciar o en progreso| C[/tramites/:id/diagnostico]
     B -->|clic en trámite con plan listo| D[/tramites/:id/plan]
     B -->|clic en "Seguimiento" en nav| E[/seguimiento]
+    B -->|clic en "Perfil del gobierno" en nav| G[/gobierno/perfil]
     C -->|Guardar y continuar después| B
     C -->|Enviar diagnóstico completo| F{Job: generar plan}
     F -->|plan listo o degradado| D
@@ -30,10 +32,13 @@ flowchart TD
     E -->|clic en acción| D
     D -->|clic en "Inicio" en nav| B
     E -->|clic en "Inicio" en nav| B
+    G -->|clic en "Inicio" en nav| B
+    G -->|clic en "Seguimiento" en nav| E
     B -->|Cerrar sesión| A
     C -->|Cerrar sesión| A
     D -->|Cerrar sesión| A
     E -->|Cerrar sesión| A
+    G -->|Cerrar sesión| A
 ```
 
 ## Estados del trámite (máquina de estados)

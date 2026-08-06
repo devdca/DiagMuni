@@ -23,7 +23,7 @@ No solo en runtime — el motor determinista se construye y se valida **completo
 | B1 | Modelos SQLAlchemy + migración inicial Alembic de las 7 tablas (`docs/backend-schema.md`) | A1 | B2, C1 |
 | B2 | Políticas RLS por tabla (SQL, `docs/backend-schema.md`) | B1 | C1 (sin RLS, no se prueba nada multi-tenant) |
 | B3 | Auth: `POST /api/auth/login`, JWT, middleware `SET app.tenant_id` | B2, A4 | D1 |
-| B4 | Script de datos semilla: 1 tenant, 1 usuario, 3-5 trámites de prueba (MX y UY) | B1 | C1, D1 |
+| B4 | Script de datos semilla: 1 tenant, 1 usuario, 3-5 trámites de prueba (MX y UY) — fixture de desarrollo, no fuente de verdad; `app/seed.py` aborta si `ENVIRONMENT=production` para no crear el usuario de password fijo fuera de dev/test | B1 | C1, D1 |
 
 ## Fase C — Motor determinista (cero LLM en toda esta fase)
 

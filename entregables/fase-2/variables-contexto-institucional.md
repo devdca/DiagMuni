@@ -14,7 +14,7 @@ Entregable de diseño puro (sin código), mismo estándar que `entregables/fase-
 - `docs/PRD.md` línea 22: "Interlocutor institucional según país: en Uruguay, la intendencia (Ley 19.272); en México, el ayuntamiento a través de su Autoridad Municipal de Simplificación y Digitalización (LNETB art. 11)." — el PRD ya nombra la Autoridad como interlocutor institucional, fuera incluso de la matriz normativa.
 - `docs/app-flow.md` líneas 8-16 (mapa de rutas): 5 rutas (`/login`, `/`, `/tramites/:tramiteId/diagnostico`, `/tramites/:tramiteId/plan`, `/seguimiento`); ninguna cubre un perfil de gobierno — vacío de especificación real, no solo de código.
 - `docs/ux-brief.md` líneas 62-77 (pantallas 1-5): ninguna de las 5 pantallas documentadas menciona población, personal, presupuesto TIC, área TIC, conectividad, normativa local o Autoridad/Enlace/convenio Agesic.
-- `docs/backend-schema.md` líneas 21-29 (tabla `tenant`): columnas actuales `id`, `nombre`, `pais`, `clave` (agregada por la migración `0002`, ver `backend/app/models/tenant.py` líneas 17-23), `created_at` — sin ninguna columna de contexto o capacidad institucional.
+- `docs/backend-schema.md` líneas 22-30 (tabla `tenant`): columnas actuales `id`, `nombre`, `pais`, `clave` (agregada por la migración `0002`, ver `backend/app/models/tenant.py` líneas 17-23), `created_at` — sin ninguna columna de contexto o capacidad institucional.
 - `backend/app/engine/reglas_loader.py` línea 63: `cargar_catalogo()` itera `for archivo in sorted(REGLAS_DIR.glob("*.yaml"))` — cualquier archivo `.yaml` nuevo en `backend/app/engine/reglas/` se incorpora automáticamente al catálogo, sin tocar este módulo (relevante para la sección 3.1).
 - `backend/app/engine/reglas_loader.py` líneas 17-25 (`AccionPais`, `@dataclass(frozen=True)`): los 7 campos (`paso_administrativo`, `paso_tecnico`, `paso_organizacional`, `prerrequisitos`, `por_que_importa`, `fuente_normativa`, `categoria_catalogo`) son obligatorios, sin default — cualquier regla nueva debe rellenar los 7, incluida `categoria_catalogo` como `str` (relevante para la sección 3.1, por qué se opta por una categoría "vacía" en vez de `null`).
 - `backend/app/engine/madurez.py` líneas 96-97 (docstring de `calcular_indice_madurez`): "`proteccion_datos_incompleta` NO participa aquí: es transversal (`datos_personales.yaml`), no gatilla un nivel específico del índice" — mismo patrón que se reutiliza en la sección 3.1 para la variable de gobernanza.
@@ -23,6 +23,7 @@ Entregable de diseño puro (sin código), mismo estándar que `entregables/fase-
 - `backend/app/api/deps.py` líneas 17-42: `TokenData` (`usuario_id`, `tenant_id`, `rol`), `get_current_token` (decodifica JWT vía `HTTPBearer`) y `get_db` (abre sesión con RLS ya fijado vía `tenant_scoped_session(token.tenant_id)`) — mecanismo de autenticación que reutiliza sin cambios el endpoint propuesto en la sección 5.
 - `backend/app/api/tramites.py` líneas 14, 65-74 (`crear_tramite`): patrón ya usado de un endpoint autenticado que nunca acepta `tenant_id` en el body — lo toma siempre de `token.tenant_id` (`Tramite(tenant_id=token.tenant_id, ...)`) — mismo patrón que se reutiliza en el contrato de la sección 5.
 - `backend/alembic/versions/0002_tenant_clave.py` (íntegro): única migración posterior a la inicial, patrón de cabecera (`revision`, `down_revision`, docstring con referencia al entregable de diseño) que la migración `0003` propuesta en la sección 4.2 reutiliza.
+- `backend/alembic/versions/0001_initial_schema.py` líneas 156-168: el patrón real de RLS del proyecto usa `ENABLE ROW LEVEL SECURITY` seguido de `FORCE ROW LEVEL SECURITY` antes de crear la policy, con este comentario explícito en el archivo: "FORCE (no solo ENABLE) es necesario: por default Postgres exime al dueño de la tabla de RLS, y en este docker-compose el usuario de la app es el mismo que corrió la migración (el dueño). Sin FORCE, la policy sería 'la única barrera' solo de nombre — la app la saltaría en silencio." La versión abreviada de `docs/backend-schema.md` líneas 120-129 no menciona `FORCE`; la migración `0003` de la sección 4.2 de este documento sigue el patrón real de `0001`, no la versión abreviada.
 
 ## 1. Nivel de captura: gobierno completo, no por trámite
 
@@ -42,7 +43,7 @@ Contrato preciso, empezando por la variable con sustento normativo completo ya i
 
 ### 2.1 `autoridad_gobernanza_digital` (boolean)
 
-- **Pregunta al funcionario (texto por país, mismo campo subyacente — mismo patrón que `proteccion_datos_incompleta`, cuyo criterio es textualmente idéntico en ambas ramas pero su significado real difiere por país, `backend/app/engine/reglas/datos_personales.yaml` líneas 8 y 16):**
+- **Pregunta al funcionario (texto por país, mismo campo subyacente — mismo patrón que `proteccion_datos_incompleta`, cuyo `criterio_deteccion` es único para ambas ramas y cuyo `por_que_importa` es textualmente idéntico en ambas ramas, aunque el paso administrativo concreto sí difiere por país, `backend/app/engine/reglas/datos_personales.yaml` línea 5 (`criterio_deteccion`, único para ambas ramas) y líneas 12/20 (`por_que_importa`, texto idéntico en ambas ramas)):**
   - México: "¿Existe la Autoridad Municipal de Simplificación y Digitalización (LNETB art. 11, con sus 5 áreas sustantivas) y su Enlace designado (art. 14)?"
   - Uruguay: "¿Existe un convenio vigente con Agesic para asesoría en transformación digital?"
 - **Tipo:** `boolean`, nullable hasta que se responda.
@@ -145,14 +146,14 @@ Ninguna de estas 6 variables gatilla una brecha→acción real en esta iteració
 
 Se opta por una **tabla nueva**, no columnas agregadas a `tenant`, por tres razones:
 
-1. `tenant` es "la tabla raíz que define el aislamiento" (`docs/backend-schema.md` línea 29, "Sin RLS") — agregar 7 columnas editables y de negocio a esa tabla mezclaría el rol de identidad/aislamiento con el de perfil de contexto, que sí necesita RLS propio (a diferencia de `tenant`).
+1. `tenant` es "la tabla raíz que define el aislamiento" (`docs/backend-schema.md` línea 30, "Sin RLS") — agregar 7 columnas editables y de negocio a esa tabla mezclaría el rol de identidad/aislamiento con el de perfil de contexto, que sí necesita RLS propio (a diferencia de `tenant`).
 2. El patrón ya usado en el proyecto para datos 1:1 opcionales y editables independientemente del ciclo de vida de otra entidad es una tabla propia con FK único (`plan_modernizacion` 1:1 lógico con la versión activa de un `diagnostico_tramite`, aunque con cardinalidad distinta) — no una alteración de la tabla padre.
 3. Mantiene la migración `0003` **más simple y menos riesgosa que la `0002`**: una tabla nueva no tiene filas existentes que hacer *backfill* (a diferencia de `0002`, que sí necesitó tres pasos por las filas ya sembradas del piloto, `backend/alembic/versions/0002_tenant_clave.py` líneas 20-35) — aquí basta un `create_table`, sin ningún riesgo para datos ya persistidos.
 
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid, PK | |
-| `tenant_id` | uuid, FK → tenant, **UNIQUE** | Fuerza la relación 1:1; lleva RLS igual que el resto de tablas con `tenant_id` (`docs/backend-schema.md` líneas 102-111) |
+| `tenant_id` | uuid, FK → tenant, **UNIQUE** | Fuerza la relación 1:1; lleva RLS igual que el resto de tablas con `tenant_id` (`docs/backend-schema.md` líneas 120-129) |
 | `poblacion_total` | integer, nullable | `>= 0` si no nulo (constraint `CHECK`, ver 4.2) |
 | `personal_total_gobierno` | integer, nullable | `>= 0` si no nulo |
 | `presupuesto_tic_anual` | numeric(14,2), nullable | `>= 0` si no nulo; moneda implícita por `tenant.pais` |
@@ -230,12 +231,13 @@ def upgrade() -> None:
         "contexto_institucional",
         "presupuesto_tic_anual IS NULL OR presupuesto_tic_anual >= 0",
     )
-    # Política RLS — mismo patrón que docs/backend-schema.md líneas 106-109
+    # Política RLS — mismo patrón que backend/alembic/versions/0001_initial_schema.py líneas 156-168
+    op.execute("ALTER TABLE contexto_institucional ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE contexto_institucional FORCE ROW LEVEL SECURITY")
     op.execute(
         "CREATE POLICY tenant_isolation ON contexto_institucional "
         "USING (tenant_id = current_setting('app.tenant_id')::uuid);"
     )
-    op.execute("ALTER TABLE contexto_institucional ENABLE ROW LEVEL SECURITY;")
 
 
 def downgrade() -> None:
@@ -262,7 +264,7 @@ El modelo ORM `backend/app/models/contexto_institucional.py` (nuevo archivo) y s
 Justificación:
 
 - No es un paso de onboarding obligatorio porque, como ya se confirmó en la sección 1 punto 5, ninguna transición de la máquina de estados de `docs/app-flow.md` líneas 41-49 depende de este perfil — forzarlo como paso bloqueante inventaría una regla de producto no pedida por ningún documento existente.
-- No encaja como sección dentro de una pantalla ya existente: la pantalla 2 ("Panel resumen", `docs/ux-brief.md` línea 65-66) está descrita como "tarjeta superior con el índice de madurez global... debajo, tabla de trámites" — insertar 7 campos de perfil ahí rompería el mandato de esa pantalla ("un solo número por trámite, no series de tiempo... sin gráficas de tendencia", línea 66) al convertirla en un formulario además de un resumen. La pantalla 3 (cuestionario F1) es explícitamente **por trámite** (`docs/ux-brief.md` línea 68-71) — ya se descartó en la sección 1 que estas variables sean por trámite.
+- No encaja como sección dentro de una pantalla ya existente: la pantalla 2 ("Panel resumen", `docs/ux-brief.md` línea 65-66) está descrita como "tarjeta superior con el índice de madurez global... debajo, tabla de trámites" — insertar 7 campos de perfil ahí rompería el mandato de esa pantalla ("Sin gráficas de tendencia en el MVP — un solo número por trámite, no series de tiempo", línea 66) al convertirla en un formulario además de un resumen. La pantalla 3 (cuestionario F1) es explícitamente **por trámite** (`docs/ux-brief.md` línea 68-71) — ya se descartó en la sección 1 que estas variables sean por trámite.
 - Una pantalla nueva y dedicada respeta el principio de "pantalla mínima" de cada pantalla individual (`docs/ux-brief.md` línea 63, aplicado ahí al login) sin sobrecargar ninguna de las 5 pantallas ya aprobadas con un objetivo distinto al que tienen hoy.
 
 **Acceso:** nav superior (`docs/app-flow.md` línea 16) pasa de dos enlaces ("Inicio", "Seguimiento") a tres ("Inicio", "Perfil del gobierno", "Seguimiento") — sigue sin sidebar, 6 rutas totales no lo justifican (mismo criterio ya usado en `docs/app-flow.md` línea 16 para las 5 rutas actuales). Requiere sesión, igual que las demás rutas autenticadas; no requiere que ningún trámite esté diagnosticado ni ninguna otra precondición.
@@ -309,12 +311,12 @@ Ningún archivo de `backend/` ni `frontend/` fue creado ni modificado por este d
 
 ## 6. Actualizaciones a los documentos de blueprint
 
-Se editaron, con la misma disciplina de cita de fuente que el resto de esta casa:
+Se editan los 4 documentos de blueprint, con la misma disciplina de cita de fuente que el resto de esta casa. El estado descrito abajo corresponde al contenido efectivamente presente en cada archivo al momento de entregar este documento:
 
-- **`docs/PRD.md`**: línea 31 (alcance del MVP, punto 1) — se agregó la aclaración de que las variables de contexto y capacidad institucional (incluida la de gobernanza ya investigada en fase 1) se capturan una sola vez por gobierno, no por trámite, con referencia a este documento para el contrato completo. Línea 62 (modelo conceptual de datos) — se agregó la entidad `contexto_institucional` a la lista de entidades principales, con referencia a este documento.
-- **`docs/backend-schema.md`**: se agregó la sección de la tabla `contexto_institucional` (mismo formato que las demás tablas del documento) y se actualizó el diagrama de entidades (`mermaid`) con la relación `TENANT ||--o| CONTEXTO_INSTITUCIONAL`.
-- **`docs/app-flow.md`**: se agregó la ruta `/gobierno/perfil` al mapa de rutas, se actualizó la descripción de la nav superior (línea 16) para incluir el nuevo enlace, y se actualizó el diagrama de navegación (`mermaid`) con el nodo y las transiciones nuevas.
-- **`docs/ux-brief.md`**: se agregó la pantalla 6, "Perfil del gobierno", con referencia a este documento para el contrato completo de campos y endpoints.
+- **`docs/PRD.md`**: en el punto 1 del alcance del MVP se agrega, al final de la oración que ya enumera el cuestionario por trámite más las variables de contexto y de capacidad institucional, la aclaración de que estas dos últimas (incluida la de gobernanza) se capturan una sola vez por gobierno (tenant), nunca por trámite, con referencia a este documento para el contrato completo. En el modelo conceptual de datos se agrega la entidad `contexto_institucional` a la lista de entidades principales, con referencia a este documento.
+- **`docs/backend-schema.md`**: se agrega la sección de la tabla `contexto_institucional` (mismo formato que las demás tablas del documento, columnas de la sección 4.1 de este documento) inmediatamente después de la tabla `tenant`, y se agrega al diagrama de entidades (`mermaid`) la relación `TENANT ||--o| CONTEXTO_INSTITUCIONAL : perfila`.
+- **`docs/app-flow.md`**: se agrega la ruta `/gobierno/perfil` al mapa de rutas ("Requiere sesión"), se actualiza la descripción de la nav superior para incluir el nuevo enlace ("Inicio", "Perfil del gobierno", "Seguimiento"), y se agrega el nodo y las transiciones correspondientes al diagrama de navegación (`mermaid`).
+- **`docs/ux-brief.md`**: se agrega la pantalla 6, "Perfil del gobierno", después de la pantalla 5, con el contenido de componentes ya especificado en la sección 5.1 de este documento (los 4 campos booleanos como `RadioGroup`, `conectividad` como `Select`, los 3 campos numéricos como `Input`, un `Card` por bloque).
 
 ## 7. Pendientes y `[NO VERIFICADO]`
 

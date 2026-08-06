@@ -16,16 +16,15 @@ import litellm
 from app.engine.catalogo_loader import componente_recomendado_para
 from app.engine.plantillas import _narrativa_plantilla
 from app.engine.reglas_loader import AccionPais, cargar_catalogo, criterio_se_cumple
-from app.ia.config import api_key_de, esta_disponible, obtener_ruta
+from app.ia.config import (
+    api_base_de,
+    api_key_de,
+    esta_disponible,
+    obtener_ruta,
+    obtener_rutas_generacion,
+)
 
 TIMEOUT_SEGUNDOS = 30
-
-# Una llamada por brecha (no una sola para todo el plan) evita que el LLM mezcle
-# hechos entre brechas distintas.
-_RUTA_LLM = "calidad"
-# Respaldo de `_RUTA_LLM`: se intenta solo si la llamada a `calidad` falla. Comparte
-# la misma API key (`esta_disponible(_RUTA_LLM)` sigue siendo la única puerta).
-_RUTA_LLM_RESPALDO = "calidad_respaldo"
 
 _PROMPT_INSTRUCCIONES = (
     "Redacta un párrafo breve, profesional y en español neutro, dirigido a un "
@@ -57,12 +56,21 @@ def _intentar_narrativa_via_ruta(nombre_ruta: str, accion: AccionPais) -> str:
     `_narrativa_llm` decidir qué hacer con el fallo, esta función no degrada nada."""
     ruta = obtener_ruta(nombre_ruta)
     api_key = api_key_de(ruta)
-    respuesta = litellm.completion(
-        model=ruta.model,
-        api_key=api_key,
-        messages=[{"role": "user", "content": _armar_prompt(accion)}],
-        timeout=TIMEOUT_SEGUNDOS,
-    )
+    api_base = None
+    if api_key is None:
+        api_base = api_base_de(ruta)
+
+    completion_kwargs = {
+        "model": ruta.model,
+        "messages": [{"role": "user", "content": _armar_prompt(accion)}],
+        "timeout": ruta.timeout_segundos,
+    }
+    if api_key is not None:
+        completion_kwargs["api_key"] = api_key
+    elif api_base is not None:
+        completion_kwargs["api_base"] = api_base
+
+    respuesta = litellm.completion(**completion_kwargs)
     # `respuesta` es un `ModelResponse` de LiteLLM; soporta acceso tipo dict
     # (y también en los mocks de test_generador_plan.py, que usan dicts planos).
     narrativa = respuesta["choices"][0]["message"]["content"]
@@ -77,20 +85,18 @@ def _narrativa_llm(accion: AccionPais) -> str:
     determinista. Nunca lanza una excepción hacia quien llama: ese es precisamente
     el contrato de degradación de docs/TRD.md citado arriba.
 
-    Cadena de intentos: `calidad` (Claude Sonnet) -> `calidad_respaldo` (Claude
-    Fable) -> `_narrativa_plantilla`. Ambas rutas comparten la misma API key, por
-    lo que la disponibilidad se decide una sola vez en `generar_contenido_llm`."""
-    try:
-        return _intentar_narrativa_via_ruta(_RUTA_LLM, accion)
-    except Exception:
-        pass
+    Cadena de intentos según `LLM_PROVIDER`.
+    """
+    for nombre_ruta in obtener_rutas_generacion():
+        if not esta_disponible(nombre_ruta):
+            continue
 
-    try:
-        return _intentar_narrativa_via_ruta(_RUTA_LLM_RESPALDO, accion)
-    except Exception:
-        # Cualquier fallo de ambas rutas (timeout, red, API, respuesta malformada/
-        # vacía) cae en la misma narrativa del modo degradado, nunca se propaga.
-        return _narrativa_plantilla(accion)
+        try:
+            return _intentar_narrativa_via_ruta(nombre_ruta, accion)
+        except Exception:
+            pass
+
+    return _narrativa_plantilla(accion)
 
 
 def generar_contenido_llm(respuestas: dict, pais: str) -> dict:
@@ -108,11 +114,11 @@ def generar_contenido_llm(respuestas: dict, pais: str) -> dict:
             continue
         accion = regla.acciones[pais]
 
-        if esta_disponible(_RUTA_LLM):
+        if esta_disponible(_RUTA_LLM) or esta_disponible(_RUTA_LLM_LOCAL):
             narrativa = _narrativa_llm(accion)
         else:
-            # Sin API key configurada: ni siquiera se intenta la llamada (docs/TRD.md,
-            # `esta_disponible` existe justamente para evitar una llamada que fallaría).
+            # Sin ruta de generación disponible: ni siquiera se intenta la llamada.
+            # `esta_disponible` existe para evitar una llamada que fallaría.
             narrativa = _narrativa_plantilla(accion)
 
         brechas.append(

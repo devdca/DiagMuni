@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedLayout } from "./components/ProtectedLayout";
 import { SessionExpiredWatcher } from "./components/SessionExpiredWatcher";
 import { Diagnostico } from "./pages/Diagnostico";
+import { GobiernoPerfil } from "./pages/GobiernoPerfil";
 import { LoginPage } from "./pages/LoginPage";
 import { PanelResumen } from "./pages/PanelResumen";
 import { Plan } from "./pages/Plan";
@@ -11,7 +12,7 @@ import { Seguimiento } from "./pages/Seguimiento";
 
 const queryClient = new QueryClient();
 
-// Las 5 rutas del mapa de docs/app-flow.md líneas 8-14, ni una más.
+// Las 6 rutas del mapa de docs/app-flow.md líneas 8-15, ni una más.
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -24,6 +25,7 @@ export function App() {
             <Route path="/tramites/:tramiteId/diagnostico" element={<Diagnostico />} />
             <Route path="/tramites/:tramiteId/plan" element={<Plan />} />
             <Route path="/seguimiento" element={<Seguimiento />} />
+            <Route path="/gobierno/perfil" element={<GobiernoPerfil />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

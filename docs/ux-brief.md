@@ -76,6 +76,9 @@ Encabezado con el índice actual → objetivo (misma paleta ordinal). Cuerpo: un
 ### 5. Panel de seguimiento (F6)
 Tabla simple: acción del plan, responsable, fecha objetivo, semáforo (paleta de estado de arriba, con ícono + texto). Sin funcionalidades de gestión de proyectos (sin Gantt, sin dependencias entre tareas) — mandato explícito de `evaluacion.md` es "nada de metodologías pesadas".
 
+### 6. Perfil del gobierno
+Pantalla dedicada (no un paso de onboarding bloqueante, no una sección dentro del Panel resumen) para las variables de contexto y capacidad institucional del gobierno, capturadas una sola vez por tenant — contrato completo de campos y endpoints en `entregables/fase-2/variables-contexto-institucional.md`. Un `Card` por bloque (contexto / capacidad institucional). Los 4 campos booleanos (`area_tic_existe`, `normativa_local_emitida`, `autoridad_gobernanza_digital`, y la pregunta de gobernanza con su texto condicionado por país) como `RadioGroup` "Sí"/"No", mismo patrón de pregunta cerrada que el cuestionario F1. `conectividad` como `Select` de 3 opciones (`estable`, `intermitente`, `sin_conexion`). `poblacion_total`, `personal_total_gobierno` y `presupuesto_tic_anual` como `Input` numérico. Guardado por campo o por bloque, sin noción de "enviar cuestionario completo" — no hay estado "incompleto" que bloquee nada.
+
 ## Accesibilidad
 
 Contraste mínimo AA en todo texto de UI (no solo en gráficos); todo estado (índice, semáforo) con texto además de color; objetivos de toque ≥ 44px para uso en tablet en mostrador; modo oscuro soportado desde el diseño del componente, no como añadido posterior — pero no es prioridad de validación visual sobre el modo claro para el piloto.
