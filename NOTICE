@@ -6,3 +6,26 @@ Laboratorio de Innovación Pública del INAP (https://www.inap.mx/).
 
 Ajustar la razón social exacta del titular de derechos antes de la
 publicación pública del repositorio si difiere de la indicada arriba.
+
+---
+
+Third-party code copied into this repository (not a package dependency):
+
+frontend/src/components/ui/button.tsx, card.tsx, badge.tsx, input.tsx
+frontend/src/lib/utils.ts
+  shadcn/ui (https://ui.shadcn.com) -- MIT License
+  Copyright (c) shadcn
+  docs/stack-tecnologico.md línea 25: "MIT, código copiado al repo, no
+  dependencia de paquete" -- adaptado a la paleta de docs/ux-brief.md.
+
+frontend/src/components/ui/radio-group.tsx, progress.tsx, textarea.tsx
+  shadcn/ui (https://ui.shadcn.com) -- MIT License
+  Copyright (c) shadcn
+  docs/stack-tecnologico.md línea 25: "MIT, código copiado al repo, no
+  dependencia de paquete" -- adaptado a la paleta de docs/ux-brief.md.
+
+frontend/src/components/ui/accordion.tsx
+  shadcn/ui (https://ui.shadcn.com) -- MIT License
+  Copyright (c) shadcn
+  docs/stack-tecnologico.md línea 25: "MIT, código copiado al repo, no
+  dependencia de paquete" -- adaptado a la paleta de docs/ux-brief.md.

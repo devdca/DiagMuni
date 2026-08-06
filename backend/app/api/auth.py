@@ -3,6 +3,7 @@ from sqlalchemy import select
 
 from app.core.security import create_access_token, verify_password
 from app.db.rls import abrir_sesion_tenant
+from app.models.tenant import Tenant
 from app.models.usuario import Usuario
 from app.schemas.auth import LoginRequest, TokenResponse
 
@@ -23,11 +24,14 @@ def login(payload: LoginRequest) -> TokenResponse:
         usuario = db.execute(
             select(Usuario).where(Usuario.tenant_id == payload.tenant_id, Usuario.email == payload.email)
         ).scalar_one_or_none()
+        # `tenant` no tiene RLS (es la tabla raíz de aislamiento) -- se puede leer
+        # con la misma sesión sin depender de app.tenant_id ya fijado arriba.
+        tenant = db.get(Tenant, payload.tenant_id)
     finally:
         db.close()
 
-    if usuario is None or not verify_password(payload.password, usuario.password_hash):
+    if usuario is None or tenant is None or not verify_password(payload.password, usuario.password_hash):
         # Mensaje en lenguaje llano, sin código técnico (docs/ux-brief.md, pantalla 1).
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Las credenciales no coinciden")
-    token = create_access_token(usuario.id, usuario.tenant_id, usuario.rol)
+    token = create_access_token(usuario.id, usuario.tenant_id, usuario.rol, tenant.nombre, tenant.pais)
     return TokenResponse(access_token=token)

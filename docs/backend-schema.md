@@ -14,6 +14,7 @@ erDiagram
     PLAN_MODERNIZACION ||--o{ ACCION_SEGUIMIENTO : contiene
     TENANT ||--o{ JOB : encola
     DIAGNOSTICO_TRAMITE ||--o| JOB : dispara
+    TENANT ||--o| CONTEXTO_INSTITUCIONAL : perfila
 ```
 
 ## Tablas
@@ -27,6 +28,23 @@ erDiagram
 | `created_at` | timestamptz | |
 
 Sin RLS (es la tabla raíz que define el aislamiento, no tiene `tenant_id` propio).
+
+### `contexto_institucional`
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid, PK | |
+| `tenant_id` | uuid, FK → tenant, **UNIQUE** | RLS; fuerza la relación 1:1 con `tenant` |
+| `poblacion_total` | integer, nullable | `>= 0` si no nulo |
+| `personal_total_gobierno` | integer, nullable | `>= 0` si no nulo |
+| `presupuesto_tic_anual` | numeric(14,2), nullable | `>= 0` si no nulo; moneda implícita por `tenant.pais` |
+| `area_tic_existe` | boolean, nullable | |
+| `conectividad` | enum(`estable`,`intermitente`,`sin_conexion`), nullable | |
+| `normativa_local_emitida` | boolean, nullable | |
+| `autoridad_gobernanza_digital` | boolean, nullable | Única columna con `criterio_deteccion` real en `engine/reglas/` |
+| `actualizado_en` | timestamptz, nullable | `NULL` hasta el primer guardado |
+| `created_at` | timestamptz | |
+
+Perfil de contexto y capacidad institucional del gobierno, 1:1 con `tenant`, capturado una sola vez por gobierno y editable en cualquier momento — contrato completo, justificación de cada columna y de la relación 1:1 en `entregables/fase-2/variables-contexto-institucional.md`.
 
 ### `usuario`
 | Columna | Tipo | Notas |

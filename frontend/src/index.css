@@ -1,0 +1,321 @@
+@import "tailwindcss";
+
+/* Modo oscuro por clase (".dark" en <html>) -- Tailwind v4 usa prefers-color-scheme
+   por default, pero docs/ux-brief.md ya fija valores hex de claro Y oscuro para la
+   paleta base, así que se deja el mecanismo listo. No hay todavía un interruptor de
+   UI que agregue la clase ".dark" -- pendiente, ver nota abajo. */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-atenuado: var(--atenuado);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+}
+
+/* Paleta neutral validada, docs/ux-brief.md sección "Paleta -- validada, no elegida
+   a ojo" -- sin marca INAP definida todavía, se sustituye cuando exista identidad
+   oficial sin tocar la estructura de componentes (mismo documento, principio 4). */
+:root {
+  --radius: 0.75rem;
+
+  --background: #f4f3ee; /* superficie de página */
+  --card: #fcfcf9; /* superficie de tarjeta/panel */
+  --card-foreground: #1b1b18;
+  --foreground: #1b1b18; /* texto primario */
+  --muted: #f7f6f2;
+  --muted-foreground: #5b584f; /* texto secundario */
+  --atenuado: #7f7c73; /* texto atenuado: ayudas, placeholders */
+  --border: #d8d0c1; /* línea divisoria */
+  --input: #ece7db;
+  --ring: #5e6a79;
+
+  --primary: #243447;
+  --primary-foreground: #f8f6f1;
+  --secondary: #e9e3d6;
+  --secondary-foreground: #1b1b18;
+
+  /* No forma parte de la paleta neutral de docs/ux-brief.md -- se toma prestado el
+     "critical" del semáforo de seguimiento (#d03b3b, misma sección del documento)
+     únicamente para el estado de error de formulario (borde/texto), nunca como
+     color de un badge de estado (esa regla es específica de F6). */
+  --destructive: #d03b3b;
+  --destructive-foreground: #fcfcfb;
+}
+
+.dark {
+  --background: #121212;
+  --card: #1b1b1a;
+  --card-foreground: #f7f4eb;
+  --foreground: #f7f4eb;
+  --muted: #1b1b1a;
+  --muted-foreground: #c9c4b4;
+  --atenuado: #8b887f;
+  --border: #2f2f2c;
+  --input: #2a2927;
+  --ring: #95a1b1;
+
+  --primary: #f2eee1;
+  --primary-foreground: #121212;
+  --secondary: #23211f;
+  --secondary-foreground: #f7f4eb;
+
+  --destructive: #d03b3b;
+  --destructive-foreground: #0d0d0d;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family:
+      "Segoe UI",
+      Inter,
+      Roboto,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Helvetica Neue",
+      sans-serif;
+    background-image:
+      radial-gradient(circle at top left, rgba(36, 52, 71, 0.06) 0%, transparent 30%),
+      linear-gradient(135deg, #f6f5ef 0%, #efece3 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    letter-spacing: 0.01em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgba(36, 52, 71, 0.16);
+    color: var(--foreground);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
+    transition:
+      transform 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  button:hover:not(:disabled),
+  [type="button"]:hover:not(:disabled),
+  [type="submit"]:hover:not(:disabled),
+  [type="reset"]:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    color: var(--foreground);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--atenuado);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px rgba(94, 106, 121, 0.16);
+  }
+}
+
+@layer components {
+  .bg-card,
+  .bg-white {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 246, 240, 0.96) 100%);
+    backdrop-filter: blur(6px);
+  }
+
+  .bg-background {
+    background: linear-gradient(135deg, #f6f5ef 0%, #efece3 100%);
+  }
+
+  .shadow-sm {
+    box-shadow: 0 1px 2px rgba(20, 30, 43, 0.04), 0 10px 24px rgba(20, 30, 43, 0.06);
+  }
+
+  .shadow {
+    box-shadow: 0 12px 30px rgba(20, 30, 43, 0.08);
+  }
+
+  .rounded-xl {
+    border-radius: 1rem;
+  }
+
+  .rounded-lg {
+    border-radius: 0.8rem;
+  }
+
+  .border-border {
+    border-color: #d8d0c1;
+  }
+
+  .text-muted-foreground {
+    color: var(--muted-foreground);
+  }
+
+  .app-navbar {
+    position: fixed;
+    inset: 0 auto auto 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    border-bottom: 1px solid rgba(216, 208, 193, 0.85);
+    background: rgba(252, 252, 249, 0.96);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 30px rgba(20, 30, 43, 0.08);
+  }
+
+  .app-navbar.dark {
+    background: rgba(26, 26, 25, 0.92);
+    border-bottom-color: rgba(47, 47, 44, 0.85);
+  }
+
+  .app-navbar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.5rem;
+    min-height: 5.5rem;
+  }
+
+  .app-navbar-brand {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--primary);
+    text-transform: uppercase;
+    opacity: 0.95;
+  }
+
+  .app-navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 1.15rem;
+    flex-wrap: wrap;
+  }
+
+  .app-navbar-links a,
+  .app-navbar-logout {
+    font-size: 0.95rem;
+    color: var(--foreground);
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.75rem;
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+  }
+
+  .app-navbar-links a:hover,
+  .app-navbar-logout:hover {
+    background-color: rgba(36, 52, 71, 0.08);
+    color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  .app-navbar-links a {
+    font-weight: 500;
+  }
+
+  .app-navbar-logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    border: 1px solid transparent;
+    min-width: 11rem;
+    cursor: pointer;
+  }
+
+  .app-navbar-logout:hover {
+    background-color: #1f3147;
+    color: #f7f4eb;
+  }
+
+  .app-navbar a {
+    text-decoration: none;
+  }
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08) 0%, transparent 30%),
+    linear-gradient(135deg, #111111 0%, #171717 100%);
+}
+
+.dark .bg-card,
+.dark .bg-white {
+  background: linear-gradient(180deg, rgba(26, 26, 25, 0.98) 0%, rgba(18, 18, 18, 0.96) 100%);
+}
+
+.dark .bg-background {
+  background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: rgba(26, 26, 25, 0.86);
+  border-color: var(--border);
+}
+
+.dark .border-border {
+  border-color: #2f2f2c;
+}

@@ -28,7 +28,7 @@ Interlocutor institucional según país: en Uruguay, la intendencia (Ley 19.272)
 ## Alcance del MVP (piloto)
 
 ### Dentro de alcance
-1. Cuestionario de diagnóstico por trámite (documentos papel/digital, pagos en línea, firma-e, interoperabilidad, datos personales, mecanismo de identidad/acceso ciudadano — Llave MX / ID Uruguay / propio / ninguno) + variables de contexto (población, personal, presupuesto TIC) + variables de capacidad institucional (área TIC, conectividad, normativa local).
+1. Cuestionario de diagnóstico por trámite (documentos papel/digital, pagos en línea, firma-e, interoperabilidad, datos personales, mecanismo de identidad/acceso ciudadano — Llave MX / ID Uruguay / propio / ninguno) + variables de contexto (población, personal, presupuesto TIC) + variables de capacidad institucional (área TIC, conectividad, normativa local). Las variables de contexto y de capacidad institucional (incluida la de gobernanza) se capturan una sola vez por gobierno (tenant), nunca por trámite — contrato completo en `entregables/fase-2/variables-contexto-institucional.md`.
 2. Cálculo del índice de madurez 0-4 por trámite y agregado global, con criterios binarios verificables (no juicio subjetivo).
 3. Generador de plan de modernización: brechas → acciones (tecnología del catálogo OSS, inversión estimada, personal/capacitación, secuencia).
 4. Panel simple de seguimiento del plan (semáforo por acción, responsable, fecha).
@@ -59,7 +59,7 @@ Interlocutor institucional según país: en Uruguay, la intendencia (Ley 19.272)
 
 ## Modelo conceptual de datos (alto nivel — el detalle exhaustivo va en el próximo documento, `docs/backend-schema.md`)
 
-Entidades principales: `tenant` (gobierno local), `usuario` (funcionario, con rol), `tramite` (catálogo, por tenant), `diagnostico_tramite` (respuestas + índice calculado, versión de reglas), `plan_modernizacion` (acciones generadas), `accion_seguimiento` (estado del semáforo), `job` (async de generación de plan vía LLM).
+Entidades principales: `tenant` (gobierno local), `usuario` (funcionario, con rol), `tramite` (catálogo, por tenant), `diagnostico_tramite` (respuestas + índice calculado, versión de reglas), `plan_modernizacion` (acciones generadas), `accion_seguimiento` (estado del semáforo), `job` (async de generación de plan vía LLM), `contexto_institucional` (perfil de contexto y capacidad institucional del gobierno, 1:1 con `tenant` — ver `entregables/fase-2/variables-contexto-institucional.md`).
 
 ## Requisitos no funcionales
 
