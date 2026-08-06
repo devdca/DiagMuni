@@ -32,7 +32,7 @@ Primer borrador del catálogo de reglas brecha→acción (formato acordado en `d
 | Paso organizacional | Capacitar a caja/tesorería en conciliación de pagos en línea | Igual |
 | Prerrequisitos | Cuenta bancaria institucional habilitada para cobros electrónicos | Igual |
 | Por qué importa | Bloquea el paso a índice 3 (transaccional completo) | Igual |
-| Fuente normativa | LNETB art. 54-XI (verificado); CFDI — CFF art. 29 y LISR art. 86, 5º párr. `[NO VERIFICADO — solo fuente secundaria, cotejar texto oficial]` | Estándar Agesic para pasarelas de pago + soluciones propias por intendencia (verificado); ausencia de pasarela estatal única `[NO VERIFICADO — hallazgo negativo, ver anexo_legislacion_uy.md §6]` |
+| Fuente normativa | LNETB art. 54-XI (verificado); CFDI — CFF art. 29 (verificado) y mecanismo de dos piezas de la LISR (art. 79-XXIII + art. 86, 5º párr.) `[VERIFICADO — confianza alta por concordancia de fuentes oficiales/oficiales-adyacentes independientes, sin cotejo literal del PDF de LeyesBiblio; ver entregables/fase-2/verificacion-motor-pagos.md §1.3]` | Estándar Agesic para pasarelas de pago + soluciones propias por intendencia (verificado); ausencia de pasarela estatal única `[NO VERIFICADO — hallazgo negativo, ver anexo_legislacion_uy.md §6]` |
 | Categoría de catálogo | `adaptador_pasarela_pago` | `adaptador_pasarela_pago` |
 
 ### 3. Firma electrónica

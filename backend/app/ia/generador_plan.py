@@ -85,14 +85,12 @@ def _narrativa_llm(accion: AccionPais) -> str:
     determinista. Nunca lanza una excepción hacia quien llama: ese es precisamente
     el contrato de degradación de docs/TRD.md citado arriba.
 
-    Cadena de intentos según `LLM_PROVIDER` cuando existe, o sobre todas las rutas
-    conocidas si la configuración de proveedor no está disponible.
+    Cadena de intentos resuelta por `obtener_rutas_generacion()` (ver
+    `app/ia/config.py::obtener_proveedor_llm`): sin `LLM_PROVIDER` explícito, solo
+    `local` entra por default -- nunca `calidad`/`economico` sin que el operador lo
+    pida a propósito. Una lista vacía cae directo a la plantilla, sin intentar nada.
     """
-    rutas = obtener_rutas_generacion()
-    if not rutas:
-        rutas = list(cargar_model_list().keys())
-
-    for nombre_ruta in rutas:
+    for nombre_ruta in obtener_rutas_generacion():
         if not esta_disponible(nombre_ruta):
             continue
 
@@ -142,8 +140,6 @@ def generar_contenido_llm(respuestas: dict, pais: str) -> dict:
             }
         )
 
-    # resumen_narrativo se mantiene determinista (mensaje de conteo/estado, no
-    # redacción compleja) — no amerita una llamada LLM adicional.
     if not brechas:
         resumen = "No hay brechas pendientes: todas las variables evaluadas ya cumplen el nivel máximo."
     else:

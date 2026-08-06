@@ -1,6 +1,8 @@
 """Tests del generador de plan con LLM (F3). Ninguno hace una llamada real --
 `litellm.completion` siempre monkeypatcheado."""
 
+import app.ia.config as ia_config
+from app.core.config import Settings
 from app.engine.catalogo_loader import componente_recomendado_para
 from app.engine.plantillas import _narrativa_plantilla, generar_contenido_degradado
 from app.ia import generador_plan
@@ -65,6 +67,11 @@ def test_sin_api_key_no_intenta_llamar_al_llm(monkeypatch):
 def test_llm_lanza_excepcion_cae_a_plantilla_sin_propagar(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
 
     def _completion_falla(*args, **kwargs):
         raise TimeoutError("simulated timeout")
@@ -84,6 +91,11 @@ def test_llm_devuelve_respuesta_vacia_cae_a_plantilla(monkeypatch):
     # no es una excepción de red, pero tampoco es prosa utilizable.
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
     monkeypatch.setattr(
         generador_plan.litellm, "completion", lambda *a, **k: _mock_respuesta_llm("   ")
     )
@@ -102,6 +114,11 @@ def test_llm_devuelve_respuesta_vacia_cae_a_plantilla(monkeypatch):
 def test_sonnet_falla_fable_responde_usa_prosa_de_fable(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
 
     def _completion_espia(*args, **kwargs):
         if kwargs["model"] == "anthropic/claude-sonnet-4-5":
@@ -125,18 +142,25 @@ def test_sonnet_falla_fable_falla_local_responde_usa_prosa_local(monkeypatch):
         return ruta in {"calidad", "calidad_respaldo", "local"}
 
     def api_key(ruta):
-        if ruta in {"calidad", "calidad_respaldo"}:
+        # `api_key_de`/`api_base_de` reciben la `RutaLLM` resuelta, no el nombre --
+        # se distingue por `ruta.model_name`.
+        if ruta.model_name in {"calidad", "calidad_respaldo"}:
             return "sk-test"
         return None
 
     def api_base(ruta):
-        if ruta == "local":
+        if ruta.model_name == "local":
             return "http://localhost:11434"
         return None
 
     monkeypatch.setattr(generador_plan, "esta_disponible", disponibilidad)
     monkeypatch.setattr(generador_plan, "api_key_de", api_key)
     monkeypatch.setattr(generador_plan, "api_base_de", api_base)
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
 
     def _completion_espia(*args, **kwargs):
         if kwargs["model"] in {"anthropic/claude-sonnet-4-5", "anthropic/claude-fable-5"}:
@@ -163,7 +187,9 @@ def test_antropic_no_disponible_local_disponible_usa_prosa_local(monkeypatch):
         return None
 
     def api_base(ruta):
-        if ruta == "local":
+        # `api_key_de`/`api_base_de` reciben la `RutaLLM` resuelta, no el nombre --
+        # se distingue por `ruta.model_name`.
+        if ruta.model_name == "local":
             return "http://localhost:11434"
         return None
 
@@ -179,6 +205,9 @@ def test_antropic_no_disponible_local_disponible_usa_prosa_local(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", disponibilidad)
     monkeypatch.setattr(generador_plan, "api_key_de", api_key)
     monkeypatch.setattr(generador_plan, "api_base_de", api_base)
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la única ruta disponible en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(generador_plan, "obtener_rutas_generacion", lambda: ["local"])
     monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
 
     contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
@@ -192,6 +221,11 @@ def test_antropic_no_disponible_local_disponible_usa_prosa_local(monkeypatch):
 def test_sonnet_y_fable_fallan_cae_a_plantilla_sin_propagar(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
 
     def _completion_falla_siempre(*args, **kwargs):
         raise TimeoutError(f"simulated timeout en {kwargs['model']}")
@@ -209,6 +243,11 @@ def test_sonnet_y_fable_fallan_cae_a_plantilla_sin_propagar(monkeypatch):
 def test_sonnet_falla_fable_recibe_model_y_api_key_correctos(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-respaldo")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
 
     llamadas = []
 
@@ -235,6 +274,11 @@ def test_sonnet_falla_fable_recibe_model_y_api_key_correctos(monkeypatch):
 def test_llm_exitoso_usa_prosa_del_mock_no_la_de_plantilla(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
     monkeypatch.setattr(
         generador_plan.litellm,
         "completion",
@@ -261,6 +305,11 @@ def _accion_de(variable: str, pais: str):
 def test_llm_recibe_model_y_api_key_correctos_de_la_ruta_calidad(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
 
     llamadas = []
 
@@ -277,6 +326,69 @@ def test_llm_recibe_model_y_api_key_correctos_de_la_ruta_calidad(monkeypatch):
         assert kwargs["model"] == "anthropic/claude-sonnet-4-5"
         assert kwargs["api_key"] == "sk-test-calidad"
         assert kwargs["timeout"] == generador_plan.TIMEOUT_SEGUNDOS
+
+
+# --- (e) regresión: sin LLM_PROVIDER explícito, nunca se usa una ruta de pago sola --
+
+
+def test_regresion_solo_key_de_pago_sin_llm_provider_no_llama_ninguna_ruta(monkeypatch):
+    """Regresión: tener solo `ANTHROPIC_API_KEY`/`DEEPSEEK_API_KEY` pobladas, sin
+    `LLM_PROVIDER` fijado, no debe bastar para que F3 use una ruta de pago
+    automáticamente -- exactamente lo que la decisión de Mario Alberto Quintana
+    (`LLM_PROVIDER`, ver `entregables/plan.md`) prohíbe.
+    No mockea `obtener_rutas_generacion` a propósito: ejercita la resolución real de
+    `app/ia/config.py` de punta a punta, solo variando la configuración."""
+    fake_settings = Settings(
+        anthropic_api_key="sk-real-anthropic",
+        deepseek_api_key="sk-real-deepseek",
+        ollama_api_base=None,
+        llm_provider=None,
+        jwt_secret="x",
+    )
+    monkeypatch.setattr(ia_config, "settings_global", fake_settings)
+
+    def _completion_no_debe_llamarse(*args, **kwargs):
+        raise AssertionError(
+            "no debe llamarse a ningún LLM sin LLM_PROVIDER explícito ni ruta local disponible"
+        )
+
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_no_debe_llamarse)
+
+    contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+    esperado = generar_contenido_degradado(RESPUESTAS_SIN_NADA, "mx")
+
+    narrativas_llm = {b["variable"]: b["narrativa"] for b in contenido["brechas"]}
+    narrativas_degradado = {b["variable"]: b["narrativa"] for b in esperado["brechas"]}
+    assert narrativas_llm == narrativas_degradado
+
+
+def test_regresion_solo_ollama_disponible_sin_llm_provider_usa_local(monkeypatch):
+    """Complemento del test anterior: sin `LLM_PROVIDER`, el único auto-detect
+    permitido es `local` -- si `OLLAMA_API_BASE` está poblada, sí debe usarse,
+    incluso con keys de pago también presentes."""
+    fake_settings = Settings(
+        anthropic_api_key="sk-real-anthropic",
+        deepseek_api_key="sk-real-deepseek",
+        ollama_api_base="http://localhost:11434",
+        llm_provider=None,
+        jwt_secret="x",
+    )
+    monkeypatch.setattr(ia_config, "settings_global", fake_settings)
+
+    llamadas = []
+
+    def _completion_espia(*args, **kwargs):
+        llamadas.append(kwargs)
+        return _mock_respuesta_llm("Prosa generada por Ollama, sin LLM_PROVIDER explícito.")
+
+    monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
+
+    contenido = generar_contenido_llm(RESPUESTAS_SIN_NADA, "mx")
+
+    assert len(llamadas) > 0
+    assert all(kwargs["model"] == "ollama/phi3" for kwargs in llamadas)
+    for brecha in contenido["brechas"]:
+        assert brecha["narrativa"] == "Prosa generada por Ollama, sin LLM_PROVIDER explícito."
 
 
 # --- (d) fidelidad de contrato: demás campos idénticos a generar_contenido_degradado ----
@@ -302,6 +414,11 @@ def test_demas_campos_identicos_a_generar_contenido_degradado_sin_llm(monkeypatc
 def test_demas_campos_identicos_a_generar_contenido_degradado_con_llm_exitoso(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
     monkeypatch.setattr(
         generador_plan.litellm, "completion", lambda *a, **k: _mock_respuesta_llm("prosa mock")
     )
@@ -317,6 +434,11 @@ def test_demas_campos_identicos_a_generar_contenido_degradado_con_llm_exitoso(mo
 def test_llm_incluye_componente_recomendado_igual_que_componente_recomendado_para(monkeypatch):
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
     monkeypatch.setattr(
         generador_plan.litellm, "completion", lambda *a, **k: _mock_respuesta_llm("prosa mock")
     )
@@ -351,6 +473,11 @@ def test_resumen_narrativo_es_deterministico_no_via_llm(monkeypatch):
     # de completion configurado, el resumen debe ser idéntico al del modo degradado.
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
+    # Aísla la prueba de qué variables de entorno reales tenga el proceso: fija
+    # la cadena de rutas a ejercitar en lugar de depender de LLM_PROVIDER real.
+    monkeypatch.setattr(
+        generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"]
+    )
     monkeypatch.setattr(
         generador_plan.litellm, "completion", lambda *a, **k: _mock_respuesta_llm("prosa mock")
     )

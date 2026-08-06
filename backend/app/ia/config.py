@@ -109,6 +109,14 @@ def obtener_ruta(nombre: str) -> RutaLLM:
 
 
 def obtener_proveedor_llm(cfg: Settings | None = None) -> str | None:
+    """Resuelve qué proveedor usar. `LLM_PROVIDER` explícito (vía `cfg.llm_provider`)
+    siempre gana, incluidas las rutas de pago 'anthropic'/'deepseek'.
+
+    Sin `LLM_PROVIDER` fijado, el único auto-detect permitido es 'local': nunca se
+    elige automáticamente una ruta de pago solo porque su API key esté presente --
+    eso requiere que el operador del despliegue lo pida a propósito fijando la
+    variable de entorno. Sin ruta local disponible tampoco, el resultado es `None`
+    y quien llama degrada a plantilla determinista."""
     cfg = cfg if cfg is not None else settings_global
     provider = getattr(cfg, "llm_provider", None)
     if provider is not None:
@@ -120,10 +128,6 @@ def obtener_proveedor_llm(cfg: Settings | None = None) -> str | None:
                 )
             return provider
 
-    if esta_disponible("calidad", cfg=cfg):
-        return "anthropic"
-    if esta_disponible("economico", cfg=cfg):
-        return "deepseek"
     if esta_disponible("local", cfg=cfg):
         return "local"
     return None

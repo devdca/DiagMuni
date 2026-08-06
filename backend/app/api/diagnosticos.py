@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import TokenData, get_current_token, get_db
+from app.db.rls import fijar_contexto_tenant
 from app.engine.madurez import VERSION_MOTOR, calcular_indice_madurez
 from app.jobs.plan_job import ejecutar_generacion_plan
 from app.models import DiagnosticoTramite, Job, Tramite
@@ -85,6 +86,10 @@ def guardar_diagnostico(
     if tramite.estado != "en_progreso":
         tramite.estado = "en_progreso"
     db.commit()
+    # commit() termina la transacción y con ella el app.tenant_id local (ver
+    # app/db/rls.py) -- hay que volver a fijarlo antes de la siguiente consulta con
+    # RLS en esta misma sesión.
+    fijar_contexto_tenant(db, token.tenant_id)
     return diagnostico
 
 
@@ -114,6 +119,9 @@ def enviar_diagnostico(
     db.add(job)
     tramite.estado = "generando_plan"
     db.commit()
+    # mismo motivo que el commit de guardar_diagnostico -- refijar antes de la
+    # siguiente consulta con RLS en esta misma sesión.
+    fijar_contexto_tenant(db, token.tenant_id)
 
     background_tasks.add_task(ejecutar_generacion_plan, job.id, token.tenant_id, diagnostico.id)
 

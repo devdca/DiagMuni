@@ -14,9 +14,16 @@ distingue la llamada de redacción (E2) de la de auditoría (E3) inspeccionando 
 prompt, en vez de dos `monkeypatch.setattr` independientes que se pisarían entre sí.
 """
 
+import socket
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
+import pytest
+from sqlalchemy import select, text
+
+from app.core.config import settings
+from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.engine.plantillas import generar_contenido_degradado
 from app.ia import generador_plan, verificador
 from app.jobs import plan_job
@@ -40,6 +47,17 @@ def _mockear_generacion_exitosa(monkeypatch, narrativa: str = "prosa redactada p
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
     monkeypatch.setattr(generador_plan.litellm, "completion", lambda *a, **k: _mock_respuesta(narrativa))
+
+
+def _mockear_ruta_llm_disponible(monkeypatch) -> None:
+    """Fija `obtener_rutas_generacion` para que estos tests no dependan de qué
+    variables de entorno reales (LLM_PROVIDER/OLLAMA_API_BASE) tenga el proceso
+    que corre la suite -- la disponibilidad la controla `esta_disponible`
+    monkeypateado, no la resolución real de proveedor. `plan_job` y `generador_plan`
+    importan `obtener_rutas_generacion` cada uno por su cuenta (dos nombres de
+    módulo distintos) -- hay que fijar ambas copias, no una sola."""
+    monkeypatch.setattr(plan_job, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"])
+    monkeypatch.setattr(generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"])
 
 
 def _mockear_completion_combinado(monkeypatch, narrativa: str, veredicto: str) -> None:
@@ -85,6 +103,7 @@ def test_calidad_no_disponible_va_directo_a_degradado_sin_llamar_verificador(mon
 
 def test_verificacion_exitosa_persiste_modo_llm(monkeypatch):
     monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    _mockear_ruta_llm_disponible(monkeypatch)
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
@@ -107,6 +126,7 @@ def test_verificacion_exitosa_persiste_modo_llm(monkeypatch):
 
 def test_verificacion_fallida_cae_a_degradado(monkeypatch):
     monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    _mockear_ruta_llm_disponible(monkeypatch)
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
@@ -127,6 +147,7 @@ def test_verificacion_fallida_cae_a_degradado(monkeypatch):
 
 def test_verificador_no_disponible_cae_a_degradado(monkeypatch):
     monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    _mockear_ruta_llm_disponible(monkeypatch)
     _mockear_generacion_exitosa(monkeypatch)
 
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
@@ -154,6 +175,7 @@ def test_verificador_no_disponible_cae_a_degradado(monkeypatch):
 
 def test_verificador_lanza_excepcion_cae_a_degradado(monkeypatch):
     monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    _mockear_ruta_llm_disponible(monkeypatch)
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
@@ -186,6 +208,7 @@ def test_verificado_nunca_es_false(monkeypatch):
 
     # calidad disponible, verificador aprueba
     monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    _mockear_ruta_llm_disponible(monkeypatch)
     monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
     monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
@@ -482,3 +505,100 @@ def test_ejecutar_generacion_plan_camino_feliz_crea_una_accion_por_brecha(monkey
 
     assert job.estado == "done"
     _verificar_acciones_creadas_una_por_brecha(db, tenant_id)
+
+
+# --- `revisar_job_obsoleto` contra Postgres real (RLS incluido) -----------------
+#
+# Hallazgo F7 de la auditoría final pre-Fase G: los 4 `db.commit()` de esta función
+# solo se habían probado con `_SesionEspia` (arriba) -- eso verifica el ORDEN de las
+# llamadas mockeadas, no que Postgres realmente vuelva a aceptar una consulta con
+# RLS después del commit (mismo tipo de bug que el hotfix de
+# `test_api_seguimiento.py::test_actualizar_accion_no_revienta_rls_tras_commit_contra_postgres_real`).
+# Se salta limpio si no hay Postgres real alcanzable.
+
+
+def _postgres_real_disponible() -> bool:
+    """Mismo chequeo de dos pasos que `test_api_seguimiento.py`."""
+    url = urlparse(settings.database_url.replace("postgresql+psycopg", "postgresql", 1))
+    try:
+        with socket.create_connection((url.hostname or "localhost", url.port or 5432), timeout=2):
+            pass
+    except OSError:
+        return False
+
+    try:
+        db = abrir_sesion_tenant(uuid4())
+    except Exception:
+        return False
+    db.close()
+    return True
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_revisar_job_obsoleto_no_revienta_rls_tras_commit_contra_postgres_real():
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant de prueba RLS", clave=f"prueba-rls-{tenant_id}", pais="mx"))
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite de prueba RLS", estado="generando_plan")
+        db.add(tramite)
+        db.flush()
+
+        diagnostico = DiagnosticoTramite(tenant_id=tenant_id, tramite_id=tramite.id, respuestas={})
+        db.add(diagnostico)
+        db.flush()
+
+        # `updated_at` viejo a propósito -- más antiguo que el umbral de obsolescencia,
+        # para que `revisar_job_obsoleto` tome la rama `running` (ver `_esta_obsoleto`).
+        hace_rato = datetime.now(UTC) - timedelta(minutes=settings.job_umbral_obsoleto_minutos + 5)
+        job = Job(
+            tenant_id=tenant_id,
+            tipo="generacion_plan",
+            diagnostico_tramite_id=diagnostico.id,
+            estado="running",
+            intentos=0,
+            updated_at=hace_rato,
+        )
+        db.add(job)
+        db.commit()
+        # mismo motivo que el commit de arriba en el setup de este mismo test --
+        # también resetea el contexto, hay que refijarlo antes del siguiente `flush`.
+        fijar_contexto_tenant(db, tenant_id)
+
+        resultado = plan_job.revisar_job_obsoleto(db, tenant_id, job)
+
+        assert resultado is True
+        assert job.intentos == 1
+        assert job.estado == "pending"
+
+        # La consulta real que antes revienta: después de los `db.commit()` internos
+        # de `revisar_job_obsoleto`, una consulta con RLS en la misma sesión debe
+        # seguir funcionando -- exactamente el patrón de las tres rutas afectadas
+        # (`GET /api/tramites`, `GET /api/tramites/{id}`, `GET /api/tramites/{id}/plan`).
+        job_releido = db.get(Job, job.id)
+        assert job_releido is not None
+        assert job_releido.estado == "pending"
+
+        tramites_del_tenant = db.execute(select(Tramite).where(Tramite.tenant_id == tenant_id)).scalars().all()
+        assert len(tramites_del_tenant) == 1
+        assert tramites_del_tenant[0].id == tramite.id
+    finally:
+        # limpieza explícita: hubo commits reales, un rollback no alcanza para
+        # deshacerlos. El contexto de tenant ya quedó fijado por el último
+        # `fijar_contexto_tenant` dentro de `revisar_job_obsoleto`.
+        try:
+            db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()

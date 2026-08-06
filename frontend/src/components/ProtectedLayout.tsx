@@ -31,9 +31,11 @@ export function ProtectedLayout() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen">
       <NavBar />
-      <Outlet />
+      <main className="pt-28">
+        <Outlet />
+      </main>
     </div>
   );
 }

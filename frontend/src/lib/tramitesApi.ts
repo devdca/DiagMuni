@@ -31,3 +31,16 @@ export function obtenerPanelResumen(): Promise<PanelResumenResponse> {
 export function obtenerTramite(tramiteId: string): Promise<TramiteResponse> {
   return apiFetch<TramiteResponse>(`/api/tramites/${tramiteId}`);
 }
+
+// Forma de POST /api/tramites (backend/app/schemas/tramite.py::TramiteCreate).
+export interface TramiteCrearPayload {
+  nombre: string;
+  descripcion?: string;
+}
+
+export function crearTramite(payload: TramiteCrearPayload): Promise<TramiteResponse> {
+  return apiFetch<TramiteResponse>("/api/tramites", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

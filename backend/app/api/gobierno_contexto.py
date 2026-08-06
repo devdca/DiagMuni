@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import TokenData, get_current_token, get_db
+from app.db.rls import fijar_contexto_tenant
 from app.models import ContextoInstitucional
 from app.schemas.gobierno_contexto import ContextoInstitucionalIn, ContextoInstitucionalOut
 
@@ -71,5 +72,9 @@ def guardar_contexto(
 
     fila.actualizado_en = datetime.now(UTC)
     db.commit()
+    # commit() termina la transacción y con ella el app.tenant_id local (ver
+    # app/db/rls.py) -- hay que volver a fijarlo antes del refresh de abajo, que
+    # dispara una consulta real con RLS.
+    fijar_contexto_tenant(db, token.tenant_id)
     db.refresh(fila)
     return ContextoInstitucionalOut.model_validate(fila)

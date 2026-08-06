@@ -16,14 +16,15 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
+from fastapi import BackgroundTasks
+from sqlalchemy import select, text
 
 from app.api.deps import TokenData
-from app.api.diagnosticos import guardar_diagnostico
+from app.api.diagnosticos import enviar_diagnostico, guardar_diagnostico
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
-from app.models import Tenant, Tramite
-from app.schemas.diagnostico import DiagnosticoGuardar
+from app.models import Job, Tenant, Tramite
+from app.schemas.diagnostico import DiagnosticoEnviar, DiagnosticoGuardar
 
 
 def _postgres_real_disponible() -> bool:
@@ -72,6 +73,63 @@ def test_guardar_diagnostico_regresa_a_en_progreso_desde_plan_listo_contra_postg
         assert resultado.respuestas == {"algo": "editado"}
     finally:
         try:
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_enviar_diagnostico_no_revienta_rls_tras_commit_contra_postgres_real():
+    """Regresión: `enviar_diagnostico` hacía `db.commit()` sin volver a fijar el
+    contexto de tenant -- una consulta real posterior en la misma sesión (acá, el
+    `select` sobre `job`) revienta con `invalid input syntax for type uuid: ""`,
+    mismo patrón ya corregido antes en `plan_job.py` y `seguimiento.py`."""
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant de prueba diagnostico", clave=f"prueba-diag-{tenant_id}", pais="mx"))
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite de prueba diagnostico", estado="diagnosticado")
+        db.add(tramite)
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        payload = DiagnosticoEnviar(
+            respuestas={
+                "documentos_digitalizados": True,
+                "motor_pagos": True,
+                "firma_electronica_habilitada": True,
+                "interoperabilidad": True,
+                "mecanismo_identidad": "propio",
+            }
+        )
+
+        resultado = enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+
+        assert resultado.indice_madurez is not None
+
+        # La consulta real que antes revienta: después del `db.commit()` interno de
+        # `enviar_diagnostico`, una consulta con RLS en la misma sesión debe seguir
+        # funcionando -- acá, releer el job que la propia función creó.
+        job = db.execute(select(Job).where(Job.diagnostico_tramite_id == resultado.id)).scalar_one()
+        assert job.estado == "pending"
+
+        db.refresh(tramite)
+        assert tramite.estado == "generando_plan"
+    finally:
+        try:
+            db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
