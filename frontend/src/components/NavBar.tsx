@@ -14,14 +14,18 @@ export function NavBar() {
   }
 
   return (
-    <nav>
-      <span>{obtenerNombreGobierno()}</span>
-      <Link to="/">Inicio</Link>
-      <Link to="/gobierno/perfil">Perfil del gobierno</Link>
-      <Link to="/seguimiento">Seguimiento</Link>
-      <button type="button" onClick={alCerrarSesion}>
-        Cerrar sesión
-      </button>
+    <nav className="app-navbar">
+      <div className="app-navbar-inner">
+        <span className="app-navbar-brand">{obtenerNombreGobierno()}</span>
+        <div className="app-navbar-links">
+          <Link to="/">Inicio</Link>
+          <Link to="/gobierno/perfil">Perfil del gobierno</Link>
+          <Link to="/seguimiento">Seguimiento</Link>
+        </div>
+        <button type="button" onClick={alCerrarSesion} className="app-navbar-logout">
+          Cerrar sesión
+        </button>
+      </div>
     </nav>
   );
 }

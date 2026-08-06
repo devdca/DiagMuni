@@ -3,7 +3,14 @@ gobierno_contexto.py). Mismo enfoque que test_api_asistente_captura.py:
 `TestClient` real sobre `app.main.app` con `dependency_overrides` de
 `get_current_token`/`get_db`, sin Postgres real -- el router solo hace
 `db.execute(select(...))`, `db.add`, `db.commit`, `db.refresh`, todo reproducible
-con una sesión doble en memoria."""
+con una sesión doble en memoria.
+
+Al final del archivo hay un test de integración distinto de los de arriba: ejercita
+`guardar_contexto` completo contra Postgres real (RLS incluido), no una sesión
+doble -- la sesión doble de arriba tiene `refresh()` como no-op, así que nunca
+hubiera detectado que `db.commit()` sin refijar el contexto de tenant rompe el
+`db.refresh(fila)` real que le sigue (mismo patrón ya visto en
+test_api_seguimiento.py/test_api_diagnosticos.py/test_plan_job.py)."""
 
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -28,17 +35,20 @@ class _ResultadoFalso:
 
 class _SesionFalsaContexto:
     """Doble de `Session` -- una sola fila en memoria por tenant (o ninguna),
-    suficiente para ejercitar `_obtener_fila`/`guardar_contexto` sin Postgres."""
+    suficiente para ejercitar `_obtener_fila`/`guardar_contexto` sin Postgres.
+    `execute` acepta `_params` opcional porque `guardar_contexto` ya llama al
+    `fijar_contexto_tenant` real (no mockeado) tras su `db.commit()` -- ver
+    app/db/rls.py::fijar_contexto_tenant, que pasa un dict de parámetros."""
 
     def __init__(self, fila: ContextoInstitucional | None = None) -> None:
         self.fila = fila
         self.agregados: list[object] = []
         self.commits = 0
 
-    def execute(self, _stmt: object) -> _ResultadoFalso:
+    def execute(self, _stmt: object, _params: object = None) -> _ResultadoFalso:
         return _ResultadoFalso(self.fila)
 
-    def add(self, obj: object) -> None:
+    def add(self, obj: ContextoInstitucional) -> None:
         self.agregados.append(obj)
         self.fila = obj  # la siguiente lectura dentro del mismo request ya lo ve
 
@@ -261,3 +271,70 @@ def test_put_area_tic_existe_con_tipo_incorrecto_devuelve_422() -> None:
     )
 
     assert respuesta.status_code == 422
+
+
+# === PUT contra Postgres real (RLS incluido) ========================================
+
+
+def _postgres_real_disponible() -> bool:
+    import socket
+    from urllib.parse import urlparse
+
+    from app.core.config import settings
+    from app.db.rls import abrir_sesion_tenant
+
+    url = urlparse(settings.database_url.replace("postgresql+psycopg", "postgresql", 1))
+    try:
+        with socket.create_connection((url.hostname or "localhost", url.port or 5432), timeout=2):
+            pass
+    except OSError:
+        return False
+    try:
+        db = abrir_sesion_tenant(uuid4())
+    except Exception:
+        return False
+    db.close()
+    return True
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_put_no_revienta_rls_tras_commit_contra_postgres_real() -> None:
+    from sqlalchemy import text
+
+    from app.api.gobierno_contexto import guardar_contexto, obtener_contexto
+    from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
+    from app.models import Tenant
+    from app.schemas.gobierno_contexto import ContextoInstitucionalIn
+
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant de prueba contexto", clave=f"prueba-ctx-{tenant_id}", pais="mx"))
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        payload = ContextoInstitucionalIn(poblacion_total=50000, conectividad="estable")
+
+        resultado = guardar_contexto(payload, token, db)
+        assert resultado.poblacion_total == 50000
+        assert resultado.conectividad == "estable"
+
+        # La consulta real que antes revienta: después del `db.commit()` interno de
+        # `guardar_contexto`, una consulta con RLS en la misma sesión debe seguir
+        # funcionando -- acá, un GET real inmediatamente después del PUT.
+        releido = obtener_contexto(token, db)
+        assert releido.poblacion_total == 50000
+    finally:
+        try:
+            db.execute(text("DELETE FROM contexto_institucional WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()

@@ -93,16 +93,60 @@ def test_obtener_proveedor_llm_default_es_local():
     assert obtener_rutas_generacion(cfg) == ["local"]
 
 
-def test_obtener_proveedor_llm_elige_anthropic_si_disponible():
-    cfg = _settings_con_keys(deepseek=None, anthropic="sk-anthropic-test")
+def test_obtener_proveedor_llm_ignora_keys_pagas_sin_llm_provider_explicito_cae_a_local():
+    # Ambas API keys de pago presentes pero sin LLM_PROVIDER explícito: nunca se
+    # debe elegir automáticamente una ruta de pago -- solo el operador puede pedirla
+    # fijando la variable de entorno. Con ollama_api_base disponible, cae a "local".
+    cfg = Settings(
+        deepseek_api_key="sk-deepseek-test",
+        anthropic_api_key="sk-anthropic-test",
+        ollama_api_base="http://localhost:11434",
+        llm_provider=None,
+    )
+    assert obtener_proveedor_llm(cfg) == "local"
+    assert obtener_rutas_generacion(cfg) == ["local"]
+
+
+def test_obtener_proveedor_llm_ignora_keys_pagas_sin_llm_provider_explicito_cae_a_none_sin_ollama():
+    # Mismo caso, pero sin ollama_api_base tampoco disponible: no hay auto-detect
+    # posible y el resultado es None -- quien llama degrada a plantilla determinista.
+    cfg = _settings_con_keys(deepseek="sk-deepseek-test", anthropic="sk-anthropic-test")
+    assert obtener_proveedor_llm(cfg) is None
+    assert obtener_rutas_generacion(cfg) == []
+
+
+def test_obtener_proveedor_llm_sin_nada_configurado_es_none():
+    cfg = Settings(deepseek_api_key=None, anthropic_api_key=None, ollama_api_base=None, llm_provider=None)
+    assert obtener_proveedor_llm(cfg) is None
+    assert obtener_rutas_generacion(cfg) == []
+
+
+def test_obtener_proveedor_llm_respeta_anthropic_explicito_aun_con_ollama_disponible():
+    cfg = Settings(
+        deepseek_api_key=None,
+        anthropic_api_key="sk-anthropic-test",
+        ollama_api_base="http://localhost:11434",
+        llm_provider="anthropic",
+    )
     assert obtener_proveedor_llm(cfg) == "anthropic"
     assert obtener_rutas_generacion(cfg) == ["calidad", "calidad_respaldo", "local"]
 
 
-def test_obtener_proveedor_llm_elige_deepseek_si_disponible_y_anthropic_no():
-    cfg = _settings_con_keys(deepseek="sk-deepseek-test", anthropic=None)
+def test_obtener_proveedor_llm_respeta_deepseek_explicito_aun_con_ollama_disponible():
+    cfg = Settings(
+        deepseek_api_key="sk-deepseek-test",
+        anthropic_api_key=None,
+        ollama_api_base="http://localhost:11434",
+        llm_provider="deepseek",
+    )
     assert obtener_proveedor_llm(cfg) == "deepseek"
     assert obtener_rutas_generacion(cfg) == ["economico", "local"]
+
+
+def test_obtener_proveedor_llm_provider_no_soportado_lanza_valueerror():
+    cfg = Settings(llm_provider="openai")
+    with pytest.raises(ValueError):
+        obtener_proveedor_llm(cfg)
 
 
 def test_disponible_false_cuando_falta_una_key_sin_excepcion():

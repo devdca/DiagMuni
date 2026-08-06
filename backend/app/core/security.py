@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -8,6 +9,25 @@ from argon2.exceptions import VerifyMismatchError
 from app.core.config import settings
 
 _hasher = PasswordHasher()
+
+# Alfabeto sin caracteres visualmente ambiguos: dígitos 2-9 (sin 0/1), mayúsculas
+# sin I/O, minúsculas sin i/l/o -- 55 símbolos en total.
+_ALFABETO_PASSWORD_LEGIBLE = "23456789" "ABCDEFGHJKLMNPQRSTUVWXYZ" "abcdefghjkmnpqrstuvwxyz"
+_LONGITUD_PASSWORD_LEGIBLE = 16
+_TAMANO_BLOQUE_PASSWORD_LEGIBLE = 4
+
+
+def generar_password_legible() -> str:
+    """Contraseña aleatoria de arranque -- 16 caracteres del alfabeto de 55 símbolos
+    de arriba (~92.5 bits de entropía), agrupada en bloques de 4 separados por guion
+    para poder dictarla por teléfono o transcribirla sin ambigüedad. Los guiones son
+    parte literal de la contraseña, no un separador a limpiar antes de usarla."""
+    caracteres = [secrets.choice(_ALFABETO_PASSWORD_LEGIBLE) for _ in range(_LONGITUD_PASSWORD_LEGIBLE)]
+    bloques = [
+        "".join(caracteres[i : i + _TAMANO_BLOQUE_PASSWORD_LEGIBLE])
+        for i in range(0, _LONGITUD_PASSWORD_LEGIBLE, _TAMANO_BLOQUE_PASSWORD_LEGIBLE)
+    ]
+    return "-".join(bloques)
 
 
 def hash_password(password: str) -> str:

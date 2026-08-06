@@ -22,7 +22,6 @@ def upgrade() -> None:
     conectividad_enum = postgresql.ENUM(
         "estable", "intermitente", "sin_conexion", name="conectividad_enum"
     )
-    conectividad_enum.create(op.get_bind())
 
     op.create_table(
         "contexto_institucional",
@@ -80,4 +79,9 @@ def downgrade() -> None:
     op.drop_constraint("ck_contexto_institucional_poblacion_no_negativa", "contexto_institucional")
     op.drop_constraint("uq_contexto_institucional_tenant", "contexto_institucional")
     op.drop_table("contexto_institucional")
+    # A diferencia de `upgrade()` (donde `create_table` ya crea el tipo por su cuenta
+    # vía el evento automático de SQLAlchemy -- crearlo también a mano ahí duplica la
+    # llamada y revienta con "already exists"), `drop_table` no borra el tipo con
+    # nombre por su cuenta: sin este drop explícito, el tipo queda huérfano y una
+    # siguiente corrida de `upgrade()` revienta igual, ahora por el lado contrario.
     postgresql.ENUM(name="conectividad_enum").drop(op.get_bind())
