@@ -21,3 +21,8 @@ model_list:
     litellm_params:
       model: anthropic/claude-fable-5
       api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: local
+    litellm_params:
+      model: ollama/phi3
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout_segundos: 180

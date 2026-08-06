@@ -1,0 +1,24 @@
+# entregables/fase-2/variables-contexto-institucional.md, sección 3.1 -- transversal,
+# no gatilla un nivel específico del índice (mismo tratamiento que
+# proteccion_datos_incompleta, ver datos_personales.yaml); es el interlocutor
+# institucional al que deben dirigirse las recomendaciones de gobernanza del plan.
+version: "1.0"
+variable: autoridad_gobernanza_digital
+criterio_deteccion: "autoridad_gobernanza_digital == false"
+acciones:
+  mx:
+    paso_administrativo: "Constituir o fortalecer la Autoridad Local de Simplificación y Digitalización con sus 5 áreas sustantivas (Simplificación; Digitalización; Atención Ciudadana; Buenas prácticas regulatorias; Desarrollo de Soluciones Tecnológicas) y designar al Enlace de Simplificación y Digitalización (nivel mínimo director general)"
+    paso_tecnico: "No aplica un componente tecnológico específico — brecha de gobernanza institucional, no de adopción de software"
+    paso_organizacional: "Formalizar el mandato de la Autoridad y del Enlace mediante acuerdo/bando municipal, y dirigir hacia esa Autoridad las recomendaciones de gobernanza del resto del plan"
+    prerrequisitos: []
+    por_que_importa: "Transversal a todos los trámites del gobierno — no bloquea un nivel específico del índice de madurez de ningún trámite (mismo tratamiento que proteccion_datos_incompleta, ver datos_personales.yaml), pero es el interlocutor institucional al que deben dirigirse las recomendaciones de gobernanza del plan"
+    fuente_normativa: "LNETB art. 11 (Autoridad Local de Simplificación y Digitalización, 5 áreas) + art. 14 (Enlace, nivel mínimo director general)"
+    categoria_catalogo: "gobernanza_institucional"
+  uy:
+    paso_administrativo: "Suscribir o renovar el convenio con Agesic para asesoría en transformación digital (Convenio Marco Agesic–Congreso de Intendentes)"
+    paso_tecnico: "No aplica un componente tecnológico específico — brecha de gobernanza institucional, no de adopción de software"
+    paso_organizacional: "Designar la contraparte técnica responsable del convenio dentro de la intendencia"
+    prerrequisitos: []
+    por_que_importa: "Transversal a todos los trámites del gobierno — mismo criterio que la rama mx; sin equivalente obligatorio uruguayo directo a la Autoridad mexicana, el convenio con Agesic es la variable sustituta ya identificada en la matriz normativa"
+    fuente_normativa: "Ley 17.930 art. 72 (creación de Agesic) + Decreto 184/015 art. 1 (asesoría a Entidades Públicas)"
+    categoria_catalogo: "gobernanza_institucional"

@@ -20,14 +20,18 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.engine.plantillas import generar_contenido_degradado
-from app.ia.config import esta_disponible
+from app.ia.config import esta_disponible, obtener_rutas_generacion
 from app.ia.generador_plan import generar_contenido_llm
 from app.ia.verificador import verificar_contenido
-from app.models import AccionSeguimiento, DiagnosticoTramite, Job, PlanModernizacion, Tenant, Tramite
-
-# Ruta que generador_plan.py usa para redactar -- si no está disponible, no hay
-# nada que generar vía LLM.
-_RUTA_GENERACION = "calidad"
+from app.models import (
+    AccionSeguimiento,
+    ContextoInstitucional,
+    DiagnosticoTramite,
+    Job,
+    PlanModernizacion,
+    Tenant,
+    Tramite,
+)
 
 # docs/app-flow.md, máquina de estados: "si falla dos veces -> plan_listo en modo
 # degradado". Un mismo contador (`Job.intentos`) cuenta tanto fallos por excepción
@@ -61,9 +65,37 @@ def _crear_acciones_seguimiento(db: Session, plan: PlanModernizacion, tenant_id:
         )
 
 
+def _namespace_efectivo(db: Session, tenant_id: UUID, respuestas: dict) -> dict:
+    """Fusión `{**contexto_institucional_del_tenant, **respuestas_del_tramite}`
+    (entregables/fase-2/variables-contexto-institucional.md, sección 3.1, punto 2)
+    -- así `autoridad_gobernanza_digital` puede evaluarse como brecha transversal
+    junto a las 6 variables ya existentes del trámite, sin colisión de nombres
+    entre ambos namespaces. Si el tenant todavía no tiene fila de
+    `contexto_institucional`, el campo simplemente no aparece en el dict fusionado
+    -- `criterio_se_cumple` (app/engine/reglas_loader.py) ya maneja una clave
+    ausente sin fallar (`dict.get` devuelve `None`, nunca lanza `KeyError`)."""
+    contexto = db.execute(
+        select(ContextoInstitucional).where(ContextoInstitucional.tenant_id == tenant_id)
+    ).scalar_one_or_none()
+    if contexto is None:
+        return dict(respuestas)
+
+    namespace_contexto = {
+        "poblacion_total": contexto.poblacion_total,
+        "personal_total_gobierno": contexto.personal_total_gobierno,
+        "presupuesto_tic_anual": contexto.presupuesto_tic_anual,
+        "area_tic_existe": contexto.area_tic_existe,
+        "conectividad": contexto.conectividad,
+        "normativa_local_emitida": contexto.normativa_local_emitida,
+        "autoridad_gobernanza_digital": contexto.autoridad_gobernanza_digital,
+    }
+    return {**namespace_contexto, **respuestas}
+
+
 def _generar_contenido_y_modo(respuestas: dict, pais: str) -> tuple[str, dict, bool]:
     """Devuelve `(modo, contenido, verificado)` -- `verificado` siempre `True`."""
-    if not esta_disponible(_RUTA_GENERACION):
+    rutas_generacion = obtener_rutas_generacion()
+    if not any(esta_disponible(nombre) for nombre in rutas_generacion):
         return "degradado", generar_contenido_degradado(respuestas, pais), True
 
     contenido_llm = generar_contenido_llm(respuestas, pais)
@@ -95,12 +127,13 @@ def _persistir_plan_degradado(db: Session, tenant_id: UUID, diagnostico_tramite_
         .limit(1)
     ).scalar_one_or_none()
 
+    namespace_efectivo = _namespace_efectivo(db, tenant_id, diagnostico.respuestas)
     plan = PlanModernizacion(
         diagnostico_tramite_id=diagnostico_tramite_id,
         tenant_id=tenant_id,
         version=(version_previa or 0) + 1,
         modo="degradado",
-        contenido=generar_contenido_degradado(diagnostico.respuestas, tenant.pais),
+        contenido=generar_contenido_degradado(namespace_efectivo, tenant.pais),
         verificado=True,
     )
     db.add(plan)
@@ -134,7 +167,8 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
             db.commit()
             return
 
-        modo, contenido, verificado = _generar_contenido_y_modo(diagnostico.respuestas, tenant.pais)
+        namespace_efectivo = _namespace_efectivo(db, tenant_id, diagnostico.respuestas)
+        modo, contenido, verificado = _generar_contenido_y_modo(namespace_efectivo, tenant.pais)
 
         version_previa = db.execute(
             select(PlanModernizacion.version)

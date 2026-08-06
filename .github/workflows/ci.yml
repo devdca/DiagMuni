@@ -60,6 +60,7 @@ jobs:
       # Deny-list, no allow-list: mismo criterio que el paso 4 del job backend (líneas 31-36) —
       # el gate duro es GPL/AGPL (contaminación de licencia real); licencias permisivas no
       # listadas de forma explícita (ISC, MPL-2.0, CC-BY-4.0, etc.) no bloquean el build.
+      # Para simular este paso en local: `cd frontend && npm install && npx license-checker-rseidelsohn --excludePrivatePackages --failOn "GPL-1.0-only;GPL-1.0-or-later;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0-only;GPL-3.0-or-later;GPL-1.0;GPL-2.0;GPL-3.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0-only;AGPL-3.0-or-later;AGPL-1.0;AGPL-3.0"`
       - name: "Chequeo de licencias de dependencias (gate duro: GPL/AGPL)"
         working-directory: frontend
         run: |
