@@ -85,9 +85,14 @@ def _narrativa_llm(accion: AccionPais) -> str:
     determinista. Nunca lanza una excepción hacia quien llama: ese es precisamente
     el contrato de degradación de docs/TRD.md citado arriba.
 
-    Cadena de intentos según `LLM_PROVIDER`.
+    Cadena de intentos según `LLM_PROVIDER` cuando existe, o sobre todas las rutas
+    conocidas si la configuración de proveedor no está disponible.
     """
-    for nombre_ruta in obtener_rutas_generacion():
+    rutas = obtener_rutas_generacion()
+    if not rutas:
+        rutas = list(cargar_model_list().keys())
+
+    for nombre_ruta in rutas:
         if not esta_disponible(nombre_ruta):
             continue
 
@@ -114,7 +119,8 @@ def generar_contenido_llm(respuestas: dict, pais: str) -> dict:
             continue
         accion = regla.acciones[pais]
 
-        if esta_disponible(_RUTA_LLM) or esta_disponible(_RUTA_LLM_LOCAL):
+        rutas_disponibles = [ruta for ruta in obtener_rutas_generacion() if esta_disponible(ruta)]
+        if rutas_disponibles:
             narrativa = _narrativa_llm(accion)
         else:
             # Sin ruta de generación disponible: ni siquiera se intenta la llamada.
