@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import TokenData, get_current_token, get_db
+from app.core.audit_log import registrar_diagnostico_enviado
 from app.db.rls import fijar_contexto_tenant
 from app.engine.madurez import VERSION_MOTOR, calcular_indice_madurez
 from app.jobs.plan_job import ejecutar_generacion_plan
@@ -124,5 +125,17 @@ def enviar_diagnostico(
     fijar_contexto_tenant(db, token.tenant_id)
 
     background_tasks.add_task(ejecutar_generacion_plan, job.id, token.tenant_id, diagnostico.id)
+
+    # Log de auditoría (docs/plan-implementacion.md Fase G2) -- después del commit,
+    # con los mismos valores ya persistidos, nunca antes de confirmar la transacción.
+    registrar_diagnostico_enviado(
+        tenant_id=token.tenant_id,
+        usuario_id=token.usuario_id,
+        tramite_id=tramite_id,
+        diagnostico_id=diagnostico.id,
+        indice_madurez=diagnostico.indice_madurez,
+        version_motor=diagnostico.version_motor,
+        job_id=job.id,
+    )
 
     return diagnostico
