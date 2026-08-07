@@ -6,7 +6,31 @@ on:
   pull_request:
 
 jobs:
+  # Salvaguarda contra el incidente de 2026-08 (nota interna de sesión, no versionada):
+  # nombres de agentes de desarrollo y rutas internas del proceso (coordinador, auditor,
+  # especialista, etc. como roles de un equipo de desarrollo multi-agente) se filtraron en
+  # docs/ y entregables/ como si fueran módulos o especificaciones del propio producto.
+  # No es un deny-list de palabras genéricas -- "auditor"/"especialista"/"legislación" tienen
+  # uso legítimo de dominio en este repo (ej. app/ia/verificador.py, docs/anexo_legislacion_*.md)
+  # y una lista así rompería el build todo el tiempo. Solo chequea identificadores compuestos
+  # que son inequívocamente del proceso interno -- los mismos que este .gitignore ya marca
+  # como "Material interno" (líneas 1-9) -- para detectar una referencia por nombre/ruta a
+  # esos artefactos colada en contenido que sí se publica.
+  higiene-repo-publico:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Chequeo de fuga de proceso interno de desarrollo
+        run: |
+          PATRON='sistema-multiagente|docs/plan-trabajo|CLAUDE\.md|\.claude/|/Contexto/|/Local/'
+          if git grep -InE "$PATRON" -- . ':!.github/workflows/ci.yml' ':!.gitignore'; then
+            echo "::error::Referencia a un artefacto interno de desarrollo en contenido público -- revisar antes de mergear."
+            exit 1
+          fi
+          echo "Sin referencias a artefactos internos de desarrollo en contenido versionado."
+
   backend:
+    needs: [higiene-repo-publico]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +67,7 @@ jobs:
         run: pip-licenses | grep -i unknown || echo "Ninguna licencia sin clasificar."
 
   frontend:
+    needs: [higiene-repo-publico]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +77,9 @@ jobs:
       - name: Instalar dependencias
         working-directory: frontend
         run: npm install
-      # 2. type-check (frontend aún no tiene lint/tests propios — fase F de docs/plan-implementacion.md)
+      # 2. type-check (sin lint propio todavía — fase F de docs/plan-implementacion.md).
+      # Los tests (E2E) están en el job `e2e` de abajo: necesitan Docker (stack completo),
+      # no tienen sentido en este job liviano de solo Node.
       - name: Type-check (tsc)
         working-directory: frontend
         run: npx tsc -b
@@ -65,6 +92,72 @@ jobs:
         working-directory: frontend
         run: |
           npx license-checker-rseidelsohn --excludePrivatePackages --failOn "GPL-1.0-only;GPL-1.0-or-later;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0-only;GPL-3.0-or-later;GPL-1.0;GPL-2.0;GPL-3.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0-only;AGPL-3.0-or-later;AGPL-1.0;AGPL-3.0"
+
+  e2e:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # 3. tests (E2E, frontend) — recorre las 6 pantallas de docs/app-flow.md contra el
+      # stack Docker real (docs/runbook-despliegue.md), no contra `vite dev` ni mocks.
+      - name: Configurar .env
+        run: cp .env.example .env
+      - name: Levantar el stack
+        run: docker compose up -d --build
+      - name: Esperar a que la plataforma responda
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8090/health && exit 0
+            sleep 2
+          done
+          echo "La plataforma no respondió a tiempo." >&2
+          docker compose logs
+          exit 1
+      - name: Correr migraciones
+        run: docker compose exec -T backend alembic upgrade head
+      # Gobierno de prueba exclusivo de este run — bootstrap_tenant.py genera la
+      # contraseña al vuelo y a propósito nunca acepta una fija (docs/plan-implementacion-
+      # alta-gobierno.md, sección 2 y 5); se parsea de su salida en vez de hardcodearla.
+      - name: Crear gobierno de prueba y capturar credenciales
+        run: |
+          SALIDA=$(docker compose exec -T backend python -m app.bootstrap_tenant crear-gobierno \
+            --nombre "Gobierno E2E CI" --clave e2e-ci --pais mx \
+            --email e2e-ci@diagmuni.test --nombre-funcionario "CI Bot")
+          echo "$SALIDA"
+          PASSWORD=$(echo "$SALIDA" | grep "Contraseña de arranque:" | sed 's/^.*Contraseña de arranque: //')
+          if [ -z "$PASSWORD" ]; then
+            echo "No se pudo capturar la contraseña generada." >&2
+            exit 1
+          fi
+          echo "E2E_PASSWORD=$PASSWORD" >> "$GITHUB_ENV"
+      - name: Instalar dependencias del frontend
+        working-directory: frontend
+        run: npm install
+      - name: Instalar navegador de Playwright
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Tests E2E (Playwright)
+        working-directory: frontend
+        env:
+          E2E_CLAVE_GOBIERNO: e2e-ci
+          E2E_EMAIL: e2e-ci@diagmuni.test
+        run: npx playwright test
+      - name: Subir reporte de Playwright (si falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+      - name: Logs del backend (si falló)
+        if: failure()
+        run: docker compose logs backend
+      - name: Bajar el stack
+        if: always()
+        run: docker compose down -v
 
   build-images:
     needs: [backend, frontend]

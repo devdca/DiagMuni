@@ -27,6 +27,14 @@ dist/
 .vite/
 *.tsbuildinfo
 
+# Playwright (E2E del frontend)
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/
+
+# Artefactos del MCP de Playwright (exploración interactiva, no del proyecto)
+/.playwright-mcp/
+
 # Entorno y secretos
 .env
 .env.*

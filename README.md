@@ -10,7 +10,7 @@ Proyecto presentado a **GovTech Connect** (BID Lab / Red de Innovación Local), 
 
 ## Estado
 
-En desarrollo temprano — sin release todavía. Motor determinista, modelo de datos y API REST del backend ya funcionan (ver `backend/`); la capa de IA (F1/F3/F9) y las pantallas del frontend están pendientes.
+En desarrollo temprano — sin release todavía. Motor determinista, modelo de datos y API REST del backend ya funcionan (ver `backend/`), con capa de IA (fallback Claude → Claude respaldo → local/Ollama → plantilla) ya probada contra Ollama real. Las 6 pantallas del frontend (login, panel de resumen, diagnóstico, plan, seguimiento, perfil del gobierno) ya existen, con tests E2E (Playwright) que las recorren de punta a punta contra un stack Docker real en cada PR; falta lint propio del frontend.
 
 ## Cómo correr el proyecto
 

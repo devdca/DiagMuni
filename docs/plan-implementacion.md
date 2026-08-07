@@ -78,4 +78,4 @@ No solo en runtime — el motor determinista se construye y se valida **completo
 
 ## Documentos relacionados
 
-`docs/PRD.md`, `docs/TRD.md`, `docs/ux-brief.md`, `docs/app-flow.md`, `docs/backend-schema.md`, `docs/plan-trabajo.md` (cronograma de la postulación, no de construcción).
+`docs/PRD.md`, `docs/TRD.md`, `docs/ux-brief.md`, `docs/app-flow.md`, `docs/backend-schema.md`.
