@@ -17,7 +17,10 @@ En desarrollo temprano — sin release todavía. Motor determinista, modelo de d
 ```
 cp .env.example .env
 docker compose up -d
+docker compose exec backend alembic upgrade head
 ```
+
+Guía paso a paso, con verificación de que quedó arriba y solución a los errores más comunes, en `docs/runbook-despliegue.md`. Alta del primer gobierno (tenant + usuario) en `docs/runbook-alta-gobierno.md`.
 
 Documentación técnica completa en `docs/` (producto, arquitectura, esquema de datos, flujo de la aplicación) y `entregables/` (catálogo normativo del motor de diagnóstico, teoría de cambio).
 
