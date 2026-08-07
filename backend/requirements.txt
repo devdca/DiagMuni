@@ -9,7 +9,13 @@ alembic==1.14.0
 psycopg[binary]==3.2.10
 pydantic==2.10.4
 pydantic-settings==2.7.1
-pyjwt==2.10.1
+# 2.13.0 -- corrige CVE-2026-32597 (header `crit` no validado) y CVE-2026-48526
+# (confusión de algoritmo HMAC/JWK), además de los avisos previos que la misma
+# release agrupa (CVE-2026-48522/48523/48524/48525). Verificado que este proyecto
+# solo usa HS256 simétrico (app/core/security.py) -- no se ve afectado por el
+# vector directo de la confusión de algoritmo, pero se actualiza igual por ser
+# la única dependencia que firma/verifica la autenticación de la plataforma.
+pyjwt==2.13.0
 argon2-cffi==23.1.0
 pyyaml==6.0.2
 # litellm: MIT (docs/stack-tecnologico.md, "Nota sobre LiteLLM (licencia)"), verificado

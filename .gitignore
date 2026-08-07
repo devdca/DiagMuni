@@ -1,6 +1,7 @@
 # Material interno — nunca versionado (proceso de desarrollo, no producto)
 /Contexto/
 /sesiones/
+/Local/
 /.claude/
 /CLAUDE.md
 /docs/plan-trabajo.md
@@ -34,3 +35,8 @@ dist/
 # Editores
 .vscode/
 .idea/
+
+# Resultados de pruebas de seguridad (Strix) — reportes de vulnerabilidades reales,
+# nunca al repo público hasta que las críticas/altas estén corregidas y confirmadas.
+/strix_runs/
+strix_run.log
