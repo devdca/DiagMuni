@@ -2,7 +2,7 @@
 
 Versión 1 · 5 de agosto de 2026. Cierra una brecha detectada entre la documentación y el código: la alternativa de modelo local está documentada como disponible, pero no está construida. Extiende E1 (`docs/plan-implementacion.md`, Fase E), no es una fase nueva; la nomenclatura "-bis" señala una extensión acotada de una fase ya cerrada.
 
-Este documento es **solo planeación**. Ninguna de las tareas que describe se ha ejecutado todavía.
+**Estado: E1bis-1 a E1bis-4 cerrados** (ver estado por tarea en la tabla de la sección 2 y la actualización de la sección 7) — el documento se conserva completo como registro de las decisiones de diseño y su justificación, no solo como planeación pendiente.
 
 ## 0. La brecha exacta (verificada contra código real, no especulación)
 
@@ -83,11 +83,11 @@ El benchmark de phi3 se hizo contra el prompt de F3 ("Firma electrónica"). Este
 
 | # | Tarea | Depende de | Bloquea | Estado |
 |---|---|---|---|---|
-| E1bis-1 | Wiring de código: ruta `local` en `litellm_config.yaml`; generalizar `RutaLLM`/`esta_disponible()`/nuevo `api_base_de()`/`timeout_segundos` en `app/ia/config.py`; cadena de fallback `calidad`→`calidad_respaldo`→`local`→plantilla en `generador_plan.py` (gate de nivel superior incluido); tests unitarios con mocks en `test_ia_config.py` y `test_generador_plan.py` (sin Ollama real todavía) | Ninguna (extiende E1/E2, ya cerradas) | E1bis-2 | Pendiente |
-| E1bis-2 | Instalación real de Ollama + `ollama pull phi3` en un entorno de desarrollo verificable; test de integración real con guard `skipif` (`backend/tests/test_generador_plan_ollama_real.py`), sin mocks, generando una narrativa real vía la ruta `local` | E1bis-1 | E1bis-3, E1bis-4 | Pendiente |
-| E1bis-3 | Documentación: corregir `docs/stack-tecnologico.md` (líneas 31 y 80-109) y `entregables/fase-2/dimensionamiento-costos.md` (línea 9) para no describir el wiring como hecho mientras no lo esté; actualizar `.env.example`; decidir si amerita fila en `docs/plan-implementacion.md` (ver 3.3) | E1bis-2 (para la versión final con latencia real medida) — la corrección interina `[PENDIENTE]` puede adelantarse en paralelo con E1bis-1 | E1bis-4 | Pendiente |
-| E1bis-4 | Revisión integral de E1bis-1 + E1bis-2 + E1bis-3 como un solo entregable (código + YAML + docs + tests, un solo ciclo de revisión) | E1bis-3 | Cierre de E1-bis | Pendiente |
-| E1bis-5 (opcional, no bloqueante) | Revalidar `entregables/fase-2/dimensionamiento-costos.md` sección 6 ("rango conservador, no una medición") con la latencia real medida en E1bis-2 | E1bis-2 | Ninguna — mejora, no bloquea el cierre de E1-bis | Pendiente, opcional |
+| E1bis-1 | Wiring de código: ruta `local` en `litellm_config.yaml`; generalizar `RutaLLM`/`esta_disponible()`/nuevo `api_base_de()`/`timeout_segundos` en `app/ia/config.py`; cadena de fallback `calidad`→`calidad_respaldo`→`local`→plantilla en `generador_plan.py` (gate de nivel superior incluido); tests unitarios con mocks en `test_ia_config.py` y `test_generador_plan.py` (sin Ollama real todavía) | Ninguna (extiende E1/E2, ya cerradas) | E1bis-2 | Cerrado |
+| E1bis-2 | Instalación real de Ollama + `ollama pull phi3` en un entorno de desarrollo verificable; test de integración real con guard `skipif` (`backend/tests/test_generador_plan_ollama_real.py`), sin mocks, generando una narrativa real vía la ruta `local` | E1bis-1 | E1bis-3, E1bis-4 | Cerrado — corrida real capturada en `docs/TRD.md` (76.38s y 57.8s contra Ollama real con `phi3` descargado) |
+| E1bis-3 | Documentación: corregir `docs/stack-tecnologico.md` (líneas 31 y 80-109) y `entregables/fase-2/dimensionamiento-costos.md` (línea 9) para no describir el wiring como hecho mientras no lo esté; actualizar `.env.example`; decidir si amerita fila en `docs/plan-implementacion.md` (ver 3.3) | E1bis-2 (para la versión final con latencia real medida) — la corrección interina `[PENDIENTE]` puede adelantarse en paralelo con E1bis-1 | E1bis-4 | Cerrado |
+| E1bis-4 | Revisión integral de E1bis-1 + E1bis-2 + E1bis-3 como un solo entregable (código + YAML + docs + tests, un solo ciclo de revisión) | E1bis-3 | Cierre de E1-bis | Cerrado |
+| E1bis-5 (opcional, no bloqueante) | Revalidar `entregables/fase-2/dimensionamiento-costos.md` sección 6 ("rango conservador, no una medición") con la latencia real medida en E1bis-2 | E1bis-2 | Ninguna — mejora, no bloquea el cierre de E1-bis | Pendiente, opcional — la corrida real de E1bis-2 fue en un entorno de desarrollo, no en un VPS; la sección 6 sigue siendo una traducción conservadora, no una medición en el hardware de destino |
 
 **Paralelismo real disponible:** dentro de este alcance acotado, la mayoría de las tareas son secuenciales (E1bis-2 necesita el código de E1bis-1; la versión final de E1bis-3 necesita la latencia real de E1bis-2; la revisión necesita las tres). El único paralelismo legítimo es **E1bis-5 junto con E1bis-4**: ambas dependen solo de E1bis-2, no comparten archivos, y E1bis-5 no bloquea el cierre de E1-bis — pueden ejecutarse en paralelo.
 
@@ -169,3 +169,9 @@ Orden secuencial obligatorio E1bis-1 → E1bis-2 → E1bis-3 → E1bis-4, con E1
 ## 6. Documentos relacionados
 
 `docs/stack-tecnologico.md`, `docs/TRD.md`, `docs/plan-implementacion.md`, `entregables/fase-2/dimensionamiento-costos.md`, `backend/app/ia/config.py`, `backend/app/ia/litellm_config.yaml`, `backend/app/ia/generador_plan.py`, `backend/tests/test_ia_config.py`, `backend/tests/test_generador_plan.py`, `backend/tests/test_api_seguimiento.py` (patrón `skipif` de referencia, líneas 99-121).
+
+## 7. Actualización posterior — Ollama como servicio opcional de Docker Compose
+
+Este plan (sección 3.2, paso 1) documentó instalación manual de Ollama fuera de Docker como el único camino, porque en ese momento (5 de agosto de 2026) ningún entorno de desarrollo lo tenía instalado y el objetivo inmediato era cerrar la brecha código-vs-documentación de E1bis-1/E1bis-2, no resolver el despliegue. Esa decisión quedó incompleta frente al principio de "Transferencia de capacidades" del README raíz: si quien adopta DiagMuni con la ruta `local` tiene que instalar y operar Ollama por su cuenta, fuera del `docker compose up -d` que ya cubre el resto del stack, el producto llega incompleto para quien específicamente quiere evitar depender de un proveedor de IA privativo.
+
+Se agregó un perfil opcional (`ia-local`) a `docker-compose.yml`: `docker compose --profile ia-local up -d` levanta un servicio `ollama` (imagen oficial, volumen persistente para el modelo descargado); `OLLAMA_API_BASE=http://ollama:11434` en `.env` lo conecta sin tocar código (ver `docs/TRD.md`, `docs/runbook-despliegue.md` sección "IA local con Ollama"). No reemplaza la instalación manual descrita en 3.2 — sigue siendo válida para quien prefiera correr Ollama fuera de Docker (otro proceso, otro host) — la containeriza como alternativa por defecto para quien sigue el runbook estándar del proyecto.
