@@ -276,7 +276,7 @@ Justificación:
 - Un `Card` por bloque (contexto / capacidad institucional), mismo patrón que "resumen de índice" ya aprobado (línea 58, `Card`).
 - Guardado por campo o por bloque (no hay noción de "enviar cuestionario completo" como en F1) — cada edición dispara el `PUT` de la sección 5.2 de forma independiente; no hay estado "incompleto" que bloquee nada, coherente con la sección 4.1.
 
-`[NO VERIFICADO]` — el texto exacto de ayuda contextual bajo cada campo (mismo principio de "lenguaje llano" de `docs/ux-brief.md` línea 8) y si el guardado es por campo individual o por botón único de "Guardar perfil" al pie de la pantalla, quedan para la fase de implementación de frontend, siguiendo el mismo criterio ya usado en `entregables/fase-2/asistente-captura-f1.md` sección 6 (dejar la redacción final al especialista de esa fase).
+`[NO VERIFICADO]` — el texto exacto de ayuda contextual bajo cada campo (mismo principio de "lenguaje llano" de `docs/ux-brief.md` línea 8) y si el guardado es por campo individual o por botón único de "Guardar perfil" al pie de la pantalla, quedan para la fase de implementación de frontend, siguiendo el mismo criterio ya usado en `entregables/fase-2/asistente-captura-f1.md` sección 6 (dejar la redacción final para esa fase, no fijarla de antemano en este documento).
 
 ### 5.2 Contrato de endpoints nuevos
 

@@ -37,7 +37,7 @@ Interlocutor institucional según país: en Uruguay, la intendencia (Ley 19.272)
 7. Autoalojable por la intendencia vía Docker Compose (nginx + backend + db), sin cuenta de terceros obligatoria para operar en producción.
 8. Verificador del plan (F9): antes de mostrar el plan generado por LLM al funcionario, se audita contra las reglas del motor determinista — nunca se muestra una acción que contradiga el índice calculado o que no exista en el catálogo OSS.
 
-### Fuera de alcance (explícitamente, para que el agente que implemente no lo asuma)
+### Fuera de alcance (explícitamente, para que quien implemente no lo asuma)
 - Portal ciudadano o app para el ciudadano final — el usuario es el funcionario, no el vecino; el valor ciudadano se entrega indirectamente a través del plan que el gobierno implementa, no de un producto de cara al ciudadano.
 - Pasarela de pagos propia — el módulo de pagos es un **adaptador de detección/registro**, nunca un procesador de cobros (en Uruguay no existe pasarela estatal única; en México el ATDT exige solo publicar alternativas).
 - Tableros embebidos (Metabase/Superset) dentro de DiagMuni — son recomendaciones del plan generado, no componentes operados por la plataforma (ver guardarraíl AGPL en `docs/stack-tecnologico.md`).
