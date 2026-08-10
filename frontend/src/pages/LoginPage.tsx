@@ -22,6 +22,15 @@ interface GobiernoResuelto {
   nombre: string;
 }
 
+// El parámetro ?redirect= de la URL lo escribe SessionExpiredWatcher.tsx de forma
+// controlada, pero llega aquí como texto arbitrario (cualquiera puede armar el link
+// a mano) -- exigir una ruta interna que empiece con "/" y rechazar "//..." (URL
+// protocol-relative, el navegador la resuelve contra otro host) y cualquier "://"
+// evita que ese parámetro se use para un open-redirect hacia un dominio externo.
+function esRutaInternaSegura(candidato: string): boolean {
+  return candidato.startsWith("/") && !candidato.startsWith("//") && !candidato.includes("://");
+}
+
 export function LoginPage() {
   const [clave, setClave] = useState("");
   const [gobierno, setGobierno] = useState<GobiernoResuelto | null>(null);
@@ -40,7 +49,8 @@ export function LoginPage() {
     mutationFn: login,
     onSuccess: (respuesta) => {
       guardarSesion(respuesta.access_token);
-      const destino = new URLSearchParams(location.search).get("redirect") || "/";
+      const redirectParam = new URLSearchParams(location.search).get("redirect");
+      const destino = redirectParam && esRutaInternaSegura(redirectParam) ? redirectParam : "/";
       void navigate(destino, { replace: true });
     },
   });
