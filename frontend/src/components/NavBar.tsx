@@ -10,7 +10,7 @@ export function NavBar() {
 
   function alCerrarSesion() {
     cerrarSesion();
-    navigate("/login", { replace: true });
+    void navigate("/login", { replace: true });
   }
 
   return (

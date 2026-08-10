@@ -38,7 +38,7 @@ function AccionTramite({ tramite }: { tramite: TramiteResponse }) {
 
   if (tramite.estado === "sin_iniciar" || tramite.estado === "en_progreso") {
     return (
-      <Button size="sm" onClick={() => navigate(`/tramites/${tramite.id}/diagnostico`)}>
+      <Button size="sm" onClick={() => void navigate(`/tramites/${tramite.id}/diagnostico`)}>
         Continuar diagnóstico
       </Button>
     );
@@ -50,11 +50,11 @@ function AccionTramite({ tramite }: { tramite: TramiteResponse }) {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/tramites/${tramite.id}/diagnostico`)}
+          onClick={() => void navigate(`/tramites/${tramite.id}/diagnostico`)}
         >
           Corregir respuestas
         </Button>
-        <Button size="sm" onClick={() => navigate(`/tramites/${tramite.id}/plan`)}>
+        <Button size="sm" onClick={() => void navigate(`/tramites/${tramite.id}/plan`)}>
           Ver plan
         </Button>
       </div>
@@ -83,7 +83,7 @@ function FormularioNuevoTramite({ abierto, onCerrar }: { abierto: boolean; onCer
   const crearMutacion = useMutation({
     mutationFn: crearTramite,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["panel-resumen"] });
+      void queryClient.invalidateQueries({ queryKey: ["panel-resumen"] });
       setNombre("");
       setDescripcion("");
       onCerrar();

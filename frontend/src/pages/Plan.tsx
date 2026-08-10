@@ -190,8 +190,8 @@ export function Plan() {
               Todavía no existe un plan de modernización para este trámite. Primero complete y envíe el diagnóstico.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => navigate(`/tramites/${tramiteId}/diagnostico`)}>Ir al diagnóstico</Button>
-              <Button variant="outline" onClick={() => navigate("/")}>
+              <Button onClick={() => void navigate(`/tramites/${tramiteId}/diagnostico`)}>Ir al diagnóstico</Button>
+              <Button variant="outline" onClick={() => void navigate("/")}>
                 Volver al panel resumen
               </Button>
             </div>
@@ -210,7 +210,7 @@ export function Plan() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-destructive">No se pudo completar la operación. Intenta de nuevo.</p>
-            <Button variant="outline" onClick={() => navigate("/")}>
+            <Button variant="outline" onClick={() => void navigate("/")}>
               Volver al panel resumen
             </Button>
           </CardContent>
@@ -262,7 +262,7 @@ export function Plan() {
         </Card>
       )}
 
-      <Button variant="outline" onClick={() => navigate("/seguimiento")}>
+      <Button variant="outline" onClick={() => void navigate("/seguimiento")}>
         Ir al seguimiento
       </Button>
     </div>

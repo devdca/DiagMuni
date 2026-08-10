@@ -77,9 +77,14 @@ jobs:
       - name: Instalar dependencias
         working-directory: frontend
         run: npm install
-      # 2. type-check (sin lint propio todavía — fase F de docs/plan-implementacion.md).
-      # Los tests (E2E) están en el job `e2e` de abajo: necesitan Docker (stack completo),
-      # no tienen sentido en este job liviano de solo Node.
+      # 1. lint (eslint flat config, ver frontend/eslint.config.js) -- src/ con reglas
+      # type-aware (mismo rigor que mypy en el backend); e2e/ solo con las reglas base
+      # de TS, sin las de React (no hay componentes ahí).
+      - name: Lint (eslint)
+        working-directory: frontend
+        run: npx eslint .
+      # 2. type-check. Los tests (E2E) están en el job `e2e` de abajo: necesitan Docker
+      # (stack completo), no tienen sentido en este job liviano de solo Node.
       - name: Type-check (tsc)
         working-directory: frontend
         run: npx tsc -b

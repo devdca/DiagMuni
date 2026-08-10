@@ -14,7 +14,7 @@ export function SessionExpiredWatcher() {
   useEffect(() => {
     function alExpirar() {
       const destino = encodeURIComponent(location.pathname + location.search);
-      navigate(`/login?redirect=${destino}`, { replace: true });
+      void navigate(`/login?redirect=${destino}`, { replace: true });
     }
     window.addEventListener(EVENTO_SESION_EXPIRADA, alExpirar);
     return () => window.removeEventListener(EVENTO_SESION_EXPIRADA, alExpirar);

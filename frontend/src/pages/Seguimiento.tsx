@@ -97,7 +97,7 @@ function FilaAccion({
   return (
     <tr
       className="cursor-pointer border-b border-border last:border-0 hover:bg-secondary/50"
-      onClick={() => navigate(`/tramites/${accion.tramite_id}/plan`)}
+      onClick={() => void navigate(`/tramites/${accion.tramite_id}/plan`)}
     >
       <td className="py-3 pr-4 align-top">
         <p className="font-medium">{accion.descripcion}</p>

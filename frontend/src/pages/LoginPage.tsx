@@ -41,7 +41,7 @@ export function LoginPage() {
     onSuccess: (respuesta) => {
       guardarSesion(respuesta.access_token);
       const destino = new URLSearchParams(location.search).get("redirect") || "/";
-      navigate(destino, { replace: true });
+      void navigate(destino, { replace: true });
     },
   });
 

@@ -67,8 +67,7 @@ export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Pro
     // (422 de Pydantic, un objeto/array por campo) -- solo el primer caso es
     // apto para mostrarse tal cual; el segundo cae al mensaje genérico para
     // no exponer texto crudo al funcionario.
-    const detalleCrudo =
-      cuerpo && typeof cuerpo === "object" && "detail" in cuerpo ? (cuerpo as { detail: unknown }).detail : null;
+    const detalleCrudo = cuerpo && typeof cuerpo === "object" && "detail" in cuerpo ? cuerpo.detail : null;
     const detalle =
       typeof detalleCrudo === "string" ? detalleCrudo : "No se pudo completar la operación. Intenta de nuevo.";
     throw new ApiError(detalle, respuesta.status);

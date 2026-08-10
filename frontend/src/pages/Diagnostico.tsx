@@ -432,7 +432,7 @@ export function Diagnostico() {
       try {
         const listo = await planListo(tramiteId!);
         if (listo && !cancelado) {
-          navigate(`/tramites/${tramiteId}/plan`);
+          await navigate(`/tramites/${tramiteId}/plan`);
         }
       } catch {
         // Fallo de red transitorio -- se reintenta en el siguiente tick, nunca
@@ -440,8 +440,8 @@ export function Diagnostico() {
       }
     }
 
-    verificar();
-    const intervalo = setInterval(verificar, 3000);
+    void verificar();
+    const intervalo = setInterval(() => void verificar(), 3000);
     return () => {
       cancelado = true;
       clearInterval(intervalo);
@@ -542,7 +542,7 @@ export function Diagnostico() {
               Ya guardamos su diagnóstico. Estamos preparando el plan de modernización; esto puede tardar un
               momento.
             </p>
-            <Button variant="outline" onClick={() => navigate("/")}>
+            <Button variant="outline" onClick={() => void navigate("/")}>
               Volver al panel resumen
             </Button>
           </CardContent>
@@ -571,7 +571,7 @@ export function Diagnostico() {
           clasificando={clasificandoBooleana[definicion.id]}
           onCambiarValor={(valor) => setValores((prev) => ({ ...prev, [definicion.id]: valor }))}
           onCambiarAclaracion={(texto) => setAclaraciones((prev) => ({ ...prev, [definicion.id]: texto }))}
-          onSalirAclaracion={() => alSalirAclaracionBooleana(definicion.id)}
+          onSalirAclaracion={() => void alSalirAclaracionBooleana(definicion.id)}
           onConfirmarSugerencia={() => {
             const sugerencia = sugerencias[definicion.id];
             if (sugerencia) {
@@ -594,7 +594,7 @@ export function Diagnostico() {
           setMecanismoSugerencia(null);
         }}
         onCambiarAclaracion={setMecanismoAclaracion}
-        onSalirAclaracion={alSalirAclaracionMecanismo}
+        onSalirAclaracion={() => void alSalirAclaracionMecanismo()}
         onConfirmarSugerencia={() => {
           if (mecanismoSugerencia) setMecanismoSeleccion(mecanismoSugerencia);
           setMecanismoSugerencia(null);
