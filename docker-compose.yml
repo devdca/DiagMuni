@@ -41,5 +41,31 @@ services:
       backend:
         condition: service_healthy
 
+  # IA local sin depender de una API de pago (docs/runbook-despliegue.md, "IA local
+  # con Ollama"; principio de "Transferencia de capacidades" del README raíz -- el
+  # producto no debe generar dependencia de un proveedor privativo). Detrás de un
+  # profile a propósito: sin `--profile ia-local`, `docker compose up -d` (el
+  # comando de siempre) no lo levanta -- preserva el piso de 2 vCPU/2 GB ya
+  # documentado para quien no quiere IA local. `backend` nunca declara `depends_on`
+  # sobre este servicio -- si el profile no está activo, esa dependencia sería
+  # inválida (el servicio no existe en la config resuelta); el código ya degrada
+  # solo si OLLAMA_API_BASE no responde (backend/app/ia/config.py).
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ia-local"]
+    volumes:
+      - diagmuni_ollama_data:/root/.ollama
+    ports:
+      # Publicado al host (no solo a la red interna de Compose) para que el E2E de
+      # Playwright, que corre como proceso de host, pueda chequear si el modelo ya
+      # está descargado antes de decidir si corre el test de modo LLM o se salta.
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   diagmuni_db_data:
+  diagmuni_ollama_data:

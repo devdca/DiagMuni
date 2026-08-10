@@ -1,7 +1,10 @@
 """Tests del verificador (F9). Ninguna llamada real a un LLM --
-`litellm.completion` siempre monkeypatcheado. Cubre el booleano fail-closed."""
+`litellm.completion` siempre monkeypatcheado. Cubre el booleano fail-closed y el
+fallback `economico` -> `local` (test_generador_plan_ollama_real.py cubre el caso
+sin mocks, contra un Ollama real)."""
 
 from app.ia import verificador
+from app.ia.config import obtener_ruta
 from app.ia.verificador import verificar_contenido
 
 BRECHA_DETERMINISTA = {
@@ -27,19 +30,50 @@ def _mock_respuesta(texto: str) -> dict:
     return {"choices": [{"message": {"content": texto}}]}
 
 
-# --- (a) ruta "economico" no disponible -> False, sin intentar la llamada -------
+# --- (a) ninguna ruta de _RUTAS_VERIFICACION disponible -> False, sin llamar ----
 
 
-def test_ruta_economico_no_disponible_devuelve_false(monkeypatch):
+def test_ninguna_ruta_disponible_devuelve_false(monkeypatch):
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
-        raise AssertionError("litellm.completion no debía invocarse sin ruta 'economico' disponible")
+        raise AssertionError("litellm.completion no debía invocarse sin ninguna ruta disponible")
 
     monkeypatch.setattr(verificador.litellm, "completion", _completion_no_debe_llamarse)
 
     contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
     assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is False
+
+
+# --- (a2) "economico" no disponible pero "local" sí -> usa local, nunca falla cerrado ---
+
+
+def test_economico_no_disponible_pero_local_si_usa_local(monkeypatch):
+    """Regresión del hueco cerrado hoy: antes, sin DEEPSEEK_API_KEY, esto devolvía
+    False sin importar que Ollama funcionara -- generador_plan.py quedaba simétrico
+    (Claude->Claude respaldo->local->plantilla) pero el auditor no."""
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: ruta == "local")
+    # "local" usa api_base, no api_key (ver app/ia/litellm_config.yaml) -- api_key_de
+    # debe devolver None para que _veredicto_llm despache api_base, no api_key.
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: None)
+    monkeypatch.setattr(verificador, "api_base_de", lambda ruta: "http://ollama:11434")
+
+    llamadas = []
+
+    def _completion_espia(*args, **kwargs):
+        llamadas.append(kwargs)
+        return _mock_respuesta("SI")
+
+    monkeypatch.setattr(verificador.litellm, "completion", _completion_espia)
+
+    contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
+    assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is True
+
+    assert len(llamadas) == 1
+    assert llamadas[0]["model"] == "ollama/phi3"
+    assert llamadas[0]["api_base"] == "http://ollama:11434"
+    assert "api_key" not in llamadas[0]
+    assert llamadas[0]["timeout"] == obtener_ruta("local").timeout_segundos
 
 
 # --- (b) el LLM responde "SI" -> True -------------------------------------------
@@ -162,7 +196,7 @@ def test_llm_recibe_model_y_api_key_de_la_ruta_economico(monkeypatch):
     assert len(llamadas) == 1
     assert llamadas[0]["model"] == "deepseek/deepseek-chat"
     assert llamadas[0]["api_key"] == "sk-test-economico"
-    assert llamadas[0]["timeout"] == verificador.TIMEOUT_SEGUNDOS
+    assert llamadas[0]["timeout"] == obtener_ruta("economico").timeout_segundos
 
 
 # --- (i) sin brechas en ambos lados -> True (nada que auditar, no hay discrepancia) ---

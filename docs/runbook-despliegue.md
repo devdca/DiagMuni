@@ -84,6 +84,25 @@ Debe responder `{"status":"ok"}`. Si el servidor es remoto, cambiar `localhost` 
 
 Con el stack arriba y las migraciones aplicadas, dar de alta el primer gobierno siguiendo `docs/runbook-alta-gobierno.md`.
 
+## IA local con Ollama (opcional)
+
+Sin `DEEPSEEK_API_KEY`/`ANTHROPIC_API_KEY`/`OLLAMA_API_BASE` configuradas, el generador de planes usa una plantilla determinista — funciona igual, solo sin redacción asistida por IA. Si en cambio se quiere redacción por IA sin depender de una API de pago (principio de "Transferencia de capacidades" del README raíz: el producto no debe generar dependencia de un proveedor privativo), el stack incluye un perfil opcional de Docker Compose con Ollama:
+
+```
+docker compose --profile ia-local up -d
+docker compose exec ollama ollama pull phi3
+```
+
+Editar `.env` y fijar `OLLAMA_API_BASE=http://ollama:11434`, luego recrear el backend para que tome el cambio:
+
+```
+docker compose up -d --force-recreate backend
+```
+
+**Requisito de hardware** (`docs/stack-tecnologico.md`): 8 vCPU / 16 GB recomendado — más pesado que el piso de 2 vCPU / 2 GB del despliegue sin IA local. El primer plan generado con `phi3` puede tardar 1-2 minutos (benchmark sin GPU: 76-123s, `docs/TRD.md`) — normal, el frontend muestra "Generando plan…" mientras espera.
+
+Sin este perfil activo (el caso por defecto), `docker compose up -d` no levanta Ollama — el stack liviano sin IA local sigue funcionando exactamente igual que antes de esta sección.
+
 ## Errores comunes
 
 ### El puerto 8090 ya está en uso
