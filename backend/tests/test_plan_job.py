@@ -142,10 +142,16 @@ def test_verificacion_fallida_cae_a_degradado(monkeypatch):
     assert contenido == generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
 
 
-# --- (d) verificador no disponible (sin key para "economico") -> degradado, verificado=True ---
+# --- (d) verificador sin "economico" (sin key), contenido fiel -> modo llm igual ---
+#
+# Cambio de comportamiento deliberado (docs/plan-implementacion-e1-bis-capa-ia-local.md
+# sección 9): antes, sin ninguna ruta de verificación LLM disponible, esto degradaba
+# siempre -- el modo llm 100% local (sin ninguna API de pago) quedaba inalcanzable.
+# Ahora la compuerta determinista de `verificador_citas.py` (sin citas/números
+# fabricados) basta por sí sola para `verificado=true`, sin llamar a ningún LLM.
 
 
-def test_verificador_no_disponible_cae_a_degradado(monkeypatch):
+def test_verificador_sin_economico_contenido_fiel_persiste_modo_llm(monkeypatch):
     monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
     _mockear_ruta_llm_disponible(monkeypatch)
     _mockear_generacion_exitosa(monkeypatch)
@@ -164,7 +170,37 @@ def test_verificador_no_disponible_cae_a_degradado(monkeypatch):
 
     modo, contenido, verificado = plan_job._generar_contenido_y_modo(RESPUESTAS_CON_BRECHAS, "mx")
 
-    assert llamadas_auditoria == []  # el verificador nunca intentó auditar
+    assert llamadas_auditoria == []  # la compuerta determinista nunca necesitó auditar con LLM
+    assert modo == "llm"
+    assert verificado is True
+    for brecha in contenido["brechas"]:
+        assert brecha["narrativa"] == "prosa redactada por el mock de Claude"
+
+
+def test_verificador_sin_economico_contenido_con_cita_inventada_cae_a_degradado(monkeypatch):
+    """Misma ausencia de `economico` que el test anterior, pero la narrativa
+    generada trae una cita fabricada -- la compuerta determinista rechaza sin
+    necesitar ningún LLM disponible para contradecirla."""
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    _mockear_ruta_llm_disponible(monkeypatch)
+    narrativa_con_cita_inventada = (
+        "Este trámite debe completarse conforme al Artículo 999 de la Ley Federal "
+        "de Trámites Digitales, dentro de un plazo máximo de 10 días naturales."
+    )
+    _mockear_generacion_exitosa(monkeypatch, narrativa=narrativa_con_cita_inventada)
+
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
+
+    def _completion_no_debe_auditar(*args, **kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        if "auditor de fidelidad" in prompt:
+            raise AssertionError("no debía intentar auditar con LLM sin economico disponible")
+        return _mock_respuesta(narrativa_con_cita_inventada)
+
+    monkeypatch.setattr(verificador.litellm, "completion", _completion_no_debe_auditar)
+
+    modo, contenido, verificado = plan_job._generar_contenido_y_modo(RESPUESTAS_CON_BRECHAS, "mx")
+
     assert modo == "degradado"
     assert verificado is True
     assert contenido == generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")

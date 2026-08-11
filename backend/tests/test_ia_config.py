@@ -59,7 +59,7 @@ def test_ruta_local_es_ollama_phi3():
     assert ruta.model == "ollama/phi3"
     assert ruta.env_var_api_base == "OLLAMA_API_BASE"
     assert ruta.env_var_api_key is None
-    assert ruta.timeout_segundos == 180
+    assert ruta.timeout_segundos == 600
 
 
 def test_disponible_local_con_base_ollama():

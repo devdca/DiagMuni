@@ -9,6 +9,41 @@ Guía operativa para quien instala y mantiene el stack completo (la contraparte 
 - Piso de hardware: sin benchmark propio en este documento (`[NO VERIFICADO]`), pero nginx + FastAPI + Postgres sin modelo de IA local corren cómodos en un VPS económico (2 vCPU / 2 GB RAM como piso práctico). Esto **no** aplica si además se activa un modelo de IA local (Ollama/phi3) en la misma máquina — para ese escenario ver `entregables/fase-2/dimensionamiento-costos.md` (8 vCPU / 16 GB recomendado).
 - Ningún otro proceso usando el puerto 80/8090 del servidor (nginx del proyecto publica el puerto **8090** hacia afuera — ver `docker-compose.yml`).
 
+## Requisito previo — instalar Docker en un equipo Windows local (sin servidor Linux)
+
+Los pasos de arriba asumen que ya existe un servidor con Docker instalado. Para desplegar en un equipo Windows local (ej. una laptop, como piso mínimo de referencia — si el stack corre ahí, corre en cualquier VPS), instalar Docker Desktop primero. Verificado de punta a punta en un equipo Windows real, 2026-08-11:
+
+1. **Habilitar WSL2** (backend requerido por Docker Desktop en Windows). Abrir PowerShell **como administrador**:
+   ```
+   wsl --install
+   ```
+   Instala WSL2 con Ubuntu como distro predeterminada. Reiniciar el equipo solo si el instalador lo pide explícitamente — no siempre es necesario, depende de la configuración previa del equipo (`[NO VERIFICADO]` si existe un caso donde no reiniciar cause un fallo silencioso; en la verificación de referencia no hizo falta reiniciar).
+
+   Confirmar con una terminal normal (no necesita ser administrador):
+   ```
+   wsl --status
+   ```
+   Salida esperada (ejemplo real de la verificación de referencia):
+   ```
+   Distribución predeterminada: Ubuntu
+   Versión predeterminada: 2
+   ```
+
+2. **Instalar Docker Desktop** desde `https://www.docker.com/products/docker-desktop/`. Durante la instalación, si pregunta por el backend, elegir **WSL2** (no Hyper-V) — es el que este runbook verifica. Abrir Docker Desktop después de instalar y esperar a que el ícono de la barra de tareas muestre que el motor ya está corriendo.
+
+3. **Verificar la instalación** desde una terminal normal:
+   ```
+   docker --version
+   docker compose version
+   ```
+   Salida esperada (versiones exactas de la verificación de referencia; versiones más nuevas también sirven — lo que importa es que `docker compose` responda, sin guion):
+   ```
+   Docker version 29.7.2, build a7dcaa6
+   Docker Compose version v5.3.1
+   ```
+
+Con esto, continuar directo en el **Paso 1** de abajo — el resto del runbook (clonar, `.env`, `docker compose up -d`, migraciones) es idéntico en Windows, Linux o macOS; los comandos de Docker Compose son los mismos en cualquier terminal.
+
 ## Paso 1 — Obtener el código
 
 ```
@@ -25,9 +60,16 @@ cp .env.example .env
 Editar `.env` con cualquier editor de texto. Cada variable ya está comentada en el propio archivo; las dos que **siempre** hay que revisar antes de un despliegue real (no de prueba):
 
 - **`JWT_SECRET`**: el valor de `.env.example` es un placeholder público (está en el repositorio). Generar uno real:
-  ```
-  python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-  ```
+  - Con Python instalado (Linux/macOS: comando `python3`; en Windows normalmente es `python` — verificar antes con `python --version`):
+    ```
+    python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+    ```
+  - **Sin Python** (ej. equipo Windows recién instalado, sin ninguna dependencia adicional), en PowerShell:
+    ```
+    [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).Replace('+','-').Replace('/','_').Replace('=','')
+    ```
+    Mismo formato y entropía que la alternativa de Python (32 bytes aleatorios en base64 url-safe sin relleno). Verificado 2026-08-11, salida real de ejemplo: `ahuXgo7LG5sKxKxxwkVqVEhSaSWqLenRNEnTfFwNbA8` (no reutilizar este valor de ejemplo — generar uno propio por despliegue).
+
   Pegar el resultado como valor de `JWT_SECRET`.
 - **`ENVIRONMENT`**: dejarlo en `development` mientras se está probando; cambiarlo a `production` antes de dar acceso real a un gobierno. Si se pone `ENVIRONMENT=production` sin haber cambiado `JWT_SECRET` del placeholder, el contenedor `backend` **no arranca** — ver la sección de errores más abajo, es un comportamiento intencional, no un bug.
 

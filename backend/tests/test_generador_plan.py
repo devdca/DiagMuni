@@ -167,7 +167,7 @@ def test_sonnet_falla_fable_falla_local_responde_usa_prosa_local(monkeypatch):
             raise TimeoutError("simulated timeout en Claude")
         assert kwargs["model"] == "ollama/phi3"
         assert kwargs["api_base"] == "http://localhost:11434"
-        assert kwargs["timeout"] == 180
+        assert kwargs["timeout"] == 600
         return _mock_respuesta_llm("Prosa generada por Ollama local.")
 
     monkeypatch.setattr(generador_plan.litellm, "completion", _completion_espia)
@@ -199,7 +199,7 @@ def test_antropic_no_disponible_local_disponible_usa_prosa_local(monkeypatch):
         llamadas.append(kwargs)
         assert kwargs["model"] == "ollama/phi3"
         assert kwargs["api_base"] == "http://localhost:11434"
-        assert kwargs["timeout"] == 180
+        assert kwargs["timeout"] == 600
         return _mock_respuesta_llm("Prosa Ollama directo.")
 
     monkeypatch.setattr(generador_plan, "esta_disponible", disponibilidad)

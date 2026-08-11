@@ -25,4 +25,8 @@ model_list:
     litellm_params:
       model: ollama/phi3
       api_base: os.environ/OLLAMA_API_BASE
-      timeout_segundos: 180
+      # 180s alcanzaba en el benchmark original (iMac i5-4570 de escritorio, ~123s
+      # medidos, docs/stack-tecnologico.md). Subido a 600s tras verificar G4 en un
+      # equipo portátil real (Intel i7-8650U móvil, 4 núcleos/8 hilos) donde 180s no
+      # alcanzó -- ver docs/plan-implementacion-e1-bis-capa-ia-local.md sección 8.
+      timeout_segundos: 600

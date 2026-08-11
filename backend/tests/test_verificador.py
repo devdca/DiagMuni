@@ -1,7 +1,12 @@
 """Tests del verificador (F9). Ninguna llamada real a un LLM --
-`litellm.completion` siempre monkeypatcheado. Cubre el booleano fail-closed y el
-fallback `economico` -> `local` (test_generador_plan_ollama_real.py cubre el caso
-sin mocks, contra un Ollama real)."""
+`litellm.completion` siempre monkeypatcheado. Cubre las dos capas en su orden
+estricto (compuerta determinista de `verificador_citas.py`, siempre; veredicto LLM
+vía `economico`, solo si hay `DEEPSEEK_API_KEY`, nunca como requisito) y el
+booleano fail-closed de la capa LLM. El caso negativo real (narrativa que inventa
+una norma) vive en `test_verificador_citas.py`, sin necesitar ningún LLM -- ya no
+en un test contra Ollama real: `local`/phi3 se retiró de la cadena de veredicto LLM
+tras confirmar que no discrimina fidelidad de forma confiable (docs/plan-
+implementacion-e1-bis-capa-ia-local.md sección 9)."""
 
 from app.ia import verificador
 from app.ia.config import obtener_ruta
@@ -21,6 +26,11 @@ BRECHA_DETERMINISTA = {
 
 CONTENIDO_DETERMINISTA = {"resumen_narrativo": "x", "brechas": [BRECHA_DETERMINISTA]}
 
+NARRATIVA_CON_ARTICULO_INVENTADO = (
+    "Este trámite debe completarse conforme al Artículo 999 de la Ley Federal de "
+    "Trámites Digitales, dentro de un plazo máximo de 10 días naturales."
+)
+
 
 def _brecha_llm(narrativa: str) -> dict:
     return {**BRECHA_DETERMINISTA, "narrativa": narrativa}
@@ -30,50 +40,55 @@ def _mock_respuesta(texto: str) -> dict:
     return {"choices": [{"message": {"content": texto}}]}
 
 
-# --- (a) ninguna ruta de _RUTAS_VERIFICACION disponible -> False, sin llamar ----
+# --- (a) sin ninguna API de pago: la compuerta determinista sola decide --------
 
 
-def test_ninguna_ruta_disponible_devuelve_false(monkeypatch):
+def test_sin_economico_narrativa_fiel_aprueba_sin_llamar_llm(monkeypatch):
+    """Antes, sin ninguna ruta de verificación disponible, esto rechazaba siempre
+    -- el modo llm 100% local quedaba inalcanzable. Ahora la compuerta
+    determinista (sin citas/números fabricados) basta por sí sola."""
     monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
-        raise AssertionError("litellm.completion no debía invocarse sin ninguna ruta disponible")
+        raise AssertionError("litellm.completion no debía invocarse sin economico disponible")
 
     monkeypatch.setattr(verificador.litellm, "completion", _completion_no_debe_llamarse)
 
-    contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
+    contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel, sin citas")]}
+    assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is True
+
+
+def test_sin_economico_narrativa_con_articulo_inventado_rechaza(monkeypatch):
+    """La compuerta determinista rechaza aunque no haya ningún LLM disponible para
+    contradecirla -- este es el caso real que motivó todo el rediseño (F9,
+    docs/plan-implementacion-e1-bis-capa-ia-local.md sección 9)."""
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(
+        verificador.litellm,
+        "completion",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no debía llamarse")),
+    )
+
+    contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm(NARRATIVA_CON_ARTICULO_INVENTADO)]}
     assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is False
 
 
-# --- (a2) "economico" no disponible pero "local" sí -> usa local, nunca falla cerrado ---
+# --- (a2) con economico disponible, la compuerta determinista corre PRIMERO ----
 
 
-def test_economico_no_disponible_pero_local_si_usa_local(monkeypatch):
-    """Regresión del hueco cerrado hoy: antes, sin DEEPSEEK_API_KEY, esto devolvía
-    False sin importar que Ollama funcionara -- generador_plan.py quedaba simétrico
-    (Claude->Claude respaldo->local->plantilla) pero el auditor no."""
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: ruta == "local")
-    # "local" usa api_base, no api_key (ver app/ia/litellm_config.yaml) -- api_key_de
-    # debe devolver None para que _veredicto_llm despache api_base, no api_key.
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: None)
-    monkeypatch.setattr(verificador, "api_base_de", lambda ruta: "http://ollama:11434")
+def test_con_economico_disponible_la_compuerta_determinista_rechaza_sin_llamar_llm(monkeypatch):
+    """Orden estricto: si la compuerta determinista rechaza, ni siquiera se llama
+    al LLM -- un "SI" de economico nunca puede rescatar una cita fabricada."""
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
 
-    llamadas = []
+    def _completion_no_debe_llamarse(*args, **kwargs):
+        raise AssertionError("litellm.completion no debía invocarse -- la compuerta ya rechazó")
 
-    def _completion_espia(*args, **kwargs):
-        llamadas.append(kwargs)
-        return _mock_respuesta("SI")
+    monkeypatch.setattr(verificador.litellm, "completion", _completion_no_debe_llamarse)
 
-    monkeypatch.setattr(verificador.litellm, "completion", _completion_espia)
-
-    contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
-    assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is True
-
-    assert len(llamadas) == 1
-    assert llamadas[0]["model"] == "ollama/phi3"
-    assert llamadas[0]["api_base"] == "http://ollama:11434"
-    assert "api_key" not in llamadas[0]
-    assert llamadas[0]["timeout"] == obtener_ruta("local").timeout_segundos
+    contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm(NARRATIVA_CON_ARTICULO_INVENTADO)]}
+    assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is False
 
 
 # --- (b) el LLM responde "SI" -> True -------------------------------------------
@@ -98,7 +113,9 @@ def test_veredicto_no_rechaza(monkeypatch):
 
     contenido_llm = {
         "resumen_narrativo": "x",
-        "brechas": [_brecha_llm("narrativa que inventa una norma que no existe")],
+        # Sin citas/números -- pasa la compuerta determinista; el rechazo viene
+        # de la capa LLM, que es lo que este test mide.
+        "brechas": [_brecha_llm("narrativa que contradice el sentido de los datos, sin citar nada nuevo")],
     }
     assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is False
 
@@ -141,6 +158,45 @@ def test_respuesta_ambigua_no_reconocida_devuelve_false(monkeypatch):
 
     contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
     assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is False
+
+
+# --- (e3) puntuación/comillas/énfasis envolventes se toleran, pero NUNCA prefix-match ---
+
+
+def test_veredicto_con_puntuacion_envolvente_aprueba(monkeypatch):
+    """Un modelo de pocos parámetros (ej. phi3) puede envolver la respuesta en
+    puntuación trivial ("SI.", "**SI**", '"SÍ"') incluso con temperature=0 -- eso
+    debe tolerarse. Ninguno de estos casos es un prefix-match: se exige que TODO
+    el resto (tras despojar la puntuación envolvente) sea exactamente "SI"/"SÍ"."""
+    for respuesta_cruda in ('SI.', '"SÍ"', '**SI**', '  si.  ', "(SI)"):
+        monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
+        monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+        monkeypatch.setattr(
+            verificador.litellm, "completion", lambda *a, **k: _mock_respuesta(respuesta_cruda)
+        )
+        contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
+        assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is True, respuesta_cruda
+
+
+def test_veredicto_con_apertura_concesiva_no_es_prefix_match_rechaza(monkeypatch):
+    """Regresión explícita contra relajar el parser a prefix-match: "sin embargo" y
+    "si bien" son aperturas concesivas comunes en español -- un modelo divagando
+    puede empezar así para señalar que la narrativa SÍ tiene un problema. Aprobar
+    por empezar con "SI" convertiría el fail-closed en un falso-aprobado
+    sistemático. También cubre una respuesta truncada por max_tokens=10 a media
+    frase ("SI, LA NARRA...")."""
+    for respuesta_cruda in (
+        "SIN EMBARGO, LA NARRATIVA CONTRADICE EL SENTIDO DE LOS DATOS",
+        "SI BIEN LA NARRATIVA ES CLARA, CONTRADICE LA FUENTE NORMATIVA",
+        "SI, LA NARRA",
+    ):
+        monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
+        monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+        monkeypatch.setattr(
+            verificador.litellm, "completion", lambda *a, **k: _mock_respuesta(respuesta_cruda)
+        )
+        contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
+        assert verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA) is False, respuesta_cruda
 
 
 # --- (f) discrepancia estructural: cantidad de brechas no coincide -> False, sin llamar ---
@@ -197,6 +253,9 @@ def test_llm_recibe_model_y_api_key_de_la_ruta_economico(monkeypatch):
     assert llamadas[0]["model"] == "deepseek/deepseek-chat"
     assert llamadas[0]["api_key"] == "sk-test-economico"
     assert llamadas[0]["timeout"] == obtener_ruta("economico").timeout_segundos
+    assert llamadas[0]["temperature"] == 0
+    assert llamadas[0]["max_tokens"] == 10
+    assert llamadas[0]["stop"] == ["\n"]
 
 
 # --- (i) sin brechas en ambos lados -> True (nada que auditar, no hay discrepancia) ---
