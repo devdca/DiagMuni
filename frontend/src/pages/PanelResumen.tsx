@@ -9,7 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { obtenerNivelMadurez } from "@/lib/madurez";
 
-import { crearTramite, obtenerPanelResumen, type TramiteResponse } from "../lib/tramitesApi";
+import {
+  archivarTramite,
+  crearTramite,
+  desarchivarTramite,
+  eliminarTramite,
+  obtenerPanelResumen,
+  type TramiteResponse,
+} from "../lib/tramitesApi";
 
 // Panel resumen (docs/ux-brief.md, "2. Panel resumen"): tarjeta con el índice de
 // madurez global y fecha de último diagnóstico, más la tabla de trámites
@@ -67,6 +74,62 @@ function AccionTramite({ tramite }: { tramite: TramiteResponse }) {
   // tarea (docs/ux-brief.md no fija este caso): mostrar un texto de espera en
   // vez de un botón de acción, para no sugerir que hay algo que hacer.
   return <span className="text-sm text-atenuado">Generando plan de modernización...</span>;
+}
+
+// Gestión de un trámite: eliminar (borrado físico, backend/app/api/tramites.py
+// solo lo permite si `completado_en` es null -- mismo campo que ya trae
+// TramiteResponse, sin duplicar esa regla en el frontend) o archivar/desarchivar
+// (reversible, oculta del panel sin borrar nada). `window.confirm` en vez de un
+// modal propio -- no existe un componente de diálogo en el kit de UI todavía y el
+// resto de este panel ya sigue el criterio de "sin metodologías pesadas"
+// (docs/ux-brief.md) para lo que no lo necesita.
+function AccionesGestion({ tramite, archivados }: { tramite: TramiteResponse; archivados: boolean }) {
+  const queryClient = useQueryClient();
+  const invalidar = () => void queryClient.invalidateQueries({ queryKey: ["panel-resumen"] });
+
+  const eliminarMutacion = useMutation({ mutationFn: eliminarTramite, onSuccess: invalidar });
+  const archivarMutacion = useMutation({ mutationFn: archivarTramite, onSuccess: invalidar });
+  const desarchivarMutacion = useMutation({ mutationFn: desarchivarTramite, onSuccess: invalidar });
+
+  if (archivados) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={desarchivarMutacion.isPending}
+        onClick={() => desarchivarMutacion.mutate(tramite.id)}
+      >
+        Desarchivar
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex justify-end gap-2">
+      {tramite.completado_en === null && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={eliminarMutacion.isPending}
+          onClick={() => {
+            if (window.confirm(`¿Eliminar el trámite "${tramite.nombre}"? Esta acción no se puede deshacer.`)) {
+              eliminarMutacion.mutate(tramite.id);
+            }
+          }}
+        >
+          Eliminar
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={archivarMutacion.isPending}
+        onClick={() => archivarMutacion.mutate(tramite.id)}
+      >
+        Archivar
+      </Button>
+    </div>
+  );
 }
 
 // Alta de un trámite en el catálogo (docs/app-flow.md, "Estados del trámite":
@@ -139,7 +202,14 @@ function FormularioNuevoTramite({ abierto, onCerrar }: { abierto: boolean; onCer
 }
 
 export function PanelResumen() {
-  const { data, isLoading, isError } = useQuery({ queryKey: ["panel-resumen"], queryFn: obtenerPanelResumen });
+  const [verArchivados, setVerArchivados] = useState(false);
+  // El query key incluye `verArchivados` -- son dos listas mutuamente excluyentes
+  // (backend/app/api/tramites.py nunca las mezcla), no una misma lista filtrada
+  // en el cliente.
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["panel-resumen", verArchivados],
+    queryFn: () => obtenerPanelResumen(verArchivados),
+  });
   const [formularioAbierto, setFormularioAbierto] = useState(false);
 
   return (
@@ -180,21 +250,32 @@ export function PanelResumen() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>Trámites catalogados</CardTitle>
-          {!formularioAbierto && (
-            <Button size="sm" variant="outline" onClick={() => setFormularioAbierto(true)}>
-              Agregar trámite
+          <CardTitle>{verArchivados ? "Trámites archivados" : "Trámites catalogados"}</CardTitle>
+          <div className="flex gap-2">
+            {!verArchivados && !formularioAbierto && (
+              <Button size="sm" variant="outline" onClick={() => setFormularioAbierto(true)}>
+                Agregar trámite
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setVerArchivados((actual) => !actual)}>
+              {verArchivados ? "Ver activos" : "Ver archivados"}
             </Button>
-          )}
+          </div>
         </CardHeader>
         <CardContent>
-          <FormularioNuevoTramite abierto={formularioAbierto} onCerrar={() => setFormularioAbierto(false)} />
+          {!verArchivados && (
+            <FormularioNuevoTramite abierto={formularioAbierto} onCerrar={() => setFormularioAbierto(false)} />
+          )}
+          {verArchivados && data?.tramites.length === 0 && (
+            <p className="text-sm text-atenuado">No hay ningún trámite archivado.</p>
+          )}
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border text-muted-foreground">
                 <th className="py-2 font-medium">Trámite</th>
                 <th className="py-2 font-medium">Índice</th>
-                <th className="py-2 pr-0 text-right font-medium">Acción</th>
+                {!verArchivados && <th className="py-2 font-medium">Acción</th>}
+                <th className="py-2 pr-0 text-right font-medium">Gestión</th>
               </tr>
             </thead>
             <tbody>
@@ -204,8 +285,13 @@ export function PanelResumen() {
                   <td className="py-3 pr-4">
                     <BadgeIndice indice={tramite.indice_madurez} />
                   </td>
+                  {!verArchivados && (
+                    <td className="py-3 pr-4">
+                      <AccionTramite tramite={tramite} />
+                    </td>
+                  )}
                   <td className="py-3 text-right">
-                    <AccionTramite tramite={tramite} />
+                    <AccionesGestion tramite={tramite} archivados={verArchivados} />
                   </td>
                 </tr>
               ))}

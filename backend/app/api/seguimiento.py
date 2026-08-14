@@ -76,7 +76,12 @@ def listar_acciones(db: Annotated[Session, Depends(get_db)]) -> list[AccionSegui
         .join(PlanModernizacion, AccionSeguimiento.plan_modernizacion_id == PlanModernizacion.id)
         .join(DiagnosticoTramite, PlanModernizacion.diagnostico_tramite_id == DiagnosticoTramite.id)
         .join(Tramite, DiagnosticoTramite.tramite_id == Tramite.id)
-        .where(AccionSeguimiento.plan_modernizacion_id.in_(ids_vigentes))
+        .where(
+            AccionSeguimiento.plan_modernizacion_id.in_(ids_vigentes),
+            # Un trámite archivado (backend/app/api/tramites.py) sale también de
+            # seguimiento -- mismo criterio que el panel resumen, nunca a medias.
+            Tramite.archivado_en.is_(None),
+        )
     ).all()
     return [_construir_accion_out(accion, tramite_id, tramite_nombre) for accion, tramite_id, tramite_nombre in filas]
 

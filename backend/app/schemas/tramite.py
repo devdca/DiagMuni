@@ -21,6 +21,7 @@ class TramiteOut(BaseModel):
     # el trámite no tenga un diagnóstico completo.
     indice_madurez: int | None = None
     completado_en: datetime | None = None
+    archivado_en: datetime | None = None
 
     model_config = {"from_attributes": True}
 

@@ -12,6 +12,7 @@ export interface TramiteResponse {
   updated_at: string;
   indice_madurez: number | null;
   completado_en: string | null;
+  archivado_en: string | null;
 }
 
 // Forma de GET /api/tramites (backend/app/schemas/tramite.py::PanelResumenOut):
@@ -24,8 +25,23 @@ export interface PanelResumenResponse {
   fecha_ultimo_diagnostico: string | null;
 }
 
-export function obtenerPanelResumen(): Promise<PanelResumenResponse> {
-  return apiFetch<PanelResumenResponse>("/api/tramites");
+// `incluirArchivados`: refleja el query param `archivados` de GET /api/tramites
+// (backend/app/api/tramites.py) -- por defecto solo activos; con `true` devuelve
+// EXCLUSIVAMENTE los archivados (nunca ambos mezclados, ver diseño del endpoint).
+export function obtenerPanelResumen(incluirArchivados = false): Promise<PanelResumenResponse> {
+  return apiFetch<PanelResumenResponse>(`/api/tramites${incluirArchivados ? "?archivados=true" : ""}`);
+}
+
+export function eliminarTramite(tramiteId: string): Promise<void> {
+  return apiFetch<void>(`/api/tramites/${tramiteId}`, { method: "DELETE" });
+}
+
+export function archivarTramite(tramiteId: string): Promise<TramiteResponse> {
+  return apiFetch<TramiteResponse>(`/api/tramites/${tramiteId}/archivar`, { method: "POST" });
+}
+
+export function desarchivarTramite(tramiteId: string): Promise<TramiteResponse> {
+  return apiFetch<TramiteResponse>(`/api/tramites/${tramiteId}/desarchivar`, { method: "POST" });
 }
 
 export function obtenerTramite(tramiteId: string): Promise<TramiteResponse> {

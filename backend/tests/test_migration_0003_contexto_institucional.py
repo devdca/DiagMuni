@@ -250,24 +250,34 @@ def _alembic_config():
     reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
 )
 def test_upgrade_y_downgrade_contra_postgres_real() -> None:
+    """`downgrade(cfg, "0002")` retrocede desde la revisión ACTUAL, no solo revierte
+    0003 -- si en el futuro `head` ya está más adelante (ej. 0004, 0005...), este
+    mismo downgrade se lleva por delante también esas migraciones más nuevas,
+    dejando la base compartida por debajo de `head` para el resto de la suite si
+    el test no la restaura. Por eso el `finally` re-sube a `head` sin importar en
+    qué revisión terminó -- este test verifica que 0003 revierte limpio, no que la
+    base deba quedarse en 0002 al terminar."""
     from alembic import command
 
     cfg = _alembic_config()
-    command.upgrade(cfg, "0003")
-
-    db = abrir_sesion_tenant(uuid4())
     try:
-        resultado = db.execute(text("SELECT count(*) FROM contexto_institucional")).scalar_one()
-        assert resultado == 0
-    finally:
-        db.close()
+        command.upgrade(cfg, "0003")
 
-    command.downgrade(cfg, "0002")
+        db = abrir_sesion_tenant(uuid4())
+        try:
+            resultado = db.execute(text("SELECT count(*) FROM contexto_institucional")).scalar_one()
+            assert resultado == 0
+        finally:
+            db.close()
 
-    db2 = abrir_sesion_tenant(uuid4())
-    try:
-        with pytest.raises(Exception):
-            db2.execute(text("SELECT count(*) FROM contexto_institucional"))
+        command.downgrade(cfg, "0002")
+
+        db2 = abrir_sesion_tenant(uuid4())
+        try:
+            with pytest.raises(Exception):
+                db2.execute(text("SELECT count(*) FROM contexto_institucional"))
+        finally:
+            db2.rollback()
+            db2.close()
     finally:
-        db2.rollback()
-        db2.close()
+        command.upgrade(cfg, "head")
