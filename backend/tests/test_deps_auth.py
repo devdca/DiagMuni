@@ -113,3 +113,15 @@ def test_regresion_token_con_tenant_id_de_otro_gobierno_se_rechaza(gobierno_y_fu
     with pytest.raises(HTTPException) as exc_info:
         get_current_token(_credenciales(token_con_tenant_equivocado))
     assert exc_info.value.status_code == 401
+
+
+def test_header_authorization_ausente_se_rechaza_con_401_no_403():
+    """Regresión de una observación de una revisión de seguridad externa (Strix,
+    sobre los endpoints de archivar/eliminar trámite): el default de `HTTPBearer`
+    (`auto_error=True`) responde 403 cuando falta el header `Authorization` por
+    completo, inconsistente con el 401 que ya se usa para un token inválido o
+    expirado. No requiere Postgres real: `credentials=None` nunca llega a
+    consultar la base de datos -- el rechazo ocurre antes."""
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_token(None)
+    assert exc_info.value.status_code == 401

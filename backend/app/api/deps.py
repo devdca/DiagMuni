@@ -12,7 +12,7 @@ from app.core.security import decode_access_token
 from app.db.rls import abrir_sesion_tenant, tenant_scoped_session
 from app.models.usuario import Usuario
 
-_bearer_scheme = HTTPBearer()
+_bearer_scheme = HTTPBearer(auto_error=False)
 _CREDENCIALES_INVALIDAS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado"
 )
@@ -26,14 +26,25 @@ class TokenData:
 
 
 def get_current_token(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
 ) -> TokenData:
     """Nunca confía en los claims del JWT por sí solos: un token con firma válida
     pero un `sub`/`tenant_id` inventados (o de un usuario real movido a otro
     tenant desde que se emitió) pasaría la sola verificación de firma. Aquí se
     resuelve el usuario real desde la base de datos y el `tenant_id`/`rol` que
     viajan en `TokenData` de ahí en más son siempre los de ese registro, nunca
-    los del claim crudo."""
+    los del claim crudo.
+
+    `auto_error=False` en `_bearer_scheme`: el default de `HTTPBearer` responde
+    403 ("Not authenticated") cuando el header `Authorization` falta por
+    completo, distinto del 401 que ya se usa para un token inválido/expirado --
+    inconsistencia de status code sin implicación de seguridad real (la petición
+    se rechaza antes de ejecutar cualquier operación en ambos casos), señalada
+    por una revisión de seguridad externa (Strix) sobre los endpoints de
+    archivar/eliminar trámite. Se estandariza a 401 en los dos casos."""
+    if credentials is None:
+        raise _CREDENCIALES_INVALIDAS
+
     try:
         payload = decode_access_token(credentials.credentials)
         usuario_id = UUID(payload["sub"])
