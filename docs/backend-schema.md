@@ -66,8 +66,11 @@ Perfil de contexto y capacidad institucional del gobierno, 1:1 con `tenant`, cap
 | `descripcion` | text | |
 | `estado` | enum(`sin_iniciar`,`en_progreso`,`diagnosticado`,`generando_plan`,`plan_listo`) | Máquina de estados de `docs/app-flow.md` |
 | `created_at`, `updated_at` | timestamptz | |
+| `archivado_en` | timestamptz, nullable | `NULL` = activo (default). Archivado reversible (`POST /api/tramites/{id}/archivar`/`desarchivar`) — ortogonal a `estado`, nunca se toca junto con una transición de la máquina de estados. Un trámite archivado sale del panel resumen (índice global y fecha de último diagnóstico recalculados solo sobre los activos) y de `/api/seguimiento`, sin perder ninguna fila. Migración `0004_tramite_archivado.py`. |
 
 Índice único `(tenant_id, nombre)` — evita duplicar el mismo trámite en un gobierno, no asume catálogo compartido entre países (ver `docs/PRD.md`, riesgo "alcance de trámite MX vs UY").
+
+**Borrado físico** (`DELETE /api/tramites/{id}`): permitido solo antes del primer envío de diagnóstico (guard por dato — `diagnostico_tramite.completado_en` — no por `estado`, que puede volver a `en_progreso` tras un plan ya generado). Con diagnóstico ya enviado existen `plan_modernizacion` versionados que nunca deben borrarse y una línea de auditoría real que quedaría huérfana — ese caso se rechaza con `409` y sugiere archivar en su lugar.
 
 ### `diagnostico_tramite`
 | Columna | Tipo | Notas |

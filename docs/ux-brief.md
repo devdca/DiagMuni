@@ -65,6 +65,8 @@ Pantalla mínima: campo "Clave del gobierno" (texto corto y legible, nunca un id
 ### 2. Panel resumen
 Tarjeta superior con el índice de madurez global (cifra grande + etiqueta, paleta ordinal de arriba) y fecha de último diagnóstico. Debajo, tabla de trámites catalogados con su índice individual (`Badge`) y acceso a "continuar diagnóstico" o "ver plan". Sin gráficas de tendencia en el MVP — un solo número por trámite, no series de tiempo (no hay historia suficiente en un piloto).
 
+Columna adicional de gestión: "Eliminar" (solo visible si el trámite todavía no tiene un diagnóstico enviado, confirmación nativa antes de borrar) y "Archivar" (siempre disponible, reversible, sin confirmación adicional — no borra nada, solo saca al trámite de esta tabla y del índice global). Un enlace "Ver archivados"/"Ver activos" alterna a la lista de trámites archivados, con "Desarchivar" como única acción disponible ahí. Un trámite archivado nunca aparece mezclado con los activos.
+
 ### 3. Cuestionario de captura (F1)
 Un `Card` por pregunta, `Progress` de avance arriba, lógica de ramificación oculta preguntas que no aplican (ej. si "sin motor de pagos", no pregunta modalidad de pago). Texto de ayuda contextual bajo cada pregunta en lenguaje administrativo, nunca un tecnicismo sin explicar. Botón "Guardar y continuar después" siempre visible — un funcionario de mostrador puede ser interrumpido a media captura.
 

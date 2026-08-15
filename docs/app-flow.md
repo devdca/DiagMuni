@@ -67,6 +67,7 @@ No existe un estado "plan aprobado" ni flujo de aprobación — el plan es infor
 - **Sin ninguna API de LLM disponible**: el job de plan nunca falla de forma visible al funcionario — degrada a plantilla determinista (ver `docs/stack-tecnologico.md`, capa IA) y `/tramites/:id/plan` muestra el aviso correspondiente, nunca un error genérico.
 - **Trámite sin brechas** (índice ya en 4 en todas las variables): el plan generado indica explícitamente que no hay acciones pendientes — no se fuerza una recomendación donde no hay brecha real.
 - **Multi-tenant**: la nav nunca ofrece cambiar de gobierno — un funcionario pertenece a un tenant (ver `docs/ux-brief.md`); si en el futuro un usuario necesita acceso a más de uno, es un caso fuera del alcance del MVP, no contemplado en este flujo.
+- **Eliminar/archivar un trámite** (panel resumen, `docs/ux-brief.md`): un trámite sin diagnóstico enviado puede borrarse físicamente; uno ya diagnosticado solo puede archivarse (reversible, oculta del panel/seguimiento sin perder su historial ni sus planes versionados) — ver `docs/backend-schema.md`, tabla `tramite`, para el guard exacto.
 
 ## Documentos relacionados
 
