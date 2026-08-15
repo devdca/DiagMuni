@@ -6,6 +6,7 @@ from app.core.config import Settings
 from app.engine.catalogo_loader import componente_recomendado_para
 from app.engine.plantillas import _narrativa_plantilla, generar_contenido_degradado
 from app.ia import generador_plan
+from app.ia.config import obtener_ruta
 from app.ia.generador_plan import generar_contenido_llm
 
 RESPUESTAS_SIN_NADA = {
@@ -265,7 +266,7 @@ def test_sonnet_falla_fable_recibe_model_y_api_key_correctos(monkeypatch):
     assert len(llamadas_fable) > 0
     for kwargs in llamadas_fable:
         assert kwargs["api_key"] == "sk-test-respaldo"
-        assert kwargs["timeout"] == generador_plan.TIMEOUT_SEGUNDOS
+        assert kwargs["timeout"] == obtener_ruta("calidad_respaldo").timeout_segundos
 
 
 # --- (c) esta_disponible == True y mock exitoso -> usa la prosa del mock -------
@@ -325,7 +326,7 @@ def test_llm_recibe_model_y_api_key_correctos_de_la_ruta_calidad(monkeypatch):
     for kwargs in llamadas:
         assert kwargs["model"] == "anthropic/claude-sonnet-4-5"
         assert kwargs["api_key"] == "sk-test-calidad"
-        assert kwargs["timeout"] == generador_plan.TIMEOUT_SEGUNDOS
+        assert kwargs["timeout"] == obtener_ruta("calidad").timeout_segundos
 
 
 # --- (e) regresión: sin LLM_PROVIDER explícito, nunca se usa una ruta de pago sola --

@@ -24,8 +24,6 @@ from app.ia.config import (
     obtener_rutas_generacion,
 )
 
-TIMEOUT_SEGUNDOS = 30
-
 _PROMPT_INSTRUCCIONES = (
     "Redacta un párrafo breve, profesional y en español neutro, dirigido a un "
     "funcionario municipal, que explique la siguiente acción de modernización. "
