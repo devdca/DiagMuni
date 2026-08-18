@@ -23,7 +23,7 @@ Decisiones fijadas para el desarrollo de DiagMuni, plataforma OSS de diagnóstic
 | Data fetching | TanStack Query (React Query) | — |
 | Formularios | react-hook-form + zod | Valida en espejo con schemas Pydantic del backend; soporta el cuestionario con lógica de ramificación |
 | Componentes UI | shadcn/ui (Radix + Tailwind) | MIT, código copiado al repo, no dependencia de paquete |
-| Entrega oficial de producción | Docker Compose, 3 servicios: **nginx** (sirve build de React + proxy `/api`) + **backend** + **db** | 100% autoalojable por la intendencia con solo el repo, sin depender de cuentas de terceros |
+| Entrega oficial de producción | Docker Compose, 3 servicios base: **nginx** (sirve build de React + proxy `/api`) + **backend** + **db**, más dos opcionales detrás de perfil/archivo aparte: **ollama** (IA local, `--profile ia-local`) y **caddy** (TLS, `docker-compose.tls.yml`) | 100% autoalojable por la intendencia con solo el repo, sin depender de cuentas de terceros |
 | Desarrollo / previews | Cloudflare Pages | Solo para previews automáticos de cada PR durante el desarrollo — nunca como destino de producción del piloto (evita dependencia del implementador y preserva la replicabilidad autoalojada) |
 | Async / jobs | FastAPI `BackgroundTasks` + tabla `job` persistida (pending/running/done/failed) | Recupera la generación del plan (llamada LLM de 30-60s) si el proceso reinicia; deja barato el salto a Celery si el volumen lo exige |
 | Autenticación | JWT propio con librería vetada (PyJWT/authlib) | `tenant_id` en el claim, validado server-side |

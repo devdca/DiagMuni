@@ -77,3 +77,16 @@ def test_token_de_otro_issuer_se_rechaza():
 
     with pytest.raises(jwt.InvalidIssuerError):
         decode_access_token(token_otro_issuer)
+
+
+def test_rotar_jwt_secret_invalida_tokens_ya_emitidos(monkeypatch):
+    """Contrato de docs/runbook-despliegue.md ("Rotar JWT_SECRET"): cambiar el
+    secreto invalida de inmediato todo lo emitido antes, sin ventana de gracia --
+    a propósito, no hay soporte de doble secreto (ver esa sección para el porqué).
+    Esta prueba es la red de seguridad si alguien intenta agregarlo sin leerla."""
+    token, _ = _token_valido()
+
+    monkeypatch.setattr(security.settings, "jwt_secret", "secreto-nuevo-tras-rotar")
+
+    with pytest.raises(jwt.InvalidSignatureError):
+        decode_access_token(token)

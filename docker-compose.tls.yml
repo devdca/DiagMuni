@@ -1,0 +1,38 @@
+services:
+  # Termina TLS delante de nginx (docs/runbook-despliegue.md, "HTTPS/TLS").
+  # Caddy y no certbot: obtiene y renueva certificados Let's Encrypt solo, sin
+  # exigir un volumen de certs ni un companion con acceso al socket de Docker
+  # para renovar -- nginx/Dockerfile no necesita ningún cambio.
+  caddy:
+    image: caddy:2-alpine
+    # Solo las dos variables que el Caddyfile usa -- no env_file: .env, para que
+    # un contenedor de borde público (el único con puertos 80/443 abiertos a
+    # internet) no cargue de paso JWT_SECRET, las API keys de la Capa IA ni las
+    # credenciales de Postgres, que no necesita para nada.
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN}
+      TLS_EMAIL: ${TLS_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - diagmuni_caddy_data:/data
+      - diagmuni_caddy_config:/config
+    depends_on:
+      nginx:
+        condition: service_started
+
+  # !override (no la fusión por default, que concatenaría listas) -- con Caddy
+  # delante, el 8090 público deja de ser necesario y confiar en el
+  # X-Forwarded-For que agrega nginx.conf exige que nadie más pueda llegar
+  # directo a nginx desde fuera. Se deja en loopback, no se cierra del todo,
+  # para que `curl http://127.0.0.1:8090/health` siga sirviendo desde el propio
+  # servidor.
+  nginx:
+    ports: !override
+      - "127.0.0.1:8090:80"
+
+volumes:
+  diagmuni_caddy_data:
+  diagmuni_caddy_config:

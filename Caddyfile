@@ -1,0 +1,4 @@
+{$TLS_DOMAIN} {
+	email {$TLS_EMAIL}
+	reverse_proxy nginx:80
+}

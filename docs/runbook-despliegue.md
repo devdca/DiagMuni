@@ -204,9 +204,53 @@ docker compose logs -f backend
 
 **Advertencia — nunca correr en un despliegue con datos reales:** `docker compose down -v`. El flag `-v` borra también el volumen de la base de datos — todos los gobiernos, diagnósticos y planes ya creados se pierden sin posibilidad de recuperación. Solo es aceptable en un entorno de prueba descartable.
 
-## Qué este runbook NO cubre (alcance futuro, no construido)
+## HTTPS/TLS
 
-- **HTTPS/TLS.** `nginx/nginx.conf` sirve hoy solo HTTP plano (puerto 80 dentro del contenedor, expuesto como 8090). Para producción real, terminar TLS con un proxy adicional por delante (ej. Caddy, o el balanceador del proveedor de VPS) o agregar certificados a este mismo nginx — no construido ni documentado en este repositorio todavía.
-- **Respaldo (backup) de la base de datos.** No hay ningún mecanismo de backup automático del volumen de Postgres — es responsabilidad del operador del despliegue (ej. `pg_dump` programado, snapshot del volumen a nivel de infraestructura).
-- **Despliegue multi-servidor / alta disponibilidad.** El `docker-compose.yml` de este repositorio es para una sola máquina — no cubre balanceo de carga ni réplicas de la base de datos.
-- **Rotar `JWT_SECRET` en un despliegue ya en uso.** Cambiarlo invalida de inmediato todas las sesiones activas (los JWT ya emitidos dejan de validar) — no hay un mecanismo de rotación sin downtime documentado aquí.
+`nginx/nginx.conf` sirve por default solo HTTP plano (puerto 80 dentro del contenedor, expuesto como 8090). Para producción real, hay un segundo archivo de Compose que agrega Caddy delante de nginx y obtiene/renueva certificados Let's Encrypt solo — sin tocar la imagen de nginx.
+
+**Requisito, sin el cual esto no sirve de nada:** un registro DNS `A`/`AAAA` real apuntando a este servidor. A diferencia del resto de las decisiones de este proyecto (pensadas para no depender de terceros), esto es una dependencia externa inevitable — sin ella, Let's Encrypt no puede validar el dominio y Caddy nunca emite el certificado.
+
+1. En `.env`, fijar:
+   ```
+   TLS_DOMAIN=midiagmuni.ejemplo.gob
+   TLS_EMAIL=contacto@ejemplo.gob
+   COMPOSE_FILE=docker-compose.yml:docker-compose.tls.yml
+   ```
+   `COMPOSE_FILE` hace que todo comando `docker compose` futuro (`up`, `down`, `build`) incluya automáticamente `docker-compose.tls.yml` sin tener que recordar pasar `-f` dos veces cada vez.
+2. Levantar de nuevo:
+   ```
+   docker compose up -d
+   ```
+3. Verificar que el override de puertos de `nginx` sí se aplicó (`docker-compose.tls.yml` cierra el 8090 público a loopback y agrega el servicio `caddy`):
+   ```
+   docker compose config | grep -A3 "nginx:"
+   ```
+   Debe mostrar `127.0.0.1:8090:80`, no `0.0.0.0:8090:80` ni una lista con ambos.
+
+Si el reto ACME falla (ej. DNS mal configurado o no propagado todavía), Caddy reintenta con backoff — no cae en silencio a servir HTTP plano sin avisar. Ver `docker compose logs -f caddy`.
+
+`[NO VERIFICADO]`: esta ruta no la ejercita ningún test automático de este repositorio — necesita un dominio público real y los puertos 80/443 accesibles desde internet, algo que CI no tiene.
+
+## Respaldo (backup) de la base de datos
+
+Procedimiento completo en `docs/runbook-backup.md` — no se repite aquí. En resumen: `pg_dump` programado por `cron`, sin ningún script nuevo en el repo (el pipeline es corto de sobra para vivir directo en ese runbook), sin automatización de restauración a propósito (operación irreversible, exige revisión manual cada vez).
+
+## Rotar `JWT_SECRET` en un despliegue ya en uso
+
+Cambiarlo invalida de inmediato **todas** las sesiones activas — los JWT ya emitidos dejan de validar en el momento en que el backend arranca con el secreto nuevo (`backend/tests/test_security_jwt.py::test_rotar_jwt_secret_invalida_tokens_ya_emitidos` deja esto como contrato probado, no solo documentado). No hay soporte de doble secreto (aceptar el viejo durante una ventana de gracia) **a propósito**: un secreto se rota casi siempre porque toca higiene calendarizada, o porque se sospecha/confirmó que se filtró — y en el segundo caso, un mecanismo de doble secreto sería activamente contraproducente: cualquier JWT que un atacante ya haya forjado con el secreto filtrado seguiría siendo válido durante toda la ventana de gracia, justo cuando rotar importa más. Con sesiones de 8 horas y sin refresh token (`docs/backend-schema.md`), el costo real de "todo o nada" es que cada funcionario reingresa sus credenciales una vez, dentro de la misma jornada.
+
+1. Generar un secreto nuevo (mismo comando del Paso 2 de este runbook).
+2. Actualizar `JWT_SECRET` en `.env`.
+3. Recrear el backend para que tome el cambio:
+   ```
+   docker compose up -d --force-recreate backend
+   ```
+
+Dos notas operativas:
+
+- Un `Job` de generación de plan que estuviera a medio proceso justo durante el `--force-recreate` se recupera solo vía el watchdog ya existente (`backend/app/jobs/plan_job.py`, hasta `job_umbral_obsoleto_minutos`, 15 minutos por default) — no requiere ninguna intervención manual.
+- El guard de `backend/app/core/config.py` atrapa un `JWT_SECRET` vacío o igual al placeholder de `.env.example`, pero **no** un typo parcial (secreto copiado a medias al pegar). Si tras rotar nadie puede loguearse aunque las credenciales sean correctas, lo primero a revisar es que el valor de `JWT_SECRET` se copió completo.
+
+## Despliegue multi-servidor / alta disponibilidad
+
+El `docker-compose.yml` de este repositorio es para una sola máquina — no cubre balanceo de carga ni réplicas de la base de datos. Alcance futuro, no construido.
