@@ -15,7 +15,7 @@ Primer borrador del catálogo de reglas brecha→acción (formato acordado en `d
 |---|---|---|
 | Criterio de detección | `documentos_digitalizados == false` | `documentos_digitalizados == false` |
 | Paso administrativo | Iniciar gestión documental electrónica del expediente conforme a la Ley General de Archivos | Adoptar expediente electrónico conforme a la Ley 16.736 |
-| Paso técnico | Digitalizar el expediente y adoptar un gestor de expediente electrónico (categoría, no marca — candidato específico pendiente en catálogo OSS) | Igual |
+| Paso técnico | Digitalizar el expediente y adoptar un gestor de expediente electrónico (categoría, no marca — componente recomendado: Mayan EDMS, ver `entregables/fase-2/catalogo-componentes-oss.md`) | Igual |
 | Paso organizacional | Capacitar al personal de archivo/mostrador en captura y resguardo digital | Igual |
 | Prerrequisitos | Definir política de resguardo/retención documental | Igual |
 | Por qué importa | Bloquea el paso de índice 0 a 1 como mínimo; prerrequisito de cualquier transaccionalidad completa | Igual |
