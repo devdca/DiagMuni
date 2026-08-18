@@ -250,12 +250,13 @@ def test_llm_recibe_model_y_api_key_de_la_ruta_economico(monkeypatch):
     verificar_contenido(contenido_llm, CONTENIDO_DETERMINISTA)
 
     assert len(llamadas) == 1
-    assert llamadas[0]["model"] == "deepseek/deepseek-chat"
+    assert llamadas[0]["model"] == "deepseek/deepseek-v4-pro"
     assert llamadas[0]["api_key"] == "sk-test-economico"
     assert llamadas[0]["timeout"] == obtener_ruta("economico").timeout_segundos
     assert llamadas[0]["temperature"] == 0
     assert llamadas[0]["max_tokens"] == 10
     assert llamadas[0]["stop"] == ["\n"]
+    assert llamadas[0]["extra_body"] == {"thinking": {"type": "disabled"}}
 
 
 # --- (i) sin brechas en ambos lados -> True (nada que auditar, no hay discrepancia) ---

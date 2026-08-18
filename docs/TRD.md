@@ -82,7 +82,7 @@ Una sola capa de abstracción (LiteLLM, u otro runtime OSS equivalente con inter
 model_list:
   - model_name: economico
     litellm_params:
-      model: deepseek/deepseek-chat
+      model: deepseek/deepseek-v4-pro
       api_key: os.environ/DEEPSEEK_API_KEY
   - model_name: calidad
     litellm_params:

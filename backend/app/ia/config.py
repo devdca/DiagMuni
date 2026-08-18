@@ -39,7 +39,7 @@ class RutaLLM:
     consultar `esta_disponible()`/`api_key_de()`/`api_base_de()`, nunca al cargar el YAML."""
 
     model_name: str  # "economico" | "calidad" | "local"
-    model: str  # ej. "deepseek/deepseek-chat"
+    model: str  # ej. "deepseek/deepseek-v4-pro"
     env_var_api_key: str | None  # ej. "DEEPSEEK_API_KEY"
     env_var_api_base: str | None  # ej. "OLLAMA_API_BASE"
     timeout_segundos: int = 30

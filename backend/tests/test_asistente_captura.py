@@ -145,9 +145,10 @@ def test_consistencia_llm_recibe_model_api_key_y_timeout_correctos(monkeypatch):
     clasificar_consistencia_booleana("cualquier texto", valor_marcado=True)
 
     assert len(llamadas) == 1
-    assert llamadas[0]["model"] == "deepseek/deepseek-chat"
+    assert llamadas[0]["model"] == "deepseek/deepseek-v4-pro"
     assert llamadas[0]["api_key"] == "sk-test"
     assert llamadas[0]["timeout"] == asistente_captura.TIMEOUT_SEGUNDOS
+    assert llamadas[0]["extra_body"] == {"thinking": {"type": "disabled"}}
 
 
 # === (B) clasificar_mecanismo_identidad ==========================================
@@ -329,6 +330,7 @@ def test_mecanismo_identidad_llm_recibe_model_api_key_y_timeout_correctos(monkey
     clasificar_mecanismo_identidad("cualquier texto", pais="mx")
 
     assert len(llamadas) == 1
-    assert llamadas[0]["model"] == "deepseek/deepseek-chat"
+    assert llamadas[0]["model"] == "deepseek/deepseek-v4-pro"
     assert llamadas[0]["api_key"] == "sk-test"
     assert llamadas[0]["timeout"] == asistente_captura.TIMEOUT_SEGUNDOS
+    assert llamadas[0]["extra_body"] == {"thinking": {"type": "disabled"}}

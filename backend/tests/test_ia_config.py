@@ -38,7 +38,7 @@ def test_yaml_carga_todas_las_rutas():
 
 def test_ruta_economico_es_deepseek():
     ruta = obtener_ruta("economico")
-    assert ruta.model == "deepseek/deepseek-chat"
+    assert ruta.model == "deepseek/deepseek-v4-pro"
     assert ruta.env_var_api_key == "DEEPSEEK_API_KEY"
 
 

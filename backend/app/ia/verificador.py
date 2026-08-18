@@ -98,6 +98,12 @@ def _veredicto_llm(narrativa: str, brecha_determinista: dict) -> bool:
             # módulo) -- cortar en el primer salto de línea descarta esa
             # alucinación sin arriesgar la palabra válida.
             "stop": ["\n"],
+            # deepseek-v4-pro trae "thinking" activado por default (effort "high",
+            # api-docs.deepseek.com/guides/thinking_mode) -- verificado en vivo que sin
+            # esto la respuesta llega vacía o la llamada se alarga varios segundos de
+            # más: el modelo gasta el presupuesto de tokens/tiempo razonando antes de
+            # emitir "SI"/"NO", exactamente lo que este veredicto binario no necesita.
+            "extra_body": {"thinking": {"type": "disabled"}},
         }
 
         respuesta = litellm.completion(**completion_kwargs)

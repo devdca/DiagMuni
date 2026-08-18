@@ -93,6 +93,10 @@ def clasificar_consistencia_booleana(texto_aclaracion: str, valor_marcado: bool)
                 }
             ],
             timeout=TIMEOUT_SEGUNDOS,
+            # deepseek-v4-pro razona por default (effort "high") antes de responder --
+            # ver la nota igual de extensa en verificador.py. Aquí importa todavía más:
+            # sin esto, el razonamiento puede por sí solo exceder TIMEOUT_SEGUNDOS (15s).
+            extra_body={"thinking": {"type": "disabled"}},
         )
         categoria = respuesta["choices"][0]["message"]["content"]
         categoria = (categoria or "").strip().lower()
@@ -198,6 +202,8 @@ def clasificar_mecanismo_identidad(texto_aclaracion: str, pais: str) -> str:
                 }
             ],
             timeout=TIMEOUT_SEGUNDOS,
+            # Ver la misma nota en clasificar_consistencia_booleana de este archivo.
+            extra_body={"thinking": {"type": "disabled"}},
         )
         categoria = respuesta["choices"][0]["message"]["content"]
         categoria = (categoria or "").strip().lower()
