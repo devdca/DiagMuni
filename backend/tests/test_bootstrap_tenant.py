@@ -4,13 +4,15 @@ usuario) al adoptar DiagMuni.
 Tres niveles:
 1. Generador de contraseña (`generar_password_legible`, app/core/security.py): puro,
    sin DB -- estructura del alfabeto, longitud, formato en bloques.
-2. Validación de entrada de `crear_gobierno`: las validaciones corren ANTES de tocar
-   la sesión, así que se ejercitan con un objeto que revienta si algo intenta
-   consultarlo -- confirma que el rechazo es real, no que pasó por casualidad.
+2. Validación de entrada de `crear_gobierno`/`agregar_funcionario`: las validaciones
+   corren ANTES de tocar la sesión, así que se ejercitan con un objeto que revienta
+   si algo intenta consultarlo -- confirma que el rechazo es real, no que pasó por
+   casualidad.
 3. Contra Postgres real (`docker compose up db`): creación real, idempotencia,
-   `resetear-password`, y que el mecanismo de RLS es el real de `app/db/rls.py`
-   (no una copia local) -- se salta limpio si no hay Postgres alcanzable, mismo
-   patrón que test_api_seguimiento.py.
+   `agregar-funcionario` sobre un tenant ya existente (incluida la regresión de que
+   el email es único por tenant, no global), `resetear-password`, y que el
+   mecanismo de RLS es el real de `app/db/rls.py` (no una copia local) -- se salta
+   limpio si no hay Postgres alcanzable, mismo patrón que test_api_seguimiento.py.
 """
 
 import socket
@@ -20,7 +22,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from app.bootstrap_tenant import crear_gobierno, resetear_password
+from app.bootstrap_tenant import agregar_funcionario, crear_gobierno, resetear_password
 from app.core.config import settings
 from app.core.security import _ALFABETO_PASSWORD_LEGIBLE, generar_password_legible, verify_password
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
@@ -123,6 +125,20 @@ def test_crear_gobierno_rechaza_nombre_funcionario_vacio():
         )
 
 
+def test_agregar_funcionario_rechaza_nombre_vacio():
+    with pytest.raises(ValueError, match="nombre del funcionario"):
+        agregar_funcionario(
+            _SesionQueRevienta(), clave="prueba", email="func@prueba.mx", nombre_funcionario="  "
+        )
+
+
+def test_agregar_funcionario_rechaza_email_invalido():
+    with pytest.raises(ValueError, match="formato válido"):
+        agregar_funcionario(
+            _SesionQueRevienta(), clave="prueba", email="no-es-un-email", nombre_funcionario="Func"
+        )
+
+
 # --- (3) contra Postgres real ----------------------------------------------------
 
 
@@ -202,6 +218,159 @@ def test_crear_gobierno_real_luego_idempotente_contra_postgres_real():
             db2.close()
     finally:
         _limpiar(abrir_sesion_tenant(uuid4()), [clave])
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_agregar_funcionario_a_gobierno_existente_contra_postgres_real():
+    clave = f"prueba-bootstrap-{uuid4().hex[:8]}"
+    db = abrir_sesion_tenant(uuid4())
+    try:
+        resultado = crear_gobierno(
+            db,
+            nombre="Gobierno de prueba agregar-funcionario",
+            clave=clave,
+            pais="mx",
+            email="primero@prueba-agregar.mx",
+            nombre_funcionario="Primer Funcionario",
+        )
+        assert resultado is not None
+        tenant, primer_usuario, password_primero = resultado
+        db.commit()
+
+        db2 = abrir_sesion_tenant(uuid4())
+        try:
+            resultado_nuevo = agregar_funcionario(
+                db2, clave=clave, email="segundo@prueba-agregar.mx", nombre_funcionario="Segundo Funcionario"
+            )
+            assert resultado_nuevo is not None
+            _tenant_devuelto, segundo_usuario, password_segundo = resultado_nuevo
+            db2.commit()
+        finally:
+            db2.close()
+
+        assert password_segundo != password_primero
+        assert segundo_usuario.tenant_id == tenant.id
+
+        # Verificación en una tercera sesión: ambos funcionarios son consultables
+        # bajo el mismo tenant (usuario tiene RLS forzado).
+        db3 = abrir_sesion_tenant(uuid4())
+        try:
+            fijar_contexto_tenant(db3, tenant.id)
+            assert db3.get(type(primer_usuario), primer_usuario.id) is not None
+            assert db3.get(type(segundo_usuario), segundo_usuario.id) is not None
+        finally:
+            db3.close()
+    finally:
+        _limpiar(abrir_sesion_tenant(uuid4()), [clave])
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_agregar_funcionario_tenant_inexistente_devuelve_none_contra_postgres_real():
+    db = abrir_sesion_tenant(uuid4())
+    try:
+        resultado = agregar_funcionario(
+            db, clave="clave-que-no-existe-nunca", email="x@x.mx", nombre_funcionario="X"
+        )
+        assert resultado is None
+    finally:
+        db.rollback()
+        db.close()
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_agregar_funcionario_email_duplicado_en_mismo_tenant_no_crea_fila_contra_postgres_real():
+    clave = f"prueba-bootstrap-{uuid4().hex[:8]}"
+    db = abrir_sesion_tenant(uuid4())
+    try:
+        resultado = crear_gobierno(
+            db,
+            nombre="Gobierno de prueba email duplicado",
+            clave=clave,
+            pais="mx",
+            email="repetido@prueba-agregar.mx",
+            nombre_funcionario="Original",
+        )
+        assert resultado is not None
+        tenant, _usuario, _password = resultado
+        db.commit()
+
+        fijar_contexto_tenant(db, tenant.id)
+        total_antes = db.execute(
+            text("SELECT count(*) FROM usuario WHERE tenant_id = :t"), {"t": str(tenant.id)}
+        ).scalar_one()
+
+        db2 = abrir_sesion_tenant(uuid4())
+        try:
+            repetido = agregar_funcionario(
+                db2, clave=clave, email="repetido@prueba-agregar.mx", nombre_funcionario="Intento duplicado"
+            )
+            assert repetido is None
+        finally:
+            db2.rollback()
+            db2.close()
+
+        fijar_contexto_tenant(db, tenant.id)  # commit()/rollback() de db2 no afecta a db, pero por claridad
+        total_despues = db.execute(
+            text("SELECT count(*) FROM usuario WHERE tenant_id = :t"), {"t": str(tenant.id)}
+        ).scalar_one()
+        assert total_despues == total_antes == 1
+    finally:
+        _limpiar(abrir_sesion_tenant(uuid4()), [clave])
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_agregar_funcionario_mismo_email_en_tenant_distinto_si_funciona_contra_postgres_real():
+    """Regresión: el UniqueConstraint de `usuario` es compuesto (tenant_id, email),
+    no global -- el mismo email debe poder repetirse en un gobierno distinto."""
+    clave_a = f"prueba-bootstrap-a-{uuid4().hex[:8]}"
+    clave_b = f"prueba-bootstrap-b-{uuid4().hex[:8]}"
+    email_compartido = "compartido@prueba-agregar.mx"
+    db = abrir_sesion_tenant(uuid4())
+    try:
+        resultado_a = crear_gobierno(
+            db, nombre="Gobierno A", clave=clave_a, pais="mx", email=email_compartido, nombre_funcionario="Func A"
+        )
+        assert resultado_a is not None
+        db.commit()
+
+        db2 = abrir_sesion_tenant(uuid4())
+        try:
+            resultado_b = crear_gobierno(
+                db2,
+                nombre="Gobierno B",
+                clave=clave_b,
+                pais="uy",
+                email="otro@prueba-agregar.mx",
+                nombre_funcionario="Func B",
+            )
+            assert resultado_b is not None
+            db2.commit()
+        finally:
+            db2.close()
+
+        db3 = abrir_sesion_tenant(uuid4())
+        try:
+            resultado_agregar = agregar_funcionario(
+                db3, clave=clave_b, email=email_compartido, nombre_funcionario="Func B repetido"
+            )
+            assert resultado_agregar is not None
+            db3.commit()
+        finally:
+            db3.close()
+    finally:
+        _limpiar(abrir_sesion_tenant(uuid4()), [clave_a, clave_b])
 
 
 @pytest.mark.skipif(

@@ -45,6 +45,45 @@ Ya existe un gobierno con la clave 'canelones'. No se creó nada nuevo.
 
 No se escribió nada en la base — es seguro volver a intentar con una `--clave` distinta si fue un error de tecleo, o usar `resetear-password` (abajo) si el gobierno ya existe y lo que hace falta es recuperar el acceso.
 
+## Agregar un funcionario a un gobierno ya existente
+
+```
+docker compose exec backend python -m app.bootstrap_tenant agregar-funcionario \
+  --clave canelones \
+  --email juan.gonzalez@canelones.gub.uy \
+  --nombre "Juan González"
+```
+
+- `--clave`: la del gobierno **ya existente** al que se agrega el funcionario (no crea un gobierno nuevo).
+- `--email` / `--nombre`: datos del nuevo funcionario. El email debe ser distinto al de cualquier otro funcionario ya dado de alta en ese mismo gobierno.
+
+Salida esperada (mismo formato de advertencia que `crear-gobierno`):
+
+```
+====================================================================
+ADVERTENCIA: esta contraseña no se vuelve a mostrar. Anótela ahora
+y entréguela a la contraparte técnica por un canal seguro.
+====================================================================
+Gobierno: Intendencia de Canelones (clave: canelones)
+Funcionario: Juan González <juan.gonzalez@canelones.gub.uy>
+Contraseña de arranque: p3Rw-9fXm-3nQt-8vLk
+====================================================================
+```
+
+Sin límite de funcionarios por gobierno. No permite editar o quitar a un funcionario ya existente — solo altas nuevas.
+
+Si la `clave` no corresponde a ningún gobierno:
+
+```
+No existe ningún gobierno con la clave 'canelones'. Use 'crear-gobierno' primero.
+```
+
+Si el `email` ya está en uso por otro funcionario de ese mismo gobierno:
+
+```
+Ya existe un funcionario con el email 'juan.gonzalez@canelones.gub.uy' en el gobierno con clave 'canelones'. No se creó nada nuevo -- use 'resetear-password' si perdió su acceso.
+```
+
 ## Si se perdió la contraseña de un funcionario
 
 ```
@@ -61,5 +100,5 @@ No se encontró el usuario 'maria.perez@canelones.gub.uy' en el gobierno con cla
 
 ## Qué este runbook NO cubre (alcance futuro, no construido)
 
-- Agregar un segundo funcionario a un gobierno que ya tiene uno — no existe ese comando todavía.
+- Editar el nombre/email de un funcionario ya existente, o desactivarlo/eliminarlo — `agregar-funcionario` solo da de alta funcionarios nuevos.
 - Cualquier flujo donde el propio funcionario cambie su contraseña sin pasar por el operador — deliberadamente fuera de alcance (`docs/PRD.md`, onboarding self-service excluido).

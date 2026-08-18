@@ -123,6 +123,8 @@ Para `resetear-password`: `Tenant` se busca por `clave` sin fijar contexto (mism
 
 ## 7. Alcance explícitamente excluido
 
+**Nota 2026-08-18: el primer punto de esta sección ya fue implementado — ver sección 12.** El resto de esta sección se conserva sin reescribir, es el registro histórico correcto en el momento en que se escribió.
+
 - **Este mecanismo crea exactamente un tenant y un usuario por invocación de `crear-gobierno`.** No existe, en este diseño, ninguna forma de agregar un segundo/tercer funcionario a un gobierno ya existente — eso es alcance futuro explícito (un subcomando nuevo tipo `agregar-funcionario --clave <clave-existente> --email ... --nombre ...`, o un endpoint administrativo autenticado `POST /api/usuarios`), no construido ni parcialmente esbozado aquí. La única excepción deliberada es `resetear-password` (sección 3), que opera sobre un usuario **ya existente** y no crea usuarios nuevos.
 - **Nada impide correr `crear-gobierno` de nuevo con una `clave` distinta para dar de alta un segundo gobierno en el mismo despliegue** — el chequeo de idempotencia de la sección 4 solo bloquea una `clave` duplicada, nunca una `clave` nueva. Esto es justamente lo que sostiene el requisito de "multi-tenant desde el día uno... un despliegue puede servir a varios municipios" (`docs/PRD.md`, "Dentro de alcance", punto 5) sin que este plan tenga que construir nada adicional para eso: ya es la forma natural en que el CLI se usa repetidamente.
 - **La alternativa (c) de la sección 1** (endpoint delgado reutilizando la misma función interna, para un despliegue centralizado sin acceso a shell) queda fuera de este alcance, sin cerrarse como imposible a futuro.
@@ -159,3 +161,24 @@ Para `resetear-password`: `Tenant` se busca por `clave` sin fijar contexto (mism
 ## 11. Documentos relacionados
 
 `docs/PRD.md` (línea 44, restricción de alcance), `docs/TRD.md` (sección nueva a agregar), `backend/app/seed.py` (precedente de guard de producción y de "imprimir una sola vez", no se toca), `backend/app/api/auth.py`, `backend/app/schemas/auth.py`, `backend/app/models/usuario.py`, `backend/app/models/tenant.py`, `backend/app/core/security.py`, `backend/app/db/rls.py`, `backend/alembic/versions/0001_initial_schema.py`, `backend/alembic/versions/0002_tenant_clave.py`, `entregables/fase-2/identificacion-gobierno-login.md` (normalización y charset de `clave`), `docs/plan-implementacion.md` línea 26 (especificación original del guard de `app/seed.py`), `docs/plan-implementacion-e1-bis-capa-ia-local.md` (precedente de formato de este documento).
+
+## 12. Actualización posterior — `agregar-funcionario` implementado
+
+El primer punto de la sección 7 quedó cerrado: `backend/app/bootstrap_tenant.py` agrega un tercer subcomando, `agregar-funcionario --clave <clave-existente> --email ... --nombre ...`, con la firma exacta que esa sección ya había fijado. Se descartó la alternativa de endpoint HTTP (`POST /api/usuarios`) por el mismo criterio de la sección 1 (CLI sobre endpoint, sin superficie de red nueva) — no se construyó nada del lado HTTP.
+
+**Diseño, heredando los precedentes ya fijados en este documento sin reabrirlos:**
+- Opera sobre un tenant **ya existente** (como `resetear-password`, sección 3), no crea uno nuevo — por eso, a diferencia de `crear-gobierno`, **no** valida `clave` contra el regex de formato (sección 5): una clave mal escrita simplemente no encuentra tenant y cae en el mismo `None` que "gobierno inexistente".
+- Contraseña siempre generada, nunca argumento (sección 2, sin excepción).
+- Idempotencia por el `UniqueConstraint("tenant_id", "email")` ya existente en `Usuario` (`backend/app/models/usuario.py`) — `SELECT` previo antes de insertar, nunca se deja subir el `IntegrityError` (mismo criterio de la sección 4).
+- Uso exclusivo de `fijar_contexto_tenant` real (sección 6), mismo orden que `crear-gobierno`: `Tenant` se busca sin fijar contexto (no tiene RLS propio) → una vez resuelto `tenant.id`, se fija contexto antes de tocar `Usuario` (que sí tiene RLS forzado).
+- **Diferencia deliberada frente a `resetear-password`:** ese comando colapsa sus dos motivos de `None` ("tenant no existe" / "usuario no existe") en un solo mensaje porque ambos exigen la misma acción del operador. Acá los dos motivos posibles de `None` ("el gobierno no existe" vs. "ese email ya tiene un funcionario en ese gobierno") exigen acciones **opuestas** (dar de alta el gobierno primero, vs. usar `resetear-password` si perdió el acceso) — el wrapper `_comando_agregar_funcionario` hace un `SELECT` adicional (barato, comando de baja frecuencia) para distinguirlos y no encaminar mal al operador.
+
+**Alcance explícitamente excluido** (mismo estilo que la sección 7 original):
+- Sin `--rol`: el enum de `Usuario.rol` solo tiene `"funcionario"` hoy (`docs/backend-schema.md`, "Riesgos abiertos") — un parámetro sería código muerto.
+- Sin límite de funcionarios por tenant.
+- No edita un funcionario ya existente (cambiar nombre/email) — solo altas nuevas.
+- No desactiva ni elimina un funcionario — `Usuario` no tiene columna de estado/soft-delete.
+
+**Tests:** `backend/tests/test_bootstrap_tenant.py` — validación de entrada (nombre vacío, email inválido, mismo patrón `_SesionQueRevienta` que `crear_gobierno`) y, contra Postgres real: alta exitosa sobre un tenant existente (con verificación en una tercera sesión de que ambos funcionarios son consultables), tenant inexistente → `None`, email duplicado en el mismo tenant → `None` **sin crear una fila nueva** (conteo explícito antes/después, no solo el valor de retorno), y regresión de que el mismo email sí puede repetirse en un tenant distinto (confirma que el `UniqueConstraint` es compuesto, no global).
+
+**Documentos actualizados:** `docs/runbook-alta-gobierno.md` (sección nueva, mismo estilo que las dos existentes; se quitó la viñeta de "no existe ese comando todavía"), `docs/TRD.md` (tercera viñeta en "Alta de un gobierno nuevo"; se reformuló la frase "un solo camino de creación de usuarios" porque con dos funciones de creación en el mismo módulo se habría vuelto literalmente falsa tal cual estaba redactada).
