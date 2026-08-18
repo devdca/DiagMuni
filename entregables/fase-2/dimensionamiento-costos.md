@@ -61,14 +61,46 @@ Estos son huecos reales que este análisis no cubre todavía. No se fabrica ning
 
 1. **Costo por diagnóstico completo, API externa vs. modelo local, mismo denominador.** Sin el dato de costo por diagnóstico vía API (DeepSeek/Claude) no se puede afirmar que el modelo local sea más barato en total — solo que el VPS en sí es barato.
 
-   **Parcialmente cubierto, actualizado 18-ago-2026:** prueba real contra la API de DeepSeek con el modelo y la configuración que de verdad usa hoy `backend/app/ia/litellm_config.yaml` (`deepseek-v4-pro`, "thinking" desactivado explícitamente -- ver `backend/app/ia/verificador.py`; la cifra anterior de esta sección medía `deepseek-v4-flash`, el modelo al que el alias ya retirado `deepseek-chat` apuntaba en su momento, no el que está configurado ahora). Mismo prompt F3 ("Firma electrónica") que los benchmarks locales: 232 tokens de entrada, 162 de salida, 4.68s totales (incl. red).
+   **Cerrado 18-ago-2026** con llamadas reales contra las funciones tal como las usa el código (`backend/app/ia/generador_plan.py`, `verificador.py`, `asistente_captura.py`), no contra un script aislado.
 
-   DeepSeek reemplazó su tarifa plana por tarifas peak/off-peak el 16-ago-2026 (`api-docs.deepseek.com/quick_start/pricing`): `deepseek-v4-pro` cuesta $1.32/$3.96 por millón de tokens entrada/salida en horario peak (01:00-04:00 y 06:00-10:00 UTC) y $0.66/$1.98 en el resto del día. Con los tokens reales medidos arriba:
+   **Aclaración de arquitectura, encontrada al medir esto:** `LLM_PROVIDER` no solo decide la ruta de F1/F9 (ambas usan `economico` fijo sin importar este valor) -- también decide la ruta de **F3**, vía `obtener_rutas_generacion()`. Con `LLM_PROVIDER=deepseek`, F3 genera la narrativa por `economico` (DeepSeek), igual que F1/F9; solo con `LLM_PROVIDER=anthropic` F3 pasa por `calidad` (Claude), que es la arquitectura documentada en `docs/stack-tecnologico.md`. Los dos escenarios tienen costos distintos, así que se miden ambos.
 
-   - Off-peak: (232 × $0.66 + 162 × $1.98) / 1,000,000 ≈ **USD 0.00047 por llamada**.
-   - Peak: (232 × $1.32 + 162 × $3.96) / 1,000,000 ≈ **USD 0.00095 por llamada**.
+   **Tokens reales medidos** (mismo prompt de cada función, thinking desactivado en las llamadas a DeepSeek):
 
-   Sigue faltando el conteo equivalente para F1 y F9 (prompts más cortos, previsiblemente más baratos) para completar el costo por diagnóstico. A ese costo marginal, la diferencia de infraestructura entre API y modelo local sigue siendo irrelevante para el presupuesto del piloto — lo que de verdad pesa en la decisión es la latencia (4.7s vs. 101-194s).
+   | Llamada | Modelo | Tokens entrada | Tokens salida | Tiempo real |
+   |---|---|---|---|---|
+   | F1 `clasificar_consistencia_booleana` | deepseek-v4-pro | 250 | 10 | 1.84s |
+   | F1 `clasificar_mecanismo_identidad` | deepseek-v4-pro | 225 | 4 | 1.24s |
+   | F9 `_veredicto_llm` (por brecha) | deepseek-v4-pro | 402 | 1 | 1.19s |
+   | F3 narrativa (por brecha), vía `economico` | deepseek-v4-pro | 232 | 162 | 4.68s |
+   | F3 narrativa (por brecha), vía `calidad` | claude-sonnet-4-5 | ~232 (aprox.) | ~162 (aprox.) | sin medir -- `ANTHROPIC_API_KEY` vacía en este equipo; conteo de tokens de la fila anterior usado como proxy, `[NO VERIFICADO]` en este punto específico |
+
+   **Costo por llamada** (DeepSeek: tarifa peak $1.32/$3.96 y off-peak $0.66/$1.98 por millón tokens entrada/salida, vigente desde el 16-ago-2026; Claude Sonnet 4.5: tarifa fija $3/$15 por millón, sin franja horaria, `platform.claude.com/docs/en/about-claude/pricing`):
+
+   | Llamada | Off-peak | Peak / Claude (fijo) |
+   |---|---|---|
+   | F1 consistencia | USD 0.000185 | USD 0.000370 |
+   | F1 mecanismo_identidad | USD 0.000156 | USD 0.000313 |
+   | F9 veredicto (por brecha) | USD 0.000267 | USD 0.000535 |
+   | F3 vía DeepSeek (por brecha) | USD 0.000474 | USD 0.000948 |
+   | F3 vía Claude (por brecha, aproximado) | — | USD 0.00313 |
+
+   **Costo por diagnóstico completo, peor caso** (7 brechas posibles en el catálogo -- todas detectadas -- más las 5 aclaraciones booleanas de F1 y 1 clasificación de mecanismo_identidad, todas escritas por el funcionario; en la práctica casi siempre menos, porque las aclaraciones de F1 son opcionales y rara vez se detectan las 7 brechas a la vez):
+
+   - **`LLM_PROVIDER=deepseek`** (todo por `economico`, configuración actual de este equipo): 5×consistencia + 1×mecanismo + 7×veredicto + 7×narrativa ⇒ **USD 0.0063 (off-peak) a USD 0.0125 (peak)**.
+   - **`LLM_PROVIDER=anthropic`** (arquitectura documentada, F3 vía Claude; F1/F9 igual, siempre por DeepSeek): ⇒ **USD 0.025-0.028** (usando la aproximación de F3 marcada arriba).
+
+   En ambos escenarios, el costo por diagnóstico completo son centavos de dólar en el peor caso — confirma con números reales, no solo con el costo de una sola llamada de F3, la conclusión ya sostenida: la diferencia de infraestructura entre API y modelo local es irrelevante para el presupuesto del piloto. Lo que de verdad pesa en la decisión sigue siendo la latencia (4.7s vs. 101-194s por narrativa).
 2. **Desglose línea por línea del presupuesto del piloto** (horas de implementación, viáticos, documentación, licenciamiento) — depende de decisiones de alcance y calendario del piloto concreto.
-3. **Dimensionamiento y costo de VPS para la arquitectura actualmente vigente (API externa, sin modelo local).** El dimensionamiento de las secciones 3-6 es explícitamente para cargar el modelo local; no hay una cotización equivalente de VPS "económico genérico" para la arquitectura vigente (Docker Compose: nginx + backend + FastAPI + Postgres, sin Ollama ni modelo local en memoria), que previsiblemente requeriría specs menores y por tanto un costo mensual menor.
+3. **Dimensionamiento y costo de VPS para la arquitectura actualmente vigente (API externa, sin modelo local).**
+
+   **Cerrado 18-ago-2026.** El dimensionamiento de las secciones 3-6 es explícitamente para cargar el modelo local; esta entrada cotiza el piso real para la arquitectura vigente (`docs/runbook-despliegue.md`: 2 vCPU / 2 GB RAM como piso práctico sin IA local), verificado directo contra la página de precios de cada proveedor el mismo día:
+
+   | Proveedor | Plan | Specs | Precio mensual | Fuente |
+   |---|---|---|---|---|
+   | DigitalOcean | Basic Droplet 2GB | 2 vCPU, 2 GB RAM, 60 GB SSD | **USD 18.00** (exacto, verificado) | [digitalocean.com/pricing/droplets](https://www.digitalocean.com/pricing/droplets) |
+   | Hetzner Cloud | CX23 (línea Cost-Optimized) | 2 vCPU, 4 GB RAM, 40 GB SSD | **€5.49** (~USD 6.30) -- subió desde €3.99 en el ajuste de precios de Hetzner de junio de 2026 | [hetzner.com/cloud/cost-optimized](https://www.hetzner.com/cloud/cost-optimized) |
+   | Contabo | Cloud VPS 4 (no ofrece un plan de exactamente 2 vCPU) | 4 vCPU, 8 GB RAM, 100 GB SSD | **€5.50** (primeros 24 meses) | [contabo.com/en/vps](https://contabo.com/en/vps/) |
+
+   Piso real: **~USD 6-18/mes** según proveedor -- notablemente menor que el piso de USD 18-21/mes de la sección 4 (4 vCPU/8GB, dimensionado para cargar el modelo local), confirmando la expectativa ya anotada ("previsiblemente requeriría specs menores"). Nota de honestidad: Hetzner y Contabo publican precios que cambian con frecuencia (ver nota de la sección 5) -- reverificar al momento de aprovisionar, igual que el resto de las cotizaciones de este documento.
 4. **Catálogo de costos paramétricos** (infraestructura, licenciamiento cero por OSS, capacitación, horas de implementación) por país y moneda (MXN/UYU/USD) — **atendido en `entregables/fase-2/catalogo-costos-oss.md` (03-ago-2026)**: costo de licenciamiento verificado en 0 para las 6 categorías del catálogo OSS (`backend/app/engine/catalogo/componentes_oss.yaml`); costo de infraestructura verificado con cifra concreta en 3 de 6 (`gestor_expediente_electronico`, `identidad_federada`, `conector_interoperabilidad`) y verificado como "no aplica" (sin servicio adicional que hostear) en otras 2 (`modulo_cifrado_datos`, `adaptador_pasarela_pago`); 1 de 6 (`modulo_firma_electronica`) queda `[NO VERIFICADO]` porque la fuente oficial de ese componente no publica una cifra de dimensionamiento. Costo de implementación/capacitación por hora de trabajo técnico queda `[NO VERIFICADO]` en las 6 categorías — sigue siendo un hueco real, no cerrado por esa iteración. Datos completos y fuentes en `backend/app/engine/catalogo/costos_oss.yaml` y `entregables/fase-2/catalogo-costos-oss.md`.
