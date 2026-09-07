@@ -1,7 +1,8 @@
+import json
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 # Fuente de verdad: ETIQUETA_MECANISMO en frontend/src/pages/Diagnostico.tsx
 # (docs/ux-brief.md línea 71) -- "otro, especifique" nunca es un valor guardable
@@ -11,18 +12,34 @@ from pydantic import BaseModel
 # de abajo -- ver app/api/diagnosticos.py para dónde se aplica.
 MECANISMOS_IDENTIDAD_VALIDOS = frozenset({"llave_mx", "id_uruguay", "propio", "ninguno"})
 
+# H-05 (auditoría de seguridad): nginx ya limita el body a 1MB (H-08), pero un
+# payload de ~900KB en `respuestas` pasaba sin ninguna validación propia de la
+# app -- una respuesta real nunca pesa más que unos pocos KB.
+_RESPUESTAS_TAMANO_MAXIMO_BYTES = 100_000
 
-class DiagnosticoGuardar(BaseModel):
+
+class _RespuestasConLimite(BaseModel):
+    respuestas: dict
+
+    @field_validator("respuestas")
+    @classmethod
+    def _limitar_tamano(cls, respuestas: dict) -> dict:
+        tamano = len(json.dumps(respuestas))
+        if tamano > _RESPUESTAS_TAMANO_MAXIMO_BYTES:
+            raise ValueError(
+                f"respuestas pesa {tamano} bytes, excede el máximo permitido "
+                f"({_RESPUESTAS_TAMANO_MAXIMO_BYTES} bytes)"
+            )
+        return respuestas
+
+
+class DiagnosticoGuardar(_RespuestasConLimite):
     """'Guardar y continuar después' (docs/app-flow.md) — respuestas parciales, no
     dispara cálculo de índice ni generación de plan."""
 
-    respuestas: dict
 
-
-class DiagnosticoEnviar(BaseModel):
+class DiagnosticoEnviar(_RespuestasConLimite):
     """Envío completo — dispara F2 (síncrono) y encola F3 en modo degradado (D2)."""
-
-    respuestas: dict
 
 
 class DiagnosticoOut(BaseModel):

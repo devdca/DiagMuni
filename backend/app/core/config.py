@@ -8,6 +8,9 @@ _JWT_SECRETS_PLACEHOLDER = {
     "cambia-esto-por-un-secreto-real",
 }
 
+# RFC 7518 §3.2: mínimo recomendado para una clave HMAC-SHA256.
+_JWT_SECRET_LONGITUD_MINIMA = 32
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -36,6 +39,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "JWT_SECRET no puede quedar vacío ni con el valor de ejemplo de "
                 ".env.example cuando ENVIRONMENT=production. Genera uno real, p. ej.: "
+                "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        if self.environment == "production" and len(self.jwt_secret) < _JWT_SECRET_LONGITUD_MINIMA:
+            raise ValueError(
+                f"JWT_SECRET debe tener al menos {_JWT_SECRET_LONGITUD_MINIMA} caracteres "
+                "cuando ENVIRONMENT=production. Genera uno real, p. ej.: "
                 "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
         return self
