@@ -10,7 +10,7 @@ from app.api.deps import TokenData, get_current_token, get_db
 from app.core.audit_log import registrar_diagnostico_enviado
 from app.db.rls import fijar_contexto_tenant
 from app.engine.madurez import VERSION_MOTOR, calcular_indice_madurez
-from app.jobs.plan_job import ejecutar_generacion_plan
+from app.jobs.plan_job import ejecutar_generacion_plan, obtener_job_vigente
 from app.models import DiagnosticoTramite, Job, Tramite
 from app.schemas.diagnostico import (
     MECANISMOS_IDENTIDAD_VALIDOS,
@@ -111,6 +111,15 @@ def enviar_diagnostico(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado")
 
     diagnostico = _obtener_o_crear_diagnostico(db, token.tenant_id, tramite_id)
+
+    # evita encolar un job nuevo si ya hay uno en curso para este trámite
+    job_vigente = obtener_job_vigente(db, diagnostico.id)
+    if job_vigente is not None and job_vigente.estado in ("pending", "running"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya hay una generación de plan en curso para este trámite.",
+        )
+
     diagnostico.respuestas = payload.respuestas
     diagnostico.indice_madurez = calcular_indice_madurez(payload.respuestas)
     diagnostico.version_motor = VERSION_MOTOR

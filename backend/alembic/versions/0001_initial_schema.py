@@ -154,9 +154,9 @@ def upgrade() -> None:
     op.create_index("ix_job_tenant_id", "job", ["tenant_id"])
 
     # RLS (docs/backend-schema.md, "Políticas RLS") — misma policy en las 6 tablas con tenant_id.
-    # FORCE (no solo ENABLE) es necesario: por default Postgres exime al dueño de la tabla de RLS,
-    # y en este docker-compose el usuario de la app es el mismo que corrió la migración (el dueño).
-    # Sin FORCE, la policy sería "la única barrera" solo de nombre — la app la saltaría en silencio.
+    # FORCE (no solo ENABLE) es necesario: por default Postgres exime al dueño de la tabla de RLS.
+    # El rol de aplicación (backend/db-init/01-app-role.sql) no es el dueño, así que ya quedaría
+    # sujeto a RLS sin FORCE -- se deja igual como segunda capa, no como la única barrera.
     for tabla in TABLAS_CON_RLS:
         op.execute(f"ALTER TABLE {tabla} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {tabla} FORCE ROW LEVEL SECURITY")

@@ -3,7 +3,15 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# tamaño de pool declarado a propósito, no el default silencioso -- ver el
+# manejo de TimeoutError en app/main.py
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+)
 # expire_on_commit=False: los atributos ya asignados en Python antes del commit
 # (más los server_default que Postgres devuelve vía RETURNING en el propio flush)
 # siguen siendo válidos después — evita que acceder a un atributo tras el commit

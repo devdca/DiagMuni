@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import select, text
 
 from app.api.deps import TokenData
@@ -141,6 +141,65 @@ def test_enviar_diagnostico_no_revienta_rls_tras_commit_contra_postgres_real(cap
 
         db.refresh(tramite)
         assert tramite.estado == "generando_plan"
+    finally:
+        try:
+            db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_enviar_diagnostico_repetido_con_job_pendiente_rechaza_con_409_contra_postgres_real():
+    """Auditoría de seguridad H-11: sin este chequeo, llamar el endpoint varias
+    veces seguidas sobre el mismo trámite creaba un job y una versión de plan
+    nuevos por cada llamada -- sin límite. Ahora, con el primer job todavía
+    `pending` (no se llegó a llamar `ejecutar_generacion_plan`, que es lo que lo
+    pasa a `running`/`done`), un segundo envío debe rechazarse con 409."""
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant de prueba diagnostico", clave=f"prueba-diag-{tenant_id}", pais="mx"))
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite de prueba diagnostico", estado="diagnosticado")
+        db.add(tramite)
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        payload = DiagnosticoEnviar(
+            respuestas={
+                "documentos_digitalizados": True,
+                "motor_pagos": True,
+                "firma_electronica_habilitada": True,
+                "interoperabilidad": True,
+                "mecanismo_identidad": "propio",
+            }
+        )
+
+        enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+
+        jobs_antes = db.execute(select(Job).where(Job.diagnostico_tramite_id.isnot(None))).scalars().all()
+        cantidad_antes = len([j for j in jobs_antes if j.tenant_id == tenant_id])
+
+        with pytest.raises(HTTPException) as excinfo:
+            enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+        assert excinfo.value.status_code == 409
+        fijar_contexto_tenant(db, tenant_id)
+
+        jobs_despues = db.execute(select(Job).where(Job.diagnostico_tramite_id.isnot(None))).scalars().all()
+        cantidad_despues = len([j for j in jobs_despues if j.tenant_id == tenant_id])
+        assert cantidad_despues == cantidad_antes
     finally:
         try:
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})

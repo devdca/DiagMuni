@@ -23,6 +23,16 @@ def test_produccion_acepta_secreto_real():
     assert settings.jwt_secret == "un-secreto-largo-y-aleatorio-real"
 
 
+def test_produccion_aborta_con_secreto_corto():
+    with pytest.raises(ValidationError, match="JWT_SECRET"):
+        Settings(environment="production", jwt_secret="abc123")
+
+
+def test_development_no_aborta_con_secreto_corto():
+    settings = Settings(environment="development", jwt_secret="abc123")
+    assert settings.jwt_secret == "abc123"
+
+
 @pytest.mark.parametrize(
     "secreto_placeholder", ["dev-secret-cambiar-en-produccion", "cambia-esto-por-un-secreto-real", ""]
 )
