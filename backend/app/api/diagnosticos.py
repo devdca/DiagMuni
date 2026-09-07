@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import TokenData, get_current_token, get_db
 from app.core.audit_log import registrar_diagnostico_enviado
+from app.core.rate_limit import LimitadorVentanaDeslizante
 from app.db.rls import fijar_contexto_tenant
 from app.engine.madurez import VERSION_MOTOR, calcular_indice_madurez
-from app.jobs.plan_job import ejecutar_generacion_plan, obtener_job_vigente
+from app.jobs.plan_job import ejecutar_generacion_plan, obtener_job_vigente, revisar_job_obsoleto
 from app.models import DiagnosticoTramite, Job, Tramite
 from app.schemas.diagnostico import (
     MECANISMOS_IDENTIDAD_VALIDOS,
@@ -20,6 +21,16 @@ from app.schemas.diagnostico import (
 )
 
 router = APIRouter(prefix="/api/tramites", tags=["diagnostico"])
+
+# cooldown propio de este endpoint -- la generación de plan es la única
+# operación con costo real de LLM (auditoría de seguridad H-11); el chequeo de
+# job vigente ya evita duplicados concurrentes, esto acota además cuántas
+# generaciones nuevas puede disparar el mismo usuario una vez que la anterior
+# ya terminó.
+INTENTOS_MAXIMOS_POR_VENTANA = 5
+VENTANA_SEGUNDOS = 300.0
+
+_limitador = LimitadorVentanaDeslizante(INTENTOS_MAXIMOS_POR_VENTANA, VENTANA_SEGUNDOS)
 
 
 def _validar_mecanismo_identidad(respuestas: dict) -> None:
@@ -105,6 +116,12 @@ def enviar_diagnostico(
     """Envío completo: F2 (índice, síncrono y determinista) + dispara automáticamente
     el job de plan (docs/app-flow.md, máquina de estados: diagnosticado -> generando_plan,
     nunca requiere una acción manual adicional)."""
+    if not _limitador.permitir_intento(str(token.usuario_id)):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados envíos. Espera un momento e intenta de nuevo.",
+        )
+
     _validar_mecanismo_identidad(payload.respuestas)
     tramite = db.get(Tramite, tramite_id)
     if tramite is None:
@@ -112,21 +129,26 @@ def enviar_diagnostico(
 
     diagnostico = _obtener_o_crear_diagnostico(db, token.tenant_id, tramite_id)
 
-    # evita encolar un job nuevo si ya hay uno en curso para este trámite
+    # evita encolar un job nuevo si ya hay uno en curso para este trámite -- si
+    # el vigente quedó obsoleto (el proceso murió a medio camino), se
+    # redispara ese mismo job en vez de bloquear la respuesta o crear uno nuevo.
     job_vigente = obtener_job_vigente(db, diagnostico.id)
+    job_a_redisparar = None
     if job_vigente is not None and job_vigente.estado in ("pending", "running"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Ya hay una generación de plan en curso para este trámite.",
-        )
+        if not revisar_job_obsoleto(db, token.tenant_id, job_vigente):
+            return diagnostico
+        job_a_redisparar = job_vigente
 
     diagnostico.respuestas = payload.respuestas
     diagnostico.indice_madurez = calcular_indice_madurez(payload.respuestas)
     diagnostico.version_motor = VERSION_MOTOR
     diagnostico.completado_en = datetime.now(UTC)
 
-    job = Job(tenant_id=token.tenant_id, tipo="generacion_plan", diagnostico_tramite_id=diagnostico.id)
-    db.add(job)
+    if job_a_redisparar is not None:
+        job = job_a_redisparar
+    else:
+        job = Job(tenant_id=token.tenant_id, tipo="generacion_plan", diagnostico_tramite_id=diagnostico.id)
+        db.add(job)
     tramite.estado = "generando_plan"
     db.commit()
     # mismo motivo que el commit de guardar_diagnostico -- refijar antes de la

@@ -159,12 +159,13 @@ def test_enviar_diagnostico_no_revienta_rls_tras_commit_contra_postgres_real(cap
     not _postgres_real_disponible(),
     reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
 )
-def test_enviar_diagnostico_repetido_con_job_pendiente_rechaza_con_409_contra_postgres_real():
+def test_enviar_diagnostico_repetido_con_job_pendiente_no_crea_otro_job_contra_postgres_real():
     """Auditoría de seguridad H-11: sin este chequeo, llamar el endpoint varias
     veces seguidas sobre el mismo trámite creaba un job y una versión de plan
     nuevos por cada llamada -- sin límite. Ahora, con el primer job todavía
     `pending` (no se llegó a llamar `ejecutar_generacion_plan`, que es lo que lo
-    pasa a `running`/`done`), un segundo envío debe rechazarse con 409."""
+    pasa a `running`/`done`), un segundo envío responde con el mismo diagnóstico
+    sin encolar otro job."""
     tenant_id = uuid4()
     db = abrir_sesion_tenant(tenant_id)
     try:
@@ -192,14 +193,130 @@ def test_enviar_diagnostico_repetido_con_job_pendiente_rechaza_con_409_contra_po
         jobs_antes = db.execute(select(Job).where(Job.diagnostico_tramite_id.isnot(None))).scalars().all()
         cantidad_antes = len([j for j in jobs_antes if j.tenant_id == tenant_id])
 
-        with pytest.raises(HTTPException) as excinfo:
-            enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
-        assert excinfo.value.status_code == 409
-        fijar_contexto_tenant(db, tenant_id)
+        resultado = enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+        assert resultado.id is not None
 
         jobs_despues = db.execute(select(Job).where(Job.diagnostico_tramite_id.isnot(None))).scalars().all()
         cantidad_despues = len([j for j in jobs_despues if j.tenant_id == tenant_id])
         assert cantidad_despues == cantidad_antes
+    finally:
+        try:
+            db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_enviar_diagnostico_con_job_pending_obsoleto_lo_redispara_contra_postgres_real():
+    """Un job puede quedar `pending` para siempre si el proceso muere justo tras
+    crear el job y antes de que corra el BackgroundTask (nunca llega a `running`).
+    Pasado `settings.job_umbral_obsoleto_minutos`, un nuevo envío debe redisparar
+    ese mismo job (no crear uno nuevo, no bloquear la respuesta)."""
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant de prueba diagnostico", clave=f"prueba-diag-{tenant_id}", pais="mx"))
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite de prueba diagnostico", estado="diagnosticado")
+        db.add(tramite)
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        payload = DiagnosticoEnviar(
+            respuestas={
+                "documentos_digitalizados": True,
+                "motor_pagos": True,
+                "firma_electronica_habilitada": True,
+                "interoperabilidad": True,
+                "mecanismo_identidad": "propio",
+            }
+        )
+
+        enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+        job_original = db.execute(select(Job).where(Job.tenant_id == tenant_id)).scalar_one()
+
+        # simula que el job nunca arrancó y ya pasó el umbral de obsolescencia
+        db.execute(
+            text("UPDATE job SET updated_at = now() - interval '1 hour' WHERE id = :id"),
+            {"id": str(job_original.id)},
+        )
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+        # el UPDATE de arriba fue SQL crudo -- el objeto ya cargado en la sesión
+        # sigue con el `updated_at` viejo en memoria hasta que se expira.
+        db.expire(job_original)
+
+        resultado = enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+        assert resultado.id is not None
+
+        jobs = db.execute(select(Job).where(Job.tenant_id == tenant_id)).scalars().all()
+        assert len(jobs) == 1
+        assert jobs[0].id == job_original.id
+        assert jobs[0].intentos == 1
+    finally:
+        try:
+            db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_enviar_diagnostico_excede_cooldown_responde_429_contra_postgres_real():
+    """Auditoría de seguridad H-11 (segunda mitad): el chequeo de job vigente no
+    protege una vez que el job anterior ya terminó -- este cooldown acota cuántas
+    generaciones nuevas puede disparar el mismo usuario en la ventana."""
+    from app.api import diagnosticos as diagnosticos_api
+
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant de prueba diagnostico", clave=f"prueba-diag-{tenant_id}", pais="mx"))
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite de prueba diagnostico", estado="diagnosticado")
+        db.add(tramite)
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        payload = DiagnosticoEnviar(
+            respuestas={
+                "documentos_digitalizados": True,
+                "motor_pagos": True,
+                "firma_electronica_habilitada": True,
+                "interoperabilidad": True,
+                "mecanismo_identidad": "propio",
+            }
+        )
+
+        for _ in range(diagnosticos_api.INTENTOS_MAXIMOS_POR_VENTANA):
+            enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+
+        with pytest.raises(HTTPException) as excinfo:
+            enviar_diagnostico(tramite.id, payload, token, db, BackgroundTasks())
+        assert excinfo.value.status_code == 429
     finally:
         try:
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})

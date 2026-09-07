@@ -291,6 +291,24 @@ def revisar_job_obsoleto(db: Session, tenant_id: UUID, job: Job) -> bool:
         fijar_contexto_tenant(db, tenant_id)
         return True
 
+    if job.estado == "pending" and _esta_obsoleto(job.updated_at, settings.job_umbral_obsoleto_minutos):
+        # nunca llegó a arrancar (ej. el proceso murió justo tras crear el job,
+        # antes de que corriera el BackgroundTask) -- se cuenta como un intento
+        # fallido igual que un `running` obsoleto, para no redisparar sin límite.
+        job.intentos += 1
+        if job.intentos >= LIMITE_INTENTOS:
+            if _persistir_plan_degradado(db, tenant_id, job.diagnostico_tramite_id):
+                job.estado = "done"
+            else:
+                job.estado = "failed"
+            db.commit()
+            fijar_contexto_tenant(db, tenant_id)
+            return False
+
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+        return True
+
     if job.estado == "running" and _esta_obsoleto(job.updated_at, settings.job_umbral_obsoleto_minutos):
         job.intentos += 1
         if job.intentos >= LIMITE_INTENTOS:
