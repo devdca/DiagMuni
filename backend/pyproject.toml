@@ -13,3 +13,15 @@ disallow_untyped_defs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+# Medido en vivo el 2026-09-10 (localhost, sin Postgres alcanzable -- todos los
+# tests marcados postgres se saltan): 76% total. En CI (con Postgres real como
+# servicio, ver .github/workflows/ci.yml) esos tests sí corren, así que la
+# cifra real ahí es igual o mayor -- 70% deja margen sin ser un número inventado.
+# Fase 1 del plan de producción integrada, DoD "cobertura medida y >=70%".
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true

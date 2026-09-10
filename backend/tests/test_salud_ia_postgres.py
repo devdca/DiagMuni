@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import text
 
 from app.adaptadores.http.admin_salud_ia import actualizar_proveedor, obtener_resumen_salud_ia
@@ -147,13 +148,17 @@ def test_actualizar_preferencia_y_key_se_guardan_cifradas_y_no_se_devuelven_en_c
         db.close()
 
 
-def test_actualizar_preferencia_invalida_responde_valueerror(tenant_solo):
+def test_actualizar_preferencia_invalida_responde_400(tenant_solo):
+    """El router atrapa el ValueError de preferencia_modelo_ia.actualizar_preferencia
+    y lo convierte en HTTPException 400 (admin_salud_ia.py) -- no debe escapar
+    como ValueError crudo."""
     db = abrir_sesion_tenant(tenant_solo)
     try:
         token = TokenData(usuario_id=uuid4(), tenant_id=tenant_solo, rol="admin_gobierno")
         payload = ActualizarProveedorLlmRequest(proveedor="openai")
-        with pytest.raises(ValueError):
+        with pytest.raises(HTTPException) as exc_info:
             actualizar_proveedor(payload, token, db)
+        assert exc_info.value.status_code == 400
     finally:
         db.close()
 

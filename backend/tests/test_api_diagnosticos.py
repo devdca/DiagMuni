@@ -384,7 +384,7 @@ def test_enviar_diagnostico_de_varios_tramites_distintos_no_choca_con_el_cooldow
     de su municipio (decenas, cada uno un envío legítimo) topaba con un 429 al
     sexto trámite distinto. Se envían más trámites que `INTENTOS_MAXIMOS_POR_TRAMITE`
     para que la regresión reaparezca si la llave vuelve a ser solo el usuario."""
-    from app.api import diagnosticos as diagnosticos_api
+    from app.adaptadores.http import diagnosticos as diagnosticos_api
 
     cantidad = diagnosticos_api.INTENTOS_MAXIMOS_POR_TRAMITE + 3
     tenant_id = uuid4()
@@ -426,6 +426,9 @@ def test_enviar_diagnostico_de_varios_tramites_distintos_no_choca_con_el_cooldow
             db.execute(text("DELETE FROM plan_modernizacion WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -445,7 +448,7 @@ def test_enviar_diagnostico_respeta_el_techo_por_usuario(monkeypatch):
     trámites distintos dispararía una generación por cada uno. El techo por
     usuario existe para eso. Se monkeypatchea a 2 para no tener que hacer
     `INTENTOS_MAXIMOS_POR_USUARIO` envíos reales contra Postgres."""
-    from app.api import diagnosticos as diagnosticos_api
+    from app.adaptadores.http import diagnosticos as diagnosticos_api
     from app.core.rate_limit import LimitadorVentanaDeslizante
 
     monkeypatch.setattr(
@@ -494,6 +497,7 @@ def test_enviar_diagnostico_respeta_el_techo_por_usuario(monkeypatch):
             db.execute(text("DELETE FROM plan_modernizacion WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()

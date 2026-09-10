@@ -32,6 +32,31 @@ jobs:
   backend:
     needs: [higiene-repo-publico]
     runs-on: ubuntu-latest
+    # Postgres real como servicio -- antes de esto, todos los tests marcados
+    # `_postgres_real_disponible()` se saltaban limpio en CI (sin Postgres
+    # alcanzable), así que RBAC, notificaciones, historial, BYOK y
+    # bootstrap_tenant.py nunca se ejercitaban de verdad en ningún PR, solo se
+    # lint/type-checkeaban. Mismo rol restringido que docker-compose.yml
+    # (backend/db-init/01-app-role.sql) -- las tablas las crea el rol
+    # superusuario vía Alembic, la app corre con el rol de aplicación, para que
+    # RLS aplique de verdad en los tests igual que en producción.
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: diagmuni
+          POSTGRES_PASSWORD: diagmuni
+          POSTGRES_DB: diagmuni
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U diagmuni"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://diagmuni_app:diagmuni_app_password@localhost:5432/diagmuni
+      MIGRATIONS_DATABASE_URL: postgresql+psycopg://diagmuni:diagmuni@localhost:5432/diagmuni
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -48,10 +73,23 @@ jobs:
       - name: Type-check (mypy)
         working-directory: backend
         run: mypy app
-      # 3. tests
-      - name: Tests (pytest)
+      # El servicio "healthy" ya garantiza que Postgres acepta conexiones, pero
+      # no que el rol de aplicación (diagmuni_app) exista todavía -- mismo
+      # script que docker-entrypoint-initdb.d corre en docker-compose.yml, acá
+      # como paso explícito porque los servicios de GitHub Actions arrancan
+      # antes que el checkout, sin forma de montarlo como init script.
+      - name: Crear el rol de aplicación (RLS)
         working-directory: backend
-        run: pytest
+        env:
+          PGPASSWORD: diagmuni
+        run: psql -h localhost -U diagmuni -d diagmuni -f db-init/01-app-role.sql
+      - name: Migrar la base de datos
+        working-directory: backend
+        run: alembic upgrade head
+      # 3. tests, con cobertura (umbral en pyproject.toml, [tool.coverage.report])
+      - name: Tests (pytest, con cobertura)
+        working-directory: backend
+        run: pytest --cov=app --cov-report=term-missing
       # 4. chequeo de licencias (docs/TRD.md; Principio 2 de docs/stack-tecnologico.md).
       # Deny-list, no allow-list: muchos paquetes MIT/BSD/Apache reales (anyio, click,
       # idna, packaging...) no traen un clasificador de licencia limpio en su metadata
