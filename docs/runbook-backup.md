@@ -49,6 +49,30 @@ gunzip -c diagmuni-20260818-140000.sql.gz | docker compose exec -T db psql -U "$
 
 Antes de correrlo: confirmar que es el archivo correcto, y que de verdad se quiere reemplazar el contenido actual de la base — no hay vuelta atrás una vez que corre.
 
+**Prerrequisito real, no obvio** (verificado 2026-09-10 -- ver "Verificación" abajo):
+el rol `diagmuni_app` debe existir en la base destino *antes* de restaurar, o la
+restauración termina con una racha de `ERROR: role "diagmuni_app" does not
+exist"` (los `GRANT`/`ALTER DEFAULT PRIVILEGES` que trae el dump le apuntan a
+ese rol). En el flujo normal (`docker compose up -d db` sobre un volumen ya
+inicializado, o uno nuevo -- `backend/db-init/01-app-role.sql` corre solo la
+primera vez que el volumen de datos está vacío) esto nunca se nota porque el
+rol ya existe para cuando se corre el `psql` de arriba. Sí importa en un
+disaster-recovery real (servidor nuevo, volumen de Postgres vacío de verdad):
+levantar `db` con `docker compose up -d db` primero (deja que el init script
+cree el rol) y restaurar después, nunca restaurar contra un contenedor de
+Postgres corrido a mano sin ese init script montado.
+
+### Verificación (2026-09-10)
+
+Ciclo completo probado de punta a punta contra la base real de este
+despliegue, restaurando en una instancia de Postgres desechable (nunca sobre
+la base viva): `pg_dump` → `gunzip -t` → restaurar en un contenedor limpio con
+`db-init/01-app-role.sql` montado → comparar conteos. Resultado: 5 tenants,
+27 trámites, 6 usuarios -- idéntico en la base viva y en la restaurada, sin un
+solo `ERROR` en el log de restauración una vez resuelto el prerrequisito de
+arriba. `[VERIFICADO]` -- primera vez que este ciclo se prueba de verdad
+desde que existe este runbook.
+
 ## Riesgo a tener presente
 
 El archivo `.sql.gz` que produce este mecanismo queda **sin cifrar** en el disco del servidor — contiene `password_hash` de todos los funcionarios y los datos reales de diagnóstico de cada gobierno. Cifrar el archivo (ej. `gpg`, o cifrado a nivel de disco/volumen) es responsabilidad del operador del despliegue si su política de datos lo exige; este runbook no lo resuelve.
