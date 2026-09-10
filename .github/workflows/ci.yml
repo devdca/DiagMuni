@@ -103,6 +103,14 @@ jobs:
       - name: Licencias sin clasificar (revisión humana, no bloquea el build)
         working-directory: backend
         run: pip-licenses | grep -i unknown || echo "Ninguna licencia sin clasificar."
+      # 5. CVEs conocidas en dependencias (Fase 1 del plan de producción integrada).
+      # Gate duro a propósito, a diferencia del chequeo de licencias de arriba: una
+      # vulnerabilidad conocida sí es un problema real y accionable (actualizar o
+      # documentar por qué no aplica), no una ambigüedad de metadata como "UNKNOWN".
+      # Sin vulnerabilidades conocidas en requirements.txt al agregar este gate.
+      - name: "Escaneo de CVEs conocidas (pip-audit)"
+        working-directory: backend
+        run: pip-audit -r requirements.txt
 
   frontend:
     needs: [higiene-repo-publico]
@@ -135,6 +143,13 @@ jobs:
         working-directory: frontend
         run: |
           npx license-checker-rseidelsohn --excludePrivatePackages --failOn "GPL-1.0-only;GPL-1.0-or-later;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0-only;GPL-3.0-or-later;GPL-1.0;GPL-2.0;GPL-3.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0-only;AGPL-3.0-or-later;AGPL-1.0;AGPL-3.0"
+      # 5. CVEs conocidas (Fase 1 del plan de producción integrada). --audit-level=high:
+      # solo bloquea por vulnerabilidades altas/críticas -- moderate/low en dependencias
+      # de build (no código que llegue al usuario final) generan demasiado ruido no
+      # accionable para ser un gate duro, mismo criterio que "UNKNOWN" en licencias.
+      - name: "Escaneo de CVEs conocidas (npm audit)"
+        working-directory: frontend
+        run: npm audit --audit-level=high
 
   e2e:
     needs: [backend, frontend]

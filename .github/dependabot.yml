@@ -1,0 +1,44 @@
+version: 2
+updates:
+  # Backend (pip) -- requirements.txt fija versiones exactas con nota de
+  # licencia/seguridad por dependencia (ver CONTRIBUTING.md); Dependabot abre
+  # el PR, pero la licencia de cualquier bump mayor/de proveedor nuevo sigue
+  # necesitando la misma verificación manual antes de mergear.
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencias"
+
+  # Frontend (npm)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencias"
+
+  # Imágenes base de Docker (backend/Dockerfile, nginx/Dockerfile)
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencias"
+  - package-ecosystem: "docker"
+    directory: "/nginx"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencias"
+
+  # Las propias GitHub Actions del CI (ver ci.yml, todas fijadas por SHA)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencias"

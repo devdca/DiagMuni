@@ -4,6 +4,11 @@ pytest-cov==7.1.0
 ruff==0.8.4
 mypy==1.14.1
 pip-licenses==5.0.0
+# pip-audit: Apache-2.0 (proyecto oficial de la PyPA) -- escaneo de CVEs
+# conocidas contra la Python Packaging Advisory Database + OSV, Fase 1 del
+# plan de producción integrada ("escaneo de dependencias en cada PR"). Sin
+# vulnerabilidades conocidas en requirements.txt al fijar esto (2026-09-10).
+pip-audit==2.10.1
 types-PyYAML==6.0.12.20241230
 # pypdf: MIT -- solo para extraer texto del PDF generado en tests, dev-only, no
 # entra a la imagen de producción (backend/Dockerfile no instala requirements-dev.txt).
