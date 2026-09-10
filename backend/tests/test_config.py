@@ -58,8 +58,15 @@ def test_development_no_aborta_con_secreto_placeholder(secreto_placeholder):
 
 
 def test_produccion_aborta_con_tenant_secret_key_placeholder():
+    # tenant_secret_key explícito -- sin esto, un .env real con una clave ya
+    # generada (como la de este propio despliegue) se filtraría silenciosamente
+    # a este test, igual que ya se documenta para llm_provider en test_ia_config.py.
     with pytest.raises(ValidationError, match="TENANT_SECRET_KEY"):
-        Settings(environment="production", jwt_secret="un-secreto-largo-y-aleatorio-real")
+        Settings(
+            environment="production",
+            jwt_secret="un-secreto-largo-y-aleatorio-real",
+            tenant_secret_key="ZGV2LXNlY3JldC1jYW1iaWFyLWVuLXByb2R1Y2Npb24=",
+        )
 
 
 def test_produccion_aborta_con_tenant_secret_key_vacio():
