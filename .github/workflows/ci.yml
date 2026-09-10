@@ -129,11 +129,17 @@ jobs:
       - name: Lint (eslint)
         working-directory: frontend
         run: npx eslint .
-      # 2. type-check. Los tests (E2E) están en el job `e2e` de abajo: necesitan Docker
+      # 2. type-check. Los tests E2E están en el job `e2e` de abajo: necesitan Docker
       # (stack completo), no tienen sentido en este job liviano de solo Node.
       - name: Type-check (tsc)
         working-directory: frontend
         run: npx tsc -b
+      # 3. tests unitarios (Vitest + Testing Library, Fase 1 del plan de producción
+      # integrada) -- componentes puros/aislables (jsdom, sin Docker), a diferencia
+      # de los E2E de abajo que sí necesitan el stack real.
+      - name: Tests unitarios (Vitest)
+        working-directory: frontend
+        run: npm run test
       # 4. chequeo de licencias de dependencias (docs/stack-tecnologico.md, Principio 2).
       # Deny-list, no allow-list: mismo criterio que el paso 4 del job backend (líneas 31-36) —
       # el gate duro es GPL/AGPL (contaminación de licencia real); licencias permisivas no
