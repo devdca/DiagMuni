@@ -14,8 +14,8 @@ porque, a diferencia de los tests ya existentes, acá coexisten dos consultas
 
 from uuid import uuid4
 
-from app.engine.plantillas import generar_contenido_degradado
-from app.jobs import plan_job
+from app.aplicacion import plan_job
+from app.dominio.plantillas import generar_contenido_degradado
 from app.models import ContextoInstitucional, DiagnosticoTramite, PlanModernizacion, Tenant, Tramite
 
 RESPUESTAS_NIVEL_MAXIMO = {
@@ -54,7 +54,7 @@ def test_namespace_efectivo_sin_fila_de_contexto_devuelve_solo_respuestas():
     db = _SesionSoloContexto(None)
     respuestas = {"documentos_digitalizados": True}
 
-    resultado = plan_job._namespace_efectivo(db, uuid4(), respuestas)
+    resultado = plan_job._namespace_efectivo(db, uuid4(), respuestas, "generico")
 
     assert resultado == respuestas
 
@@ -72,7 +72,7 @@ def test_namespace_efectivo_fusiona_contexto_y_respuestas_sin_colision():
     db = _SesionSoloContexto(contexto)
     respuestas = {"documentos_digitalizados": True, "firma_electronica_habilitada": False}
 
-    resultado = plan_job._namespace_efectivo(db, uuid4(), respuestas)
+    resultado = plan_job._namespace_efectivo(db, uuid4(), respuestas, "generico")
 
     assert resultado["documentos_digitalizados"] is True
     assert resultado["firma_electronica_habilitada"] is False
@@ -90,7 +90,7 @@ def test_namespace_efectivo_las_respuestas_del_tramite_ganan_si_hubiera_colision
     db = _SesionSoloContexto(contexto)
     respuestas = {"autoridad_gobernanza_digital": False}
 
-    resultado = plan_job._namespace_efectivo(db, uuid4(), respuestas)
+    resultado = plan_job._namespace_efectivo(db, uuid4(), respuestas, "generico")
 
     assert resultado["autoridad_gobernanza_digital"] is False
 
@@ -102,7 +102,7 @@ def test_fusion_produce_brecha_de_autoridad_gobernanza_digital_en_modo_degradado
     contexto = ContextoInstitucional(tenant_id=uuid4(), autoridad_gobernanza_digital=False)
     db = _SesionSoloContexto(contexto)
 
-    fusionado = plan_job._namespace_efectivo(db, uuid4(), RESPUESTAS_NIVEL_MAXIMO)
+    fusionado = plan_job._namespace_efectivo(db, uuid4(), RESPUESTAS_NIVEL_MAXIMO, "generico")
     contenido = generar_contenido_degradado(fusionado, "mx")
 
     variables = {b["variable"] for b in contenido["brechas"]}
@@ -114,10 +114,21 @@ def test_fusion_produce_brecha_de_autoridad_gobernanza_digital_en_modo_degradado
     assert brecha["componente_recomendado"] is None
 
 
+def test_fusion_produce_brecha_de_convenio_colaboracion_estado_en_modo_degradado():
+    contexto = ContextoInstitucional(tenant_id=uuid4(), convenio_colaboracion_estado=False)
+    db = _SesionSoloContexto(contexto)
+
+    fusionado = plan_job._namespace_efectivo(db, uuid4(), RESPUESTAS_NIVEL_MAXIMO, "generico")
+    contenido = generar_contenido_degradado(fusionado, "mx")
+
+    variables = {b["variable"] for b in contenido["brechas"]}
+    assert variables == {"convenio_colaboracion_estado"}
+
+
 def test_sin_fila_de_contexto_no_produce_brecha_de_autoridad_ni_falla():
     db = _SesionSoloContexto(None)
 
-    fusionado = plan_job._namespace_efectivo(db, uuid4(), RESPUESTAS_NIVEL_MAXIMO)
+    fusionado = plan_job._namespace_efectivo(db, uuid4(), RESPUESTAS_NIVEL_MAXIMO, "generico")
     contenido = generar_contenido_degradado(fusionado, "mx")
 
     assert contenido["brechas"] == []
@@ -175,7 +186,9 @@ def test_persistir_plan_degradado_incluye_la_brecha_de_autoridad_cuando_hay_cont
         id=diagnostico_id, tenant_id=tenant_id, tramite_id=tramite_id, respuestas=RESPUESTAS_NIVEL_MAXIMO
     )
     tenant = Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
-    tramite = Tramite(id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan")
+    tramite = Tramite(
+        id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan", tipo="generico"
+    )
     contexto = ContextoInstitucional(tenant_id=tenant_id, autoridad_gobernanza_digital=False)
 
     db = _SesionCompleta(diagnostico=diagnostico, tenant=tenant, tramite=tramite, contexto=contexto)
@@ -195,7 +208,9 @@ def test_persistir_plan_degradado_sin_fila_de_contexto_no_agrega_brecha_de_autor
         id=diagnostico_id, tenant_id=tenant_id, tramite_id=tramite_id, respuestas=RESPUESTAS_NIVEL_MAXIMO
     )
     tenant = Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
-    tramite = Tramite(id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan")
+    tramite = Tramite(
+        id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan", tipo="generico"
+    )
 
     db = _SesionCompleta(diagnostico=diagnostico, tenant=tenant, tramite=tramite, contexto=None)
 

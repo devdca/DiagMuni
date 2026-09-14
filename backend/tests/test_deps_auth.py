@@ -15,7 +15,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 
-from app.api.deps import get_current_token
+from app.adaptadores.http.deps import get_current_token
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.rls import abrir_sesion_tenant

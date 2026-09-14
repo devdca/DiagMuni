@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { IconoCiudadesInteligentes } from "@/components/IconoCiudadesInteligentes";
 
 import { login } from "../lib/authApi";
 import { resolverGobierno } from "../lib/gobiernosApi";
@@ -72,9 +73,21 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
+    // Única pantalla con imagen de fondo (frontend/src/index.css, ".login-fondo")
+    // -- momento de bienvenida antes de entrar, el resto de la app se queda en
+    // superficie plana. La tarjeta es glass pero deliberadamente opaco (pedido
+    // de diseño explícito): suficiente blur para leerse como vidrio sobre la
+    // foto, sin sacrificar legibilidad ni el contraste AA ya validado de --card.
+    <div className="login-fondo">
+      {/* Franja superior + ícono "ciudades inteligentes": punto de anclaje visual
+          provisional -- NO es el logo institucional del Laboratorio INAP
+          (todavía pendiente, ver docs/ux-brief.md, "Principios de diseño" #4) --
+          sustituir por el logo real cuando exista, sin tocar el resto de la
+          estructura de la tarjeta. Recoloreado a tinta neutra (ver componente):
+          el azul queda reservado para el índice de madurez, en ningún otro lado. */}
+      <Card className="login-card-glass w-full max-w-sm border-t-[3px] border-t-primary">
+        <CardHeader className="items-center text-center">
+          <IconoCiudadesInteligentes className="mb-2 size-24" />
           <CardTitle className="text-xl">DiagMuni</CardTitle>
           <CardDescription>Diagnóstico de modernización municipal</CardDescription>
         </CardHeader>

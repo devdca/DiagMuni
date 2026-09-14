@@ -1,0 +1,25 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 1000 },
+    { "file": "Notificaciones.dc.html", "x": 1560, "y": 0, "w": 420, "h": 620 },
+    { "file": "AdminUsuarios.dc.html", "x": 0, "y": 1130, "w": 1440, "h": 1000 },
+    { "file": "AdminSaludIA.dc.html", "x": 1560, "y": 1130, "w": 1440, "h": 1000 },
+    { "file": "Perfil.dc.html", "x": 0, "y": 2260, "w": 1440, "h": 1000 },
+    { "file": "Historial.dc.html", "x": 1560, "y": 2260, "w": 1440, "h": 1100 },
+    { "file": "ComparadorPlan.dc.html", "x": 0, "y": 3490, "w": 1440, "h": 1100 },
+    { "file": "Simulador.dc.html", "x": 1560, "y": 3490, "w": 1440, "h": 1000 },
+    { "file": "SeguimientoAvanzado.dc.html", "x": 0, "y": 4720, "w": 1440, "h": 1100 }
+  ],
+  "annotations": [
+    { "id": "note-main", "x": 0, "y": -46, "w": 500, "text": "1. Panel de control ejecutivo (reemplaza Panel resumen) — KPIs, tendencia, prioridades, rol Administrador" },
+    { "id": "note-notif", "x": 1560, "y": -46, "w": 420, "text": "2. Centro de notificaciones (campana de la barra superior)" },
+    { "id": "note-admin-usuarios", "x": 0, "y": 1084, "w": 500, "text": "3. Administración — usuarios y roles (nuevo, solo Administrador)" },
+    { "id": "note-admin-salud", "x": 1560, "y": 1084, "w": 500, "text": "4. Administración — salud del sistema de IA" },
+    { "id": "note-perfil", "x": 0, "y": 2214, "w": 500, "text": "5. Perfil de usuario (rol Funcionario)" },
+    { "id": "note-historial", "x": 1560, "y": 2214, "w": 500, "text": "6. Historial / línea de tiempo del trámite" },
+    { "id": "note-comparador", "x": 0, "y": 3444, "w": 500, "text": "7. Comparador de versiones del plan" },
+    { "id": "note-simulador", "x": 1560, "y": 3444, "w": 500, "text": "8. Diagnóstico con simulador \"qué pasa si\" en vivo" },
+    { "id": "note-seguimiento", "x": 0, "y": 4674, "w": 500, "text": "9. Seguimiento con filtros avanzados y notas colaborativas" }
+  ],
+  "launch": { "view": "focused", "file": "Main.dc.html" }
+}

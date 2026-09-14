@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { sesionValida } from "../lib/session";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { NavBar } from "./NavBar";
 
 const INTERVALO_REVISION_MS = 30_000;
@@ -34,7 +35,9 @@ export function ProtectedLayout() {
     <div className="min-h-screen">
       <NavBar />
       <main className="pt-28">
-        <Outlet />
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

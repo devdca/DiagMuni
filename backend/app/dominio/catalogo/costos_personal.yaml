@@ -1,0 +1,21 @@
+# Costo mensual promedio de referencia para 1 puesto técnico de TI -- una sola
+# cifra por país, verificada contra una fuente oficial de estadística laboral.
+# NO es un costo de contratación por brecha (eso requeriría decidir cuántas
+# personas hacen falta, un juicio no verificable con una fuente pública -- ver
+# app/ia/estimacion_recursos.py para esa parte, marcada explícitamente como
+# estimación de IA no verificada).
+version: "1.0"
+
+mx:
+  puesto_referencia: "Investigadores y especialistas en sistemas computacionales (clasificación de ocupación INEGI)"
+  salario_mensual_promedio: "21318"
+  moneda: "MXN"
+  fuente: "Data México (economia.gob.mx/datamexico), perfil de ocupación \"Investigadores y Especialistas en Sistemas Computacionales\", datos ENOE/INEGI -- https://www.economia.gob.mx/datamexico/es/profile/occupation/investigadores-y-especialistas-en-sistemas-computacionales"
+  fecha_consulta: "2026-09-08"
+
+uy:
+  puesto_referencia: null
+  salario_mensual_promedio: "[NO VERIFICADO]"
+  moneda: "UYU"
+  fuente: "No se encontró una fuente oficial (INE/ONSC) con cifra desglosada por ocupación de TI accesible en esta consulta -- revisar contra el Instituto Nacional de Estadística o la Oficina Nacional del Servicio Civil"
+  fecha_consulta: "2026-09-08"

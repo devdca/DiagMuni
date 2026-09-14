@@ -3,9 +3,13 @@
 // de serie ni para otro propósito. Solo 3 estados, mismos valores que
 // backend/app/models/accion_seguimiento.py::AccionSeguimiento.estado_semaforo.
 //
-// Regla dura del documento: "warning" y "critical" caen bajo el piso de contraste
-// 3:1 en superficie clara por diseño de la paleta -- todo estado debe mostrarse
-// siempre con ícono + etiqueta de texto, nunca solo el punto de color.
+// Variables CSS (frontend/src/index.css), no hex directo -- "completado" necesita
+// un valor distinto por modo para cumplir AA 4.5:1 contra la tarjeta de cada uno
+// (ver `frontend/scripts/validate_palette.js`). "en_progreso" y "atrasado" quedan
+// como excepción documentada, mismo valor en ambos modos: caen bajo el piso de
+// contraste 4.5:1 (y en algún caso 3:1) por diseño de la paleta -- por eso la
+// regla dura de este documento: todo estado se muestra siempre con ícono +
+// etiqueta de texto, nunca solo el punto de color.
 export type EstadoSemaforo = "completado" | "en_progreso" | "atrasado";
 
 export interface InfoEstadoSemaforo {
@@ -17,9 +21,9 @@ export interface InfoEstadoSemaforo {
 }
 
 export const ESTADOS_SEMAFORO: Record<EstadoSemaforo, InfoEstadoSemaforo> = {
-  completado: { etiqueta: "Completado", hex: "#0ca30c", icono: "✓" },
-  en_progreso: { etiqueta: "En progreso", hex: "#fab219", icono: "●" },
-  atrasado: { etiqueta: "Atrasado o bloqueado", hex: "#d03b3b", icono: "⚠" },
+  completado: { etiqueta: "Completado", hex: "var(--semaforo-completado)", icono: "✓" },
+  en_progreso: { etiqueta: "En progreso", hex: "var(--semaforo-en-progreso)", icono: "●" },
+  atrasado: { etiqueta: "Atrasado o bloqueado", hex: "var(--semaforo-atrasado)", icono: "⚠" },
 };
 
 export const ORDEN_ESTADOS_SEMAFORO: readonly EstadoSemaforo[] = ["completado", "en_progreso", "atrasado"];

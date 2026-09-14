@@ -51,3 +51,14 @@ class DiagnosticoOut(BaseModel):
     completado_en: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class SimulacionOut(BaseModel):
+    """Respuesta de POST /api/tramites/{id}/diagnostico/simular -- cálculo del
+    motor determinista (F2) sobre respuestas hipotéticas, sin persistir nada.
+    `indice_actual` es el índice YA guardado del diagnóstico (`None` si nunca se
+    envió); `indice_proyectado` es lo que resultaría de enviar `respuestas` tal
+    como están ahora mismo."""
+
+    indice_actual: int | None
+    indice_proyectado: int

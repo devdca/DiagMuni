@@ -1,0 +1,22 @@
+# entregables/fase-2/variables-contexto-institucional.md (variable agregada) --
+# transversal, no gatilla un nivel del índice de ningún trámite.
+version: "1.0"
+variable: capacitacion_personal_tic_anual
+criterio_deteccion: "capacitacion_personal_tic_anual == false"
+acciones:
+  mx:
+    paso_administrativo: "Programar al menos una capacitación anual en herramientas digitales para el personal que atiende trámites"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de capacidad del personal, no de adopción de software"
+    paso_organizacional: "Incluir la capacitación digital en el programa anual de capacitación del gobierno, con registro de asistencia"
+    prerrequisitos: []
+    por_que_importa: "Transversal -- ningún componente tecnológico de este plan rinde si el personal no sabe operarlo; sin mandato legal específico verificado, es buena práctica que sostiene el resto de las brechas cerradas"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "capacitacion_digital"
+  uy:
+    paso_administrativo: "Programar al menos una capacitación anual en herramientas digitales para el personal que atiende trámites"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de capacidad del personal, no de adopción de software"
+    paso_organizacional: "Incluir la capacitación digital en el programa anual de capacitación de la intendencia, con registro de asistencia"
+    prerrequisitos: []
+    por_que_importa: "Transversal -- mismo criterio que la rama mx, sin mandato legal uruguayo específico verificado"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "capacitacion_digital"

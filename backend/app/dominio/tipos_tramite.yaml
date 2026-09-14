@@ -1,0 +1,103 @@
+# Qué variables del cuestionario (backend/app/engine/reglas/*.yaml) aplican a
+# cada tipo de trámite. No toca el catálogo brecha->acción en sí -- solo decide
+# qué preguntas se muestran. `documentos_digitalizados`, `proteccion_datos_incompleta`
+# y `mecanismo_identidad` son obligatorias siempre, nunca aparecen en
+# variables_excluidas (ver app/engine/tipos_tramite_loader.py).
+#
+# `variables_adicionales`: preguntas propias de ese tipo, además de las 6 de
+# siempre -- transversales (nunca gatillan un nivel del índice de madurez, solo
+# aparecen como brecha extra en el plan si la respuesta es `false`). Solo México
+# por ahora.
+#
+# Este seed es un borrador inicial para trámites reales de Cuajimalpa (CDMX) --
+# revisar/ajustar variables_excluidas y variables_adicionales contra el proceso
+# real de cada trámite.
+tipos:
+  generico:
+    etiqueta: "Genérico (todas las preguntas)"
+    variables_excluidas: []
+    variables_adicionales: []
+  licencia_funcionamiento:
+    etiqueta: "Licencia de funcionamiento"
+    variables_excluidas: []
+    variables_adicionales:
+      - variable: inspeccion_digital_habilitada
+        pregunta: "¿La inspección de verificación de Protección Civil para este trámite se agenda y registra de forma digital (no solo en papel)?"
+        ayuda: "Aplica a la visita de verificación que Protección Civil hace al negocio antes de otorgar la licencia."
+        paso_administrativo: "Digitalizar el agendamiento y registro de la inspección de verificación de Protección Civil"
+        paso_tecnico: "Sistema de agendamiento de citas con notificación al ciudadano y registro digital del resultado de la inspección"
+        paso_organizacional: "Capacitar al personal de Protección Civil en el registro digital de inspecciones"
+        prerrequisitos: []
+        por_que_importa: "Sin esto, el resultado de la inspección (paso obligatorio para otorgar la licencia) sigue dependiendo de un registro en papel, sin trazabilidad digital para el ciudadano ni para el propio gobierno"
+        fuente_normativa: "LNETB (principio general de digitalización de trámites, sin artículo específico verificado para este paso -- revisar)"
+        categoria_catalogo: "inspeccion_digital"
+  licencia_uso_suelo:
+    etiqueta: "Licencia de uso de suelo"
+    variables_excluidas: [interoperabilidad]
+    variables_adicionales:
+      - variable: consulta_zonificacion_en_linea
+        pregunta: "¿El ciudadano puede consultar en línea el uso de suelo permitido de un predio antes de solicitar la licencia?"
+        ayuda: "Por ejemplo, un mapa o buscador público donde se consulte la zonificación de un predio por su dirección o clave catastral."
+        paso_administrativo: "Publicar la consulta de zonificación como un servicio de consulta en línea, sin necesidad de acudir a ventanilla"
+        paso_tecnico: "Mapa o buscador de zonificación en línea, consultable por dirección o clave catastral"
+        paso_organizacional: "Mantener actualizada la capa de zonificación con la Dirección de Desarrollo Urbano"
+        prerrequisitos: ["Digitalizar el plano de zonificación vigente"]
+        por_que_importa: "Sin esto, el ciudadano solo puede saber si su predio califica para la licencia acudiendo en persona, incluso antes de decidir si vale la pena iniciar el trámite"
+        fuente_normativa: "LNETB, principio de Portal Ciudadano Único de Trámites y Servicios (consulta en línea) -- sin artículo específico de zonificación verificado, revisar"
+        categoria_catalogo: "consulta_zonificacion"
+  registro_civil:
+    etiqueta: "Registro civil (nacimiento, defunción, matrimonio, divorcio)"
+    variables_excluidas: [motor_pagos]
+    variables_adicionales:
+      - variable: verificacion_duplicados_automatica
+        pregunta: "¿El sistema verifica automáticamente contra la Base de Datos Nacional de Registro Civil (RENAPO) si ya existe un acta previa, antes de generar una nueva?"
+        ayuda: "Se refiere a una verificación automática contra el registro nacional, no a una revisión manual del funcionario."
+        paso_administrativo: "Conectar el trámite a la Base de Datos Nacional de Registro Civil (BDNRC) de RENAPO antes de generar un acta nueva"
+        paso_tecnico: "Consulta automática contra la BDNRC para detectar actas previas del mismo ciudadano antes de registrar una nueva"
+        paso_organizacional: "Capacitar al personal de Registro Civil en el protocolo de resolución cuando la consulta detecta una posible acta duplicada"
+        prerrequisitos: []
+        por_que_importa: "Sin verificación automática, la prevención de actas duplicadas depende de que el funcionario recuerde revisar manualmente -- RENAPO ya opera esta interconexión a nivel nacional"
+        fuente_normativa: "RENAPO -- Programa de interconexión con los Registros Civiles estatales (Base de Datos Nacional de Registro Civil, BDNRC)"
+        categoria_catalogo: "verificacion_duplicados_registro_civil"
+  predial:
+    etiqueta: "Predial (impuesto predial)"
+    variables_excluidas: [firma_electronica_habilitada]
+    variables_adicionales:
+      - variable: consulta_adeudo_predial_en_linea
+        pregunta: "¿El ciudadano puede consultar su adeudo de predial en línea usando su clave catastral, sin acudir a ventanilla?"
+        ayuda: "La clave catastral identifica el inmueble; la consulta debe mostrar el adeudo real, no solo información general del predio."
+        paso_administrativo: "Publicar la consulta de adeudo predial como servicio en línea por clave catastral"
+        paso_tecnico: "Buscador de adeudo predial en línea, conectado al padrón catastral real (no un formulario que solo recibe datos)"
+        paso_organizacional: "Mantener el padrón catastral actualizado con la Dirección de Catastro"
+        prerrequisitos: ["Digitalizar el padrón catastral vigente"]
+        por_que_importa: "Sin esto, el ciudadano no puede saber cuánto debe sin acudir en persona -- práctica ya ampliamente adoptada por otros municipios mexicanos, aunque no se verificó un mandato legal único que la exija"
+        fuente_normativa: "Buena práctica municipal ampliamente adoptada (ej. CDMX, Estado de México) -- sin mandato legal único verificado, revisar contra la ley de catastro/hacienda local aplicable"
+        categoria_catalogo: "consulta_adeudo_predial"
+  permiso_construccion:
+    etiqueta: "Permiso de construcción"
+    variables_excluidas: []
+    variables_adicionales:
+      - variable: revision_digital_planos_dro
+        pregunta: "¿La revisión de los planos de construcción, incluyendo la firma del Director Responsable de Obra (DRO), se hace de forma digital (no solo en papel)?"
+        ayuda: "La firma del DRO es obligatoria para que el expediente tenga validez -- aquí se pregunta si ese proceso ya es digital."
+        paso_administrativo: "Digitalizar la recepción y revisión de planos de construcción, incluyendo la firma electrónica del DRO"
+        paso_tecnico: "Sistema de revisión digital de planos (PDF con firma electrónica verificable, o metodología BIM) en vez de expediente físico"
+        paso_organizacional: "Capacitar al personal de Desarrollo Urbano en la revisión digital y en verificar la firma electrónica del DRO"
+        prerrequisitos: []
+        por_que_importa: "Sin esto, un expediente que ya depende de una firma obligatoria (el DRO) para tener validez sigue procesándose en papel, sin trazabilidad digital"
+        fuente_normativa: "Obligación de la firma del DRO ampliamente documentada en la práctica de permisos de construcción en México -- sin verificar un mandato legal específico que exija que ese proceso sea digital, revisar"
+        categoria_catalogo: "revision_digital_planos"
+  constancia_residencia:
+    etiqueta: "Constancia de residencia"
+    variables_excluidas: [motor_pagos, interoperabilidad]
+    variables_adicionales:
+      - variable: verificacion_domicilio_automatica
+        pregunta: "¿El domicilio se verifica automáticamente contra un padrón o la CURP, en vez de solo aceptar un comprobante en papel?"
+        ayuda: "Se refiere a una verificación automática (ej. contra RENAPO/CURP), no a que el funcionario revise el comprobante a simple vista."
+        paso_administrativo: "Incorporar verificación automática de domicilio (ej. contra CURP/RENAPO) antes de expedir la constancia"
+        paso_tecnico: "Consulta automática contra CURP/RENAPO u otro padrón oficial disponible"
+        paso_organizacional: "Capacitar al personal en el protocolo cuando la verificación automática no coincide con el comprobante presentado"
+        prerrequisitos: []
+        por_que_importa: "Sin esto, la validez de la constancia depende únicamente de que el funcionario acepte un comprobante en papel, sin verificación cruzada real"
+        fuente_normativa: "Tendencia de verificación automatizada de identidad/domicilio vía CURP y RENAPO -- sin mandato legal específico verificado para este trámite en particular, revisar"
+        categoria_catalogo: "verificacion_domicilio"

@@ -1,0 +1,171 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    :root{
+      --background:#eceef5; --card:#ffffff; --foreground:#151726; --muted:#e4e6f0;
+      --muted-foreground:#4d5268; --atenuado:#454a5f; --border:#6c769d; --input:#dde1f0;
+      --primary:#2b3a9e; --primary-foreground:#f3f4fb; --secondary:#dde1f0; --secondary-foreground:#151726;
+      --destructive:#b2273f; --semaforo-completado:#0d770d; --semaforo-en-progreso:#fab219; --semaforo-atrasado:#d03b3b;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Segoe UI",Inter,Roboto,system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;color:var(--foreground);letter-spacing:.01em;background:radial-gradient(circle at top left, rgba(43,58,158,.06) 0%, transparent 30%), linear-gradient(135deg,#eef0f7 0%,#e3e6f2 100%);background-attachment:fixed;}
+    a{color:inherit;text-decoration:none;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.98) 0%, rgba(246,247,251,.96) 100%);border:1px solid var(--border);border-radius:1rem;padding:22px;box-shadow:0 1px 2px rgba(20,30,43,.04), 0 10px 24px rgba(20,30,43,.06);}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;height:38px;padding:0 14px;border:1px solid transparent;cursor:pointer;}
+    .btn-primary{background:var(--primary);color:var(--primary-foreground);}
+    .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap;}
+    .badge-outline{border-color:var(--border);color:var(--foreground);}
+    .navlink{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:500;padding:9px 14px;border-radius:10px;color:var(--foreground);}
+    .navlink.active{color:var(--primary);background:rgba(43,58,158,.08);}
+    .tab{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--muted-foreground);}
+    .tab.active{background:var(--background);color:var(--foreground);box-shadow:0 1px 2px rgba(20,30,43,.06);}
+    th{font-weight:600;color:var(--muted-foreground);font-size:12px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:0 12px 10px 0;}
+    td{padding:12px 12px 12px 0;font-size:14px;border-top:1px solid var(--border);vertical-align:middle;}
+    .provider{display:flex;align-items:center;justify-content:space-between;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;}
+    .provider.selected{border-color:var(--primary);background:rgba(43,58,158,.05);}
+  </style>
+</helmet>
+<div style="min-height:1000px;">
+
+  <nav style="position:fixed;top:0;left:0;right:0;z-index:50;border-bottom:1px solid rgba(108,118,157,.4);background:rgba(255,255,255,.96);backdrop-filter:blur(16px);box-shadow:0 10px 30px rgba(20,30,43,.08);">
+    <div style="max-width:1360px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;min-height:88px;">
+      <span style="font-size:15px;font-weight:700;letter-spacing:.02em;color:var(--primary);text-transform:uppercase;">Ayuntamiento de Querétaro</span>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <a class="navlink"><svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><path d="M3 9.5 10 4l7 5.5V17a1 1 0 0 1-1 1h-3v-5H7v5H4a1 1 0 0 1-1-1V9.5Z" stroke-linejoin="round"/></svg>Inicio</a>
+        <a class="navlink"><svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><rect x="4" y="3" width="12" height="14" rx="1"/><path d="M7.5 7h1M11.5 7h1M7.5 10h1M11.5 10h1M7.5 13h1M11.5 13h1"/></svg>Perfil del gobierno</a>
+        <a class="navlink"><svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><rect x="3.5" y="3.5" width="13" height="13" rx="1.5"/><path d="m6.5 10 2 2 4-4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Seguimiento</a>
+        <a class="navlink active"><svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3 4.9 4.9" stroke-linecap="round"/></svg>Administración</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button style="position:relative;width:40px;height:40px;border-radius:10px;border:1px solid var(--input);background:var(--background);display:flex;align-items:center;justify-content:center;">
+          <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:18px;height:18px;"><path d="M10 3a4 4 0 0 0-4 4v2.2c0 .5-.15 1-.44 1.4L4.3 12.6c-.5.7 0 1.7.85 1.7h9.7c.85 0 1.35-1 .85-1.7l-1.26-2c-.29-.4-.44-.9-.44-1.4V7a4 4 0 0 0-4-4Z"/><path d="M8.3 16a1.8 1.8 0 0 0 3.4 0"/></svg>
+          <span style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:999px;background:var(--destructive);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;">3</span>
+        </button>
+        <a href="#" style="display:flex;align-items:center;gap:9px;padding:5px 12px 5px 5px;border-radius:999px;background:var(--secondary);">
+          <span style="width:30px;height:30px;border-radius:999px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">MS</span>
+          <span style="display:flex;flex-direction:column;line-height:1.15;"><span style="font-size:13px;font-weight:600;">Marcos Silva</span><span style="font-size:11px;color:var(--muted-foreground);">Administrador</span></span>
+        </a>
+        <button class="btn btn-primary" style="min-width:140px;">Cerrar sesión</button>
+      </div>
+    </div>
+  </nav>
+
+  <div style="max-width:1360px;margin:0 auto;padding:128px 24px 60px;display:flex;flex-direction:column;gap:22px;">
+
+    <div>
+      <h1 style="font-size:24px;font-weight:700;margin:0 0 4px;">Administración del gobierno</h1>
+      <p style="margin:0;color:var(--muted-foreground);font-size:14px;">Gestión de funcionarios, catálogo de trámites y estado del sistema — visible solo para el rol Administrador.</p>
+    </div>
+
+    <div style="display:inline-flex;gap:3px;background:var(--secondary);padding:4px;border-radius:10px;width:fit-content;">
+      <span class="tab">Usuarios y roles</span>
+      <span class="tab">Catálogo de trámites</span>
+      <span class="tab active">Salud del sistema</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;">
+      <div class="card" style="gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:9px;height:9px;border-radius:999px;background:var(--semaforo-completado);"></span>
+          <span style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Proveedor activo</span>
+        </div>
+        <div style="font-size:20px;font-weight:700;">DeepSeek</div>
+        <div style="font-size:12.5px;color:var(--atenuado);">Ruta "económico" · operativo</div>
+      </div>
+      <div class="card" style="gap:8px;">
+        <span style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Último plan generado</span>
+        <div style="font-size:20px;font-weight:700;">hace 12 min</div>
+        <div style="font-size:12.5px;color:var(--atenuado);">Modo LLM · 8.4s de respuesta</div>
+      </div>
+      <div class="card" style="gap:8px;">
+        <span style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Verificador (F9)</span>
+        <div style="font-size:20px;font-weight:700;color:var(--semaforo-completado);">0 rechazos</div>
+        <div style="font-size:12.5px;color:var(--atenuado);">En las últimas 24 horas</div>
+      </div>
+    </div>
+
+    <div class="card" style="gap:16px;">
+      <span style="font-weight:600;font-size:15px;">Historial de jobs recientes</span>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr><th>Trámite</th><th>Tipo</th><th>Estado</th><th>Modo</th><th>Duración</th><th>Fecha</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:500;">Licencia de funcionamiento</td>
+            <td style="color:var(--muted-foreground);">Generación de plan</td>
+            <td><span class="badge" style="background:rgba(13,119,13,.12);color:var(--semaforo-completado);">Completado</span></td>
+            <td><span class="badge badge-outline">LLM</span></td>
+            <td style="color:var(--muted-foreground);">8.4s</td>
+            <td style="color:var(--muted-foreground);">hace 12 min</td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;">Certificado de residencia</td>
+            <td style="color:var(--muted-foreground);">Generación de plan</td>
+            <td><span class="badge" style="background:rgba(13,119,13,.12);color:var(--semaforo-completado);">Completado</span></td>
+            <td><span class="badge" style="background:rgba(250,178,25,.18);color:#8a5a00;">Degradado</span></td>
+            <td style="color:var(--muted-foreground);">0.6s</td>
+            <td style="color:var(--muted-foreground);">hace 2 días</td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;">Permiso de construcción</td>
+            <td style="color:var(--muted-foreground);">Generación de plan</td>
+            <td><span class="badge" style="background:rgba(13,119,13,.12);color:var(--semaforo-completado);">Completado</span></td>
+            <td><span class="badge badge-outline">LLM</span></td>
+            <td style="color:var(--muted-foreground);">11.1s</td>
+            <td style="color:var(--muted-foreground);">hace 5 días</td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;">Registro de comercio ambulante</td>
+            <td style="color:var(--muted-foreground);">Generación de plan</td>
+            <td><span class="badge" style="background:rgba(178,39,63,.1);color:var(--destructive);">Fallido — reintentado</span></td>
+            <td><span class="badge" style="background:rgba(250,178,25,.18);color:#8a5a00;">Degradado</span></td>
+            <td style="color:var(--muted-foreground);">30.0s (timeout)</td>
+            <td style="color:var(--muted-foreground);">hace 1 semana</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="gap:16px;">
+      <div>
+        <span style="font-weight:600;font-size:15px;">Configuración de proveedor de IA</span>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--muted-foreground);">Cambiar el proveedor no afecta diagnósticos ni planes ya generados — solo aplica a los siguientes.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="provider">
+          <div>
+            <div style="font-weight:600;font-size:14px;">Local (Ollama / phi3)</div>
+            <div style="font-size:12.5px;color:var(--muted-foreground);">Sin conexión a internet, sin costo por uso</div>
+          </div>
+          <span class="badge" style="background:rgba(13,119,13,.12);color:var(--semaforo-completado);">Sin costo</span>
+        </div>
+        <div class="provider selected">
+          <div>
+            <div style="font-weight:600;font-size:14px;">DeepSeek</div>
+            <div style="font-size:12.5px;color:var(--muted-foreground);">Redacción del plan y clasificación de texto libre — proveedor actual</div>
+          </div>
+          <span class="badge" style="background:rgba(43,58,158,.1);color:var(--primary);">$ económico</span>
+        </div>
+        <div class="provider">
+          <div>
+            <div style="font-weight:600;font-size:14px;">Anthropic (Claude Sonnet)</div>
+            <div style="font-size:12.5px;color:var(--muted-foreground);">Mayor calidad de redacción y trazabilidad normativa</div>
+          </div>
+          <span class="badge" style="background:rgba(178,39,63,.08);color:#8a2c3a;">$$ calidad</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

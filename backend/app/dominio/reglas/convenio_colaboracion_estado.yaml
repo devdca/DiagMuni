@@ -1,0 +1,22 @@
+# Variable de perfil de gobierno (no de trámite) -- transversal, mismo tratamiento
+# que autoridad_gobernanza_digital.
+version: "1.0"
+variable: convenio_colaboracion_estado
+criterio_deteccion: "convenio_colaboracion_estado == false"
+acciones:
+  mx:
+    paso_administrativo: "Suscribir convenio de colaboración con la Autoridad Estatal/Nacional de Simplificación y Digitalización"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de gobernanza institucional"
+    paso_organizacional: "Asignar responsable de dar seguimiento a los compromisos y apoyos derivados del convenio"
+    prerrequisitos: []
+    por_que_importa: "Sin convenio, el gobierno local queda fuera de los apoyos técnicos, capacitación y acceso a infraestructura compartida que la Autoridad Estatal/Nacional ofrece a quienes sí lo suscriben"
+    fuente_normativa: "LNETB art. 25 (convenios de colaboración entre órdenes de gobierno)"
+    categoria_catalogo: "gobernanza_institucional"
+  uy:
+    paso_administrativo: "Suscribir o renovar el convenio con Agesic para asesoría en transformación digital"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Asignar responsable de dar seguimiento a los compromisos derivados del convenio"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Ley 17.930 art. 72 (creación de Agesic) + Decreto 184/015 art. 1 (asesoría a Entidades Públicas)"
+    categoria_catalogo: "gobernanza_institucional"

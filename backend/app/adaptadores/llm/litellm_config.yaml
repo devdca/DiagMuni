@@ -1,0 +1,49 @@
+# No se transcribe a código Python (mismo principio que engine/reglas/*.yaml):
+# app/adaptadores/llm/config.py lo carga en tiempo de ejecución.
+#
+# economico       -> F1 (asistente de captura) y F9 (verificador): tareas de bajo costo.
+# calidad         -> F3 (generador de plan): redacción compleja y trazabilidad normativa.
+# calidad_respaldo -> respaldo de `calidad` en F3 si Sonnet falla, antes de degradar a
+#                     la plantilla determinista. Comparte la misma API key que `calidad`
+#                     (nota: al ser el mismo modelo desde 2026-09-09, este respaldo
+#                     protege contra fallos transitorios de una llamada puntual, no
+#                     contra un problema a nivel de modelo/generación).
+#
+# "api_key: os.environ/VAR" es la convención de LiteLLM para leer la key de esa
+# variable de entorno en tiempo de ejecución, nunca un valor literal -- estas dos
+# vars son solo el fallback del OPERADOR (dev/pruebas); cada gobierno puede traer
+# y guardar su propia credencial desde /admin/salud-ia (BYOK, ver
+# app/core/cifrado.py y app/adaptadores/llm/config.py::OverrideLlmTenant), que
+# siempre gana sobre lo que este YAML resuelva vía variable de entorno.
+model_list:
+  - model_name: economico
+    litellm_params:
+      # deepseek-chat (alias heredado) dejó de resolver el 2026-07-24 15:59 UTC
+      # sin alias de gracia -- toda llamada por esa ruta fallaba en silencio (F9 es
+      # fail-closed, ver verificador.py) desde esa fecha. deepseek-v4-pro es el ID
+      # de modelo vigente confirmado contra api-docs.deepseek.com/quick_start/pricing.
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: calidad
+    litellm_params:
+      # claude-sonnet-5 (ID vigente, verificado en vivo contra
+      # platform.claude.com/docs/en/models/overview el 2026-09-09) -- reemplaza a
+      # claude-sonnet-4-5, que sigue disponible pero es la generación anterior.
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: calidad_respaldo
+    litellm_params:
+      # claude-sonnet-5 (mismo ID que `calidad` -- ver nota arriba). Reemplaza a
+      # claude-fable-5 (no estaba retirado, pero era la generación anterior a
+      # claude-fable-5-1; se prefirió Sonnet aquí a propósito, no Fable).
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: local
+    litellm_params:
+      model: ollama/phi3
+      api_base: os.environ/OLLAMA_API_BASE
+      # 180s alcanzaba en el benchmark original (iMac i5-4570 de escritorio, ~123s
+      # medidos, docs/stack-tecnologico.md). Subido a 600s tras verificar G4 en un
+      # equipo portátil real (Intel i7-8650U móvil, 4 núcleos/8 hilos) donde 180s no
+      # alcanzó -- ver docs/plan-implementacion-e1-bis-capa-ia-local.md sección 8.
+      timeout_segundos: 600

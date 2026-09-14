@@ -42,3 +42,24 @@ export function actualizarAccionSeguimiento(
     body: JSON.stringify(payload),
   });
 }
+
+// Notas colaborativas (backend/app/schemas/nota_seguimiento.py, migración 0014).
+export interface NotaSeguimientoResponse {
+  id: string;
+  accion_seguimiento_id: string;
+  usuario_id: string;
+  usuario_nombre: string;
+  texto: string;
+  creado_en: string;
+}
+
+export function listarNotasDeAccion(accionId: string): Promise<NotaSeguimientoResponse[]> {
+  return apiFetch<NotaSeguimientoResponse[]>(`/api/seguimiento/${accionId}/notas`);
+}
+
+export function agregarNotaAAccion(accionId: string, texto: string): Promise<NotaSeguimientoResponse> {
+  return apiFetch<NotaSeguimientoResponse>(`/api/seguimiento/${accionId}/notas`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
+}

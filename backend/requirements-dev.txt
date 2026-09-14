@@ -4,3 +4,8 @@ ruff==0.8.4
 mypy==1.14.1
 pip-licenses==5.0.0
 types-PyYAML==6.0.12.20241230
+# pypdf: MIT -- solo para extraer texto del PDF generado en tests, dev-only, no
+# entra a la imagen de producción (backend/Dockerfile no instala requirements-dev.txt).
+# 6.16.1 -- versión con más CVEs corregidas al momento de fijar esto (pip-audit
+# reportó 41 avisos abiertos en 5.1.0, ninguno en 6.16.1).
+pypdf==6.16.1

@@ -32,3 +32,14 @@ pyyaml==6.0.2
 # credenciales de CI robadas y puestas en cuarentena ~40 minutos después de su
 # publicación; no afecta a 1.94.0 (muy posterior) ni a ninguna versión fijada aquí.
 litellm==1.94.0
+# fpdf2: LGPL-3.0 (github.com/py-pdf/fpdf2/blob/master/LICENSE) -- mismo criterio
+# que psycopg[binary] arriba: uso dinámico vía pip install, no modificación ni
+# linking estático de la librería. Python puro, sin librerías nativas del SO
+# (a diferencia de WeasyPrint/Pango-Cairo) -- Docker de backend no cambia.
+fpdf2==2.8.7
+# cryptography: licencia dual Apache-2.0 OR BSD-3-Clause (verificado vía
+# `pip show cryptography`, campo License-Expression) -- ambas permisivas, ninguna
+# alcanzada por el gate de licencias GPL/AGPL de CI. Cifra las credenciales de IA
+# que cada gobierno trae consigo (BYOK, ver app/core/cifrado.py) antes de
+# guardarlas en `tenant` -- nunca se guardan en texto plano.
+cryptography==50.0.1

@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
-from app.api import deps
+from app.adaptadores.http import deps
 from app.core.security import create_access_token
 from app.main import app, pool_agotado
 

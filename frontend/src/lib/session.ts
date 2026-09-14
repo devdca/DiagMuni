@@ -73,6 +73,22 @@ export function obtenerPais(): string | null {
   return claims?.pais && claims.pais.length > 0 ? claims.pais : null;
 }
 
+// "funcionario" | "admin_gobierno" (RBAC, migración 0011 del backend). Solo para
+// decidir qué mostrar en la nav (ej. el link "Administración") -- nunca para
+// autorizar nada: cada endpoint de /api/admin/* vuelve a exigir el rol real
+// desde la base de datos (app/adaptadores/http/deps.py::requerir_admin), igual
+// que `pais` nunca se usa para decidir seguridad (ver obtenerPais arriba).
+export function obtenerRol(): string | null {
+  const token = obtenerToken();
+  if (!token) return null;
+  const claims = decodeJwtClaims(token);
+  return claims?.rol && claims.rol.length > 0 ? claims.rol : null;
+}
+
+export function esAdmin(): boolean {
+  return obtenerRol() === "admin_gobierno";
+}
+
 // Fuente de verdad de "sesión inválida": token ausente o JWT expirado
 // (docs/app-flow.md línea 53). No requiere esperar una respuesta 401 del
 // backend para detectar la expiración.

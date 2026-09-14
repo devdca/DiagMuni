@@ -24,6 +24,10 @@ class Tramite(Base):
     estado: Mapped[str] = mapped_column(
         Enum(*ESTADOS_TRAMITE, name="estado_tramite_enum"), nullable=False, default="sin_iniciar"
     )
+    # catálogo en app/engine/tipos_tramite.yaml (no un Enum de Postgres -- agregar
+    # un tipo nuevo no debe requerir una migración). "generico" = las 6 preguntas
+    # de siempre, mismo comportamiento que antes de este campo.
+    tipo: Mapped[str] = mapped_column(String, nullable=False, default="generico")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
     # NULL = no archivado (default). Ortogonal a `estado` -- ver migración 0004.

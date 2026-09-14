@@ -11,6 +11,13 @@ _JWT_SECRETS_PLACEHOLDER = {
 # RFC 7518 §3.2: mínimo recomendado para una clave HMAC-SHA256.
 _JWT_SECRET_LONGITUD_MINIMA = 32
 
+# Placeholder de TENANT_SECRET_KEY (ver app/core/cifrado.py) -- base64 urlsafe de
+# "dev-secret-cambiar-en-produccion" rellenado a 32 bytes, para que sea una clave
+# Fernet válida en dev/test (Fernet exige exactamente ese formato) sin dejar de
+# ser reconocible como insegura. Nunca válida en producción, mismo criterio que
+# _JWT_SECRETS_PLACEHOLDER de arriba.
+_TENANT_SECRET_KEY_PLACEHOLDER = "ZGV2LXNlY3JldC1jYW1iaWFyLWVuLXByb2R1Y2Npb24="
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -25,6 +32,13 @@ class Settings(BaseSettings):
     migrations_database_url: str = "postgresql+psycopg://diagmuni:diagmuni@localhost:5432/diagmuni"
     jwt_secret: str = "dev-secret-cambiar-en-produccion"
     jwt_expire_hours: int = 8
+
+    # Cifra las credenciales de IA que cada tenant trae consigo (BYOK, ver
+    # app/core/cifrado.py y Tenant.deepseek_api_key_cifrada/anthropic_api_key_cifrada)
+    # -- nunca reusar JWT_SECRET, son propósitos distintos con distinto radio de
+    # daño si se filtran. Debe ser una clave Fernet válida (32 bytes en base64
+    # urlsafe, ej. `Fernet.generate_key()`).
+    tenant_secret_key: str = _TENANT_SECRET_KEY_PLACEHOLDER
 
     @model_validator(mode="after")
     def _jwt_secret_no_placeholder_en_produccion(self) -> "Settings":
@@ -46,6 +60,15 @@ class Settings(BaseSettings):
                 f"JWT_SECRET debe tener al menos {_JWT_SECRET_LONGITUD_MINIMA} caracteres "
                 "cuando ENVIRONMENT=production. Genera uno real, p. ej.: "
                 "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        if self.environment == "production" and (
+            not self.tenant_secret_key or self.tenant_secret_key == _TENANT_SECRET_KEY_PLACEHOLDER
+        ):
+            raise ValueError(
+                "TENANT_SECRET_KEY no puede quedar vacío ni con el valor de ejemplo de "
+                ".env.example cuando ENVIRONMENT=production -- cifra las credenciales de "
+                "IA que cada gobierno guarda (BYOK). Genera uno real, p. ej.: "
+                'python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
             )
         return self
 

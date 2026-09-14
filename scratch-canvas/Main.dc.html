@@ -1,0 +1,236 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    :root{
+      --background:#eceef5; --card:#ffffff; --card-foreground:#151726; --foreground:#151726;
+      --muted:#e4e6f0; --muted-foreground:#4d5268; --atenuado:#454a5f; --border:#6c769d;
+      --input:#dde1f0; --ring:#2b3a9e; --primary:#2b3a9e; --primary-foreground:#f3f4fb;
+      --secondary:#dde1f0; --secondary-foreground:#151726; --destructive:#b2273f;
+      --madurez-0:#2d3ea9; --madurez-1:#253393; --madurez-2:#1c297d; --madurez-3:#141e61; --madurez-4:#0b1341;
+      --semaforo-completado:#0d770d; --semaforo-en-progreso:#fab219; --semaforo-atrasado:#d03b3b;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:"Segoe UI",Inter,Roboto,system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;color:var(--foreground);letter-spacing:.01em;background:radial-gradient(circle at top left, rgba(43,58,158,.06) 0%, transparent 30%), linear-gradient(135deg,#eef0f7 0%,#e3e6f2 100%);background-attachment:fixed;}
+    a{color:inherit;text-decoration:none;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.98) 0%, rgba(246,247,251,.96) 100%);border:1px solid var(--border);border-radius:1rem;padding:22px;box-shadow:0 1px 2px rgba(20,30,43,.04), 0 10px 24px rgba(20,30,43,.06);}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;height:38px;padding:0 14px;border:1px solid transparent;cursor:pointer;}
+    .btn-primary{background:var(--primary);color:var(--primary-foreground);}
+    .btn-outline{background:var(--background);border-color:var(--input);color:var(--foreground);}
+    .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap;}
+    .badge-outline{border-color:var(--border);color:var(--foreground);}
+    .navlink{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:500;padding:9px 14px;border-radius:10px;color:var(--foreground);}
+    .navlink.active{color:var(--primary);background:rgba(43,58,158,.08);}
+    th{font-weight:600;color:var(--muted-foreground);font-size:12px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:0 12px 10px 0;}
+    td{padding:13px 12px 13px 0;font-size:14px;border-top:1px solid var(--border);}
+  </style>
+</helmet>
+<div style="min-height:1000px;">
+
+  <nav style="position:fixed;top:0;left:0;right:0;z-index:50;border-bottom:1px solid rgba(108,118,157,.4);background:rgba(255,255,255,.96);backdrop-filter:blur(16px);box-shadow:0 10px 30px rgba(20,30,43,.08);">
+    <div style="max-width:1360px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;min-height:88px;">
+      <span style="font-size:15px;font-weight:700;letter-spacing:.02em;color:var(--primary);text-transform:uppercase;">Ayuntamiento de Querétaro</span>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <a class="navlink active">
+          <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><path d="M3 9.5 10 4l7 5.5V17a1 1 0 0 1-1 1h-3v-5H7v5H4a1 1 0 0 1-1-1V9.5Z" stroke-linejoin="round"/></svg>
+          Inicio
+        </a>
+        <a class="navlink">
+          <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><rect x="4" y="3" width="12" height="14" rx="1"/><path d="M7.5 7h1M11.5 7h1M7.5 10h1M11.5 10h1M7.5 13h1M11.5 13h1"/></svg>
+          Perfil del gobierno
+        </a>
+        <a class="navlink">
+          <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><rect x="3.5" y="3.5" width="13" height="13" rx="1.5"/><path d="m6.5 10 2 2 4-4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Seguimiento
+        </a>
+        <a class="navlink">
+          <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:16px;height:16px;"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3 4.9 4.9" stroke-linecap="round"/></svg>
+          Administración
+        </a>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button style="position:relative;width:40px;height:40px;border-radius:10px;border:1px solid var(--input);background:var(--background);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:18px;height:18px;"><path d="M10 3a4 4 0 0 0-4 4v2.2c0 .5-.15 1-.44 1.4L4.3 12.6c-.5.7 0 1.7.85 1.7h9.7c.85 0 1.35-1 .85-1.7l-1.26-2c-.29-.4-.44-.9-.44-1.4V7a4 4 0 0 0-4-4Z"/><path d="M8.3 16a1.8 1.8 0 0 0 3.4 0"/></svg>
+          <span style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:999px;background:var(--destructive);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;">3</span>
+        </button>
+        <a href="#" style="display:flex;align-items:center;gap:9px;padding:5px 12px 5px 5px;border-radius:999px;background:var(--secondary);">
+          <span style="width:30px;height:30px;border-radius:999px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">MS</span>
+          <span style="display:flex;flex-direction:column;line-height:1.15;">
+            <span style="font-size:13px;font-weight:600;">Marcos Silva</span>
+            <span style="font-size:11px;color:var(--muted-foreground);">Administrador</span>
+          </span>
+        </a>
+        <button class="btn btn-primary" style="min-width:140px;">Cerrar sesión</button>
+      </div>
+    </div>
+  </nav>
+
+  <div style="max-width:1360px;margin:0 auto;padding:128px 24px 60px;display:flex;flex-direction:column;gap:22px;">
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between;">
+      <div>
+        <h1 style="font-size:24px;font-weight:700;margin:0 0 4px;">Panel de control</h1>
+        <p style="margin:0;color:var(--muted-foreground);font-size:14px;">Ayuntamiento de Querétaro · México</p>
+      </div>
+      <span style="font-size:13px;color:var(--atenuado);">Actualizado hace 4 minutos</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;">
+      <div class="card" style="gap:10px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Índice de madurez global</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span style="font-size:38px;font-weight:700;color:var(--madurez-2);">2.6</span>
+          <span style="font-size:13px;color:var(--muted-foreground);">Transaccional parcial</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--semaforo-completado);font-weight:600;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M4 13.5 8.5 9l3 3L17 6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6H17v4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          +0.4 vs. trimestre anterior
+        </div>
+      </div>
+
+      <div class="card" style="gap:10px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Trámites diagnosticados</div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <svg width="72" height="72" viewBox="0 0 88 88">
+            <circle cx="44" cy="44" r="36" fill="none" stroke="var(--muted)" stroke-width="10"/>
+            <circle cx="44" cy="44" r="36" fill="none" stroke="var(--primary)" stroke-width="10" stroke-linecap="round" stroke-dasharray="176 226" transform="rotate(-90 44 44)"/>
+          </svg>
+          <div>
+            <div style="font-size:24px;font-weight:700;">14<span style="font-size:14px;font-weight:500;color:var(--muted-foreground);"> / 18</span></div>
+            <div style="font-size:12px;color:var(--muted-foreground);">78% del catálogo</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="gap:10px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Acciones atrasadas</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span style="font-size:38px;font-weight:700;color:var(--semaforo-atrasado);">3</span>
+          <span style="font-size:13px;color:var(--muted-foreground);">de 27 activas</span>
+        </div>
+        <a href="#" style="font-size:13px;font-weight:600;color:var(--primary);">Ver en seguimiento →</a>
+      </div>
+
+      <div class="card" style="gap:10px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;">Próxima revisión normativa</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span style="font-size:38px;font-weight:700;">42</span>
+          <span style="font-size:13px;color:var(--muted-foreground);">días</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--atenuado);">3 trámites sin revisar en 12 meses</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;align-items:stretch;">
+      <div class="card" style="gap:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-weight:600;font-size:15px;">Tendencia del índice de madurez</span>
+          <span class="badge badge-outline">Últimos 6 meses</span>
+        </div>
+        <svg viewBox="0 0 720 170" width="100%" height="170" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#2b3a9e" stop-opacity="0.16"/>
+              <stop offset="100%" stop-color="#2b3a9e" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line x1="0" y1="30" x2="720" y2="30" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 5" opacity="0.4"/>
+          <line x1="0" y1="80" x2="720" y2="80" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 5" opacity="0.4"/>
+          <line x1="0" y1="130" x2="720" y2="130" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 5" opacity="0.4"/>
+          <path d="M0,128 L120,116 L240,101 L360,86 L480,58 L600,42 L720,26 L720,170 L0,170 Z" fill="url(#areaFill)"/>
+          <polyline points="0,128 120,116 240,101 360,86 480,58 600,42 720,26" fill="none" stroke="#2b3a9e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="720" cy="26" r="5.5" fill="#2b3a9e"/>
+        </svg>
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--atenuado);padding:0 2px;">
+          <span>Abr</span><span>May</span><span>Jun</span><span>Jul</span><span>Ago</span><span>Sep</span>
+        </div>
+      </div>
+
+      <div class="card" style="gap:12px;">
+        <span style="font-weight:600;font-size:15px;">Prioridades de esta semana</span>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span style="width:9px;height:9px;border-radius:999px;background:var(--semaforo-atrasado);margin-top:5px;flex-shrink:0;"></span>
+            <div>
+              <div style="font-size:13.5px;font-weight:500;">Publicar requisitos en línea</div>
+              <div style="font-size:12px;color:var(--muted-foreground);">Licencia de funcionamiento · Ana Torres</div>
+              <div style="font-size:11.5px;color:var(--semaforo-atrasado);font-weight:600;margin-top:2px;">Venció hace 4 días</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span style="width:9px;height:9px;border-radius:999px;background:var(--semaforo-en-progreso);margin-top:5px;flex-shrink:0;"></span>
+            <div>
+              <div style="font-size:13.5px;font-weight:500;">Habilitar pago en línea</div>
+              <div style="font-size:12px;color:var(--muted-foreground);">Permiso de construcción · Diego Nuñez</div>
+              <div style="font-size:11.5px;color:var(--atenuado);margin-top:2px;">Vence en 2 días</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span style="width:9px;height:9px;border-radius:999px;background:var(--semaforo-en-progreso);margin-top:5px;flex-shrink:0;"></span>
+            <div>
+              <div style="font-size:13.5px;font-weight:500;">Capacitar mostrador en firma-e</div>
+              <div style="font-size:12px;color:var(--muted-foreground);">Licencia de funcionamiento · Ana Torres</div>
+              <div style="font-size:11.5px;color:var(--atenuado);margin-top:2px;">Vence en 6 días</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="gap:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-weight:600;font-size:15px;">Trámites catalogados</span>
+        <button class="btn btn-outline">Agregar trámite</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr><th>Trámite</th><th>Tipo</th><th>Índice</th><th>Estado</th><th>Última actividad</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:500;">Licencia de funcionamiento</td>
+            <td style="color:var(--muted-foreground);">Habilitación comercial</td>
+            <td><span class="badge badge-outline" style="border-color:var(--madurez-2);color:var(--madurez-2);"><span style="width:7px;height:7px;border-radius:999px;background:#6674d6;"></span>2 — Transaccional parcial</span></td>
+            <td><span class="badge" style="background:rgba(43,58,158,.1);color:var(--primary);">Plan listo</span></td>
+            <td style="color:var(--muted-foreground);">hace 2 días</td>
+            <td style="text-align:right;"><a href="#" style="color:var(--primary);font-weight:600;font-size:13px;">Ver plan →</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;">Permiso de construcción</td>
+            <td style="color:var(--muted-foreground);">Obras y desarrollo urbano</td>
+            <td><span class="badge badge-outline" style="border-color:var(--madurez-1);color:var(--madurez-1);"><span style="width:7px;height:7px;border-radius:999px;background:#8f9be3;"></span>1 — Informativo</span></td>
+            <td><span class="badge" style="background:rgba(43,58,158,.1);color:var(--primary);">Plan listo</span></td>
+            <td style="color:var(--muted-foreground);">hace 5 días</td>
+            <td style="text-align:right;"><a href="#" style="color:var(--primary);font-weight:600;font-size:13px;">Ver plan →</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;">Registro de comercio ambulante</td>
+            <td style="color:var(--muted-foreground);">Comercio y espacio público</td>
+            <td><span class="badge badge-outline">Sin diagnosticar</span></td>
+            <td><span class="badge badge-outline">Sin iniciar</span></td>
+            <td style="color:var(--muted-foreground);">—</td>
+            <td style="text-align:right;"><a href="#" style="color:var(--primary);font-weight:600;font-size:13px;">Iniciar diagnóstico →</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;">Certificado de residencia</td>
+            <td style="color:var(--muted-foreground);">Trámites al vecino</td>
+            <td><span class="badge badge-outline" style="border-color:var(--madurez-3);color:var(--madurez-3);"><span style="width:7px;height:7px;border-radius:999px;background:#4152c4;"></span>3 — Transaccional completo</span></td>
+            <td><span class="badge" style="background:rgba(43,58,158,.1);color:var(--primary);">Plan listo</span></td>
+            <td style="color:var(--muted-foreground);">hace 1 semana</td>
+            <td style="text-align:right;"><a href="#" style="color:var(--primary);font-weight:600;font-size:13px;">Ver plan →</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Variable de perfil de gobierno (no de trámite) -- transversal, mismo tratamiento
+# que autoridad_gobernanza_digital: no gatilla un nivel del índice, pero sí genera
+# su propia brecha si el Enlace existe de facto pero nunca se notificó formalmente.
+version: "1.0"
+variable: enlace_notificado_formalmente
+criterio_deteccion: "enlace_notificado_formalmente == false"
+acciones:
+  mx:
+    paso_administrativo: "Notificar formalmente al Enlace de Simplificación y Digitalización ante la Autoridad Estatal/Nacional de Simplificación y Digitalización correspondiente"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de gobernanza institucional"
+    paso_organizacional: "Dar seguimiento a que la notificación quede registrada y vigente ante cambios de administración"
+    prerrequisitos: []
+    por_que_importa: "Un Enlace no notificado formalmente no tiene reconocimiento ante la Autoridad Estatal/Nacional, lo que limita su capacidad de gestionar convenios y recibir apoyo técnico"
+    fuente_normativa: "LNETB art. 14 (notificación del Enlace ante la Autoridad Estatal/Nacional)"
+    categoria_catalogo: "gobernanza_institucional"
+  uy:
+    paso_administrativo: "Formalizar la designación de la contraparte técnica responsable de transformación digital ante Agesic"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Dar seguimiento a que la designación quede registrada y vigente ante cambios de administración"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx -- sin reconocimiento formal ante Agesic se limita el acceso a asesoría y convenios"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra el Convenio Marco Agesic-Congreso de Intendentes"
+    categoria_catalogo: "gobernanza_institucional"

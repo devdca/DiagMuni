@@ -2,8 +2,8 @@
 `litellm.completion` siempre monkeypatcheado. Cubre el sesgo fail-safe: cualquier
 fallo cae en `no_concluyente`/`no_clasificable`, nunca en una excepción propagada."""
 
-from app.ia import asistente_captura
-from app.ia.asistente_captura import (
+from app.adaptadores.llm import asistente_captura
+from app.adaptadores.llm.asistente_captura import (
     ID_URUGUAY,
     LLAVE_MX,
     NINGUNO,
@@ -22,8 +22,8 @@ def _mock_respuesta(texto: str) -> dict:
 
 
 def _disponible(monkeypatch, disponible: bool = True) -> None:
-    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta: disponible)
-    monkeypatch.setattr(asistente_captura, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta, **_kw: disponible)
+    monkeypatch.setattr(asistente_captura, "api_key_de", lambda ruta, **_kw: "sk-test")
 
 
 # === (A) clasificar_consistencia_booleana ========================================
@@ -81,7 +81,7 @@ def test_consistencia_devuelve_no_concluyente_por_respuesta_del_llm(monkeypatch)
 
 
 def test_consistencia_ruta_no_disponible_devuelve_no_concluyente_sin_llamar(monkeypatch):
-    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta, **_kw: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse sin ruta 'economico' disponible")
@@ -266,7 +266,7 @@ def test_mecanismo_identidad_invalida_llave_mx_devuelto_para_pais_uy(monkeypatch
 
 
 def test_mecanismo_identidad_ruta_no_disponible_devuelve_no_clasificable_sin_llamar(monkeypatch):
-    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta, **_kw: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse sin ruta 'economico' disponible")

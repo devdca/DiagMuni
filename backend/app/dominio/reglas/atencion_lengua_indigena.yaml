@@ -1,0 +1,20 @@
+version: "1.0"
+variable: atencion_lengua_indigena
+criterio_deteccion: "atencion_lengua_indigena == false"
+acciones:
+  mx:
+    paso_administrativo: "Ofrecer atención en alguna lengua indígena o mediante intérprete para este trámite, cuando aplique en la región"
+    paso_tecnico: "No aplica un componente tecnológico específico -- puede apoyarse en material traducido o video con intérprete, pero la obligación es de atención, no de software"
+    paso_organizacional: "Identificar las lenguas indígenas relevantes en la región y designar o contratar intérpretes disponibles"
+    prerrequisitos: []
+    por_que_importa: "Las lenguas indígenas son válidas para cualquier trámite de carácter público en México -- negar esta atención excluye a una parte de la ciudadanía de un derecho reconocido"
+    fuente_normativa: "Ley General de Derechos Lingüísticos de los Pueblos Indígenas (reconocimiento de las lenguas indígenas como válidas para cualquier trámite público) + art. 10 (derecho a intérprete ante autoridades)"
+    categoria_catalogo: "atencion_lengua_indigena"
+  uy:
+    paso_administrativo: "Ofrecer atención mediante intérprete cuando aplique, conforme al marco de derechos de pueblos originarios vigente en el país"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Identificar necesidades de interpretación relevantes en la región"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra el marco de derechos de pueblos originarios aplicable"
+    categoria_catalogo: "atencion_lengua_indigena"

@@ -20,9 +20,9 @@ import pytest
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import text
 
-from app.api.deps import TokenData
-from app.api.seguimiento import listar_acciones
-from app.api.tramites import archivar_tramite, desarchivar_tramite, eliminar_tramite, listar_tramites
+from app.adaptadores.http.deps import TokenData
+from app.adaptadores.http.seguimiento import listar_acciones
+from app.adaptadores.http.tramites import archivar_tramite, desarchivar_tramite, eliminar_tramite, listar_tramites
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.models import (
@@ -283,6 +283,37 @@ def test_tramite_archivado_no_infla_el_indice_global_ni_aparece_por_defecto():
 
         panel_archivados = listar_tramites(token, db, BackgroundTasks(), archivados=True)
         assert {t.nombre for t in panel_archivados.tramites} == {"A archivar"}
+    finally:
+        _limpiar(db, tenant_id)
+
+
+def test_listar_tramites_ordena_por_fecha_de_creacion_mas_reciente_primero():
+    """Bug real reportado: dos trámites creados el mismo día aparecían en
+    extremos opuestos de la lista. Causa: `select(Tramite)` sin `order_by` --
+    sin uno explícito, Postgres puede devolver las filas en el orden que le
+    resulte más barato (ej. un index scan sobre la PK uuid, que no tiene ninguna
+    relación con la fecha de creación), no el orden de inserción ni el
+    cronológico. Se insertan a propósito fuera de orden para no depender de qué
+    UUID le toque a cada uno -- si el bug reapareciera, este test lo detectaría
+    sin importar el azar de la PK."""
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(Tenant(id=tenant_id, nombre="Tenant orden", clave=f"prueba-orden-{tenant_id}", pais="mx"))
+        db.flush()
+
+        ahora = datetime.now(UTC)
+        medio = Tramite(tenant_id=tenant_id, nombre="Medio", created_at=ahora - timedelta(days=1))
+        viejo = Tramite(tenant_id=tenant_id, nombre="Viejo", created_at=ahora - timedelta(days=2))
+        nuevo = Tramite(tenant_id=tenant_id, nombre="Nuevo", created_at=ahora)
+        db.add_all([medio, viejo, nuevo])
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        panel = listar_tramites(token, db, BackgroundTasks())
+
+        assert [t.nombre for t in panel.tramites] == ["Nuevo", "Medio", "Viejo"]
     finally:
         _limpiar(db, tenant_id)
 

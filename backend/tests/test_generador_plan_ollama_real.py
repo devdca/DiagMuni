@@ -14,11 +14,11 @@ from urllib.parse import urlparse
 
 import pytest
 
-import app.ia.config as ia_config
+import app.adaptadores.llm.config as ia_config
+from app.adaptadores.llm import generador_plan
 from app.core.config import Settings
-from app.engine.plantillas import _narrativa_plantilla
-from app.engine.reglas_loader import cargar_catalogo
-from app.ia import generador_plan
+from app.dominio.plantillas import _narrativa_plantilla
+from app.dominio.reglas_loader import cargar_catalogo
 
 _OLLAMA_API_BASE_PRUEBA = "http://localhost:11434"
 

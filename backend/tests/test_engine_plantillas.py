@@ -1,4 +1,4 @@
-from app.engine.plantillas import generar_contenido_degradado
+from app.dominio.plantillas import generar_contenido_degradado
 
 RESPUESTAS_SIN_NADA = {
     "documentos_digitalizados": False,

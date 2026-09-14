@@ -27,53 +27,90 @@
 
 /* Paleta neutral validada, docs/ux-brief.md sección "Paleta -- validada, no elegida
    a ojo" -- sin marca INAP definida todavía, se sustituye cuando exista identidad
-   oficial sin tocar la estructura de componentes (mismo documento, principio 4). */
+   oficial sin tocar la estructura de componentes (mismo documento, principio 4).
+   "Tinta neutra" (revisión de diseño, reemplaza "Índigo confiado"): la Opción B
+   original ponía el mismo índigo en nav, botones, foco Y en la rampa del índice de
+   madurez a la vez -- se leía "todo azul", sin jerarquía. Aquí el neutro es gris
+   verdadero (sin sesgo azul) y la acción/navegación pasa a tinta casi-negra --
+   el azul de la rampa (sin tocar, ya validada) queda como el ÚNICO color con
+   significado propio en toda la interfaz. Todo par de texto y de borde
+   revalidado con `validate_palette.js`. */
 :root {
   --radius: 0.75rem;
 
-  --background: #f4f3ee; /* superficie de página */
-  --card: #fcfcf9; /* superficie de tarjeta/panel */
-  --card-foreground: #1b1b18;
-  --foreground: #1b1b18; /* texto primario */
-  --muted: #f7f6f2;
-  --muted-foreground: #5b584f; /* texto secundario */
-  --atenuado: #7f7c73; /* texto atenuado: ayudas, placeholders */
-  --border: #d8d0c1; /* línea divisoria */
-  --input: #ece7db;
-  --ring: #5e6a79;
+  --background: #f1f1ef; /* superficie de página -- gris verdadero, no azulado */
+  --card: #ffffff; /* superficie de tarjeta/panel */
+  --card-foreground: #161614;
+  --foreground: #161614; /* texto primario */
+  --muted: #e6e5e0;
+  --muted-foreground: #504f4a; /* texto secundario */
+  --atenuado: #4a4945; /* texto atenuado: ayudas, placeholders -- AA 4.5:1 */
+  --border: #75746d; /* línea divisoria -- AA no-texto 3:1 */
+  --input: #e6e5e0;
+  --ring: #202020;
 
-  --primary: #243447;
-  --primary-foreground: #f8f6f1;
-  --secondary: #e9e3d6;
-  --secondary-foreground: #1b1b18;
+  --primary: #202020; /* tinta casi negra -- ya no compite con el azul del índice */
+  --primary-foreground: #f7f7f5;
+  --secondary: #e6e5e0;
+  --secondary-foreground: #161614;
 
-  /* No forma parte de la paleta neutral de docs/ux-brief.md -- se toma prestado el
-     "critical" del semáforo de seguimiento (#d03b3b, misma sección del documento)
-     únicamente para el estado de error de formulario (borde/texto), nunca como
-     color de un badge de estado (esa regla es específica de F6). */
-  --destructive: #d03b3b;
-  --destructive-foreground: #fcfcfb;
+  --destructive: #ad2a24;
+  --destructive-foreground: #fff5f4;
+
+  /* Rampa ordinal de madurez (0-4), variante "texto" -- docs/ux-brief.md, "Índice
+     de madurez": AA 4.5:1 contra --card Y --background de este modo, verificado
+     con `frontend/scripts/validate_palette.js --ordinal`. Distinta de hexClaro en
+     frontend/src/lib/madurez.ts (ese hex es solo decorativo, piso 2:1, nunca texto
+     ni borde) -- usar siempre esta variable cuando el nivel se pinta como color de
+     texto o de borde (cifra grande del índice, borde/texto del Badge de índice). */
+  --madurez-nivel-0-texto: #2d3ea9;
+  --madurez-nivel-1-texto: #253393;
+  --madurez-nivel-2-texto: #1c297d;
+  --madurez-nivel-3-texto: #141e61;
+  --madurez-nivel-4-texto: #0b1341;
+
+  /* Semáforo de seguimiento (F6), docs/ux-brief.md -- fija e independiente de la
+     paleta base, nunca reutilizada como color de serie. "completado" revalidado a
+     AA 4.5:1 (antes #0ca30c caía a 3.35:1 contra tarjeta blanca); "en_progreso" y
+     "atrasado" quedan como excepción documentada -- siempre van con ícono+etiqueta. */
+  --semaforo-completado: #0d770d;
+  --semaforo-en-progreso: #fab219;
+  --semaforo-atrasado: #d03b3b;
 }
 
 .dark {
   --background: #121212;
-  --card: #1b1b1a;
-  --card-foreground: #f7f4eb;
-  --foreground: #f7f4eb;
-  --muted: #1b1b1a;
-  --muted-foreground: #c9c4b4;
-  --atenuado: #8b887f;
-  --border: #2f2f2c;
-  --input: #2a2927;
-  --ring: #95a1b1;
+  --card: #1c1c1a;
+  --card-foreground: #f5f4f0;
+  --foreground: #f5f4f0;
+  --muted: #242320;
+  --muted-foreground: #c7c5be;
+  --atenuado: #8f8d86;
+  --border: #727169; /* AA no-texto 3:1 */
+  --input: #242320;
+  --ring: #f2f1ec;
 
-  --primary: #f2eee1;
+  --primary: #f2f1ec; /* tinta casi blanca -- mismo criterio que el claro: sin competir con el azul del índice */
   --primary-foreground: #121212;
-  --secondary: #23211f;
-  --secondary-foreground: #f7f4eb;
+  --secondary: #242320;
+  --secondary-foreground: #f5f4f0;
 
-  --destructive: #d03b3b;
-  --destructive-foreground: #0d0d0d;
+  --destructive: #e8635c;
+  --destructive-foreground: #280604;
+
+  /* Rampa "texto" del modo oscuro -- valores propios, no los mismos hex del modo
+     claro: hexClaro reutilizado tal cual contra --card oscuro rompía AA en varios
+     niveles (ver `validate_palette.js --mode dark --ordinal`). Esta rampa sí fue
+     revalidada contra la superficie oscura, como pide docs/ux-brief.md. */
+  --madurez-nivel-0-texto: #cad0f6;
+  --madurez-nivel-1-texto: #b1baf1;
+  --madurez-nivel-2-texto: #98a3eb;
+  --madurez-nivel-3-texto: #808de5;
+  --madurez-nivel-4-texto: #7583e1;
+
+  --semaforo-completado: #4dcb4d; /* propio del modo oscuro -- el valor claro (#0d770d) cae a 3.07:1 contra tarjeta oscura */
+  --semaforo-en-progreso: #fab219;
+  --semaforo-atrasado: #d03b3b;
 }
 
 @layer base {
@@ -96,10 +133,6 @@
       BlinkMacSystemFont,
       "Helvetica Neue",
       sans-serif;
-    background-image:
-      radial-gradient(circle at top left, rgba(36, 52, 71, 0.06) 0%, transparent 30%),
-      linear-gradient(135deg, #f6f5ef 0%, #efece3 100%);
-    background-attachment: fixed;
     min-height: 100vh;
     letter-spacing: 0.01em;
     text-rendering: optimizeLegibility;
@@ -108,7 +141,7 @@
   }
 
   ::selection {
-    background-color: rgba(36, 52, 71, 0.16);
+    background-color: rgba(32, 32, 32, 0.14);
     color: var(--foreground);
   }
 
@@ -124,22 +157,18 @@
     font: inherit;
   }
 
+  /* Sin translateY decorativo en :hover -- feedback de revisión de diseño:
+     "sobrio, no producto de consumo" (docs/ux-brief.md, principio 2) descarta
+     micro-animaciones que no comunican estado; hover/focus se marcan solo con
+     color, como ya hacían Button/Badge. */
   button,
   [type="button"],
   [type="submit"],
   [type="reset"] {
     transition:
-      transform 160ms ease,
       box-shadow 160ms ease,
       background-color 160ms ease,
       border-color 160ms ease;
-  }
-
-  button:hover:not(:disabled),
-  [type="button"]:hover:not(:disabled),
-  [type="submit"]:hover:not(:disabled),
-  [type="reset"]:hover:not(:disabled) {
-    transform: translateY(-1px);
   }
 
   input,
@@ -165,19 +194,23 @@
   textarea:focus {
     outline: none;
     border-color: var(--ring);
-    box-shadow: 0 0 0 3px rgba(94, 106, 121, 0.16);
+    box-shadow: 0 0 0 3px rgba(32, 32, 32, 0.18);
   }
 }
 
 @layer components {
+  /* Superficies planas -- feedback de revisión de diseño: los gradientes y el
+     blur de fondo (glassmorphism generalizado en toda tarjeta) leían "producto
+     de consumo", no institucional (docs/ux-brief.md, principio 2). El único
+     lugar que sigue llevando glass es el login (`.login-card-glass` abajo), a
+     propósito, sobre la imagen de fondo. */
   .bg-card,
   .bg-white {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 246, 240, 0.96) 100%);
-    backdrop-filter: blur(6px);
+    background: var(--card);
   }
 
   .bg-background {
-    background: linear-gradient(135deg, #f6f5ef 0%, #efece3 100%);
+    background: var(--background);
   }
 
   .shadow-sm {
@@ -197,7 +230,7 @@
   }
 
   .border-border {
-    border-color: #d8d0c1;
+    border-color: var(--border);
   }
 
   .text-muted-foreground {
@@ -211,15 +244,8 @@
     left: 0;
     right: 0;
     z-index: 50;
-    border-bottom: 1px solid rgba(216, 208, 193, 0.85);
-    background: rgba(252, 252, 249, 0.96);
-    backdrop-filter: blur(16px);
-    box-shadow: 0 10px 30px rgba(20, 30, 43, 0.08);
-  }
-
-  .app-navbar.dark {
-    background: rgba(26, 26, 25, 0.92);
-    border-bottom-color: rgba(47, 47, 44, 0.85);
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
   }
 
   .app-navbar-inner {
@@ -237,32 +263,50 @@
     font-size: 0.95rem;
     font-weight: 700;
     letter-spacing: 0.02em;
-    color: var(--primary);
+    color: var(--foreground);
     text-transform: uppercase;
-    opacity: 0.95;
+    /* Revisión de QA visual: sin esto, un nombre de gobierno largo se envolvía
+       en hasta 3 líneas cuando la ventana se achicaba (el flex item se
+       encogía hasta su ancho mínimo de contenido, que fuerza el salto de
+       línea) -- min-width:0 permite encogerse más allá de eso, y
+       overflow+ellipsis corta con "…" en vez de partir el texto. */
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .app-navbar-links {
     display: flex;
     align-items: center;
-    gap: 1.15rem;
+    gap: 1rem;
     flex-wrap: wrap;
   }
 
   .app-navbar-links a,
   .app-navbar-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.95rem;
     color: var(--foreground);
-    padding: 0.6rem 0.85rem;
+    padding: 0.65rem 1rem;
     border-radius: 0.75rem;
-    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    transition: background-color 180ms ease, color 180ms ease;
   }
 
-  .app-navbar-links a:hover,
-  .app-navbar-logout:hover {
-    background-color: rgba(36, 52, 71, 0.08);
+  .app-navbar-links a svg {
+    color: var(--muted-foreground);
+    transition: color 180ms ease;
+  }
+
+  .app-navbar-links a:hover svg {
     color: var(--primary);
-    transform: translateY(-1px);
+  }
+
+  .app-navbar-links a:hover {
+    background-color: var(--secondary);
+    color: var(--primary);
   }
 
   .app-navbar-links a {
@@ -281,8 +325,33 @@
   }
 
   .app-navbar-logout:hover {
-    background-color: #1f3147;
-    color: #f7f4eb;
+    opacity: 0.85;
+  }
+
+  /* Avatar de iniciales estilo Microsoft 365 (NavBar.tsx, AvatarPerfil) --
+     reemplaza el antiguo enlace "Mi perfil" de ícono+texto. Mismo par
+     primary/primary-foreground que el botón de cerrar sesión, ya AA. */
+  .app-navbar-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: opacity 180ms ease;
+  }
+
+  .app-navbar-avatar:hover {
+    opacity: 0.85;
   }
 
   .app-navbar a {
@@ -294,28 +363,42 @@
   color-scheme: dark;
 }
 
-.dark body {
-  background-image:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08) 0%, transparent 30%),
-    linear-gradient(135deg, #111111 0%, #171717 100%);
-}
-
-.dark .bg-card,
-.dark .bg-white {
-  background: linear-gradient(180deg, rgba(26, 26, 25, 0.98) 0%, rgba(18, 18, 18, 0.96) 100%);
-}
-
-.dark .bg-background {
-  background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
-}
-
 .dark input,
 .dark select,
 .dark textarea {
-  background-color: rgba(26, 26, 25, 0.86);
+  background-color: rgba(28, 28, 26, 0.86);
   border-color: var(--border);
 }
 
-.dark .border-border {
-  border-color: #2f2f2c;
+/* Fondo del login (pantalla 1, docs/ux-brief.md) -- única pantalla de la app que
+   lleva imagen: momento de bienvenida antes de entrar, no una superficie de
+   trabajo. Imagen propia (frontend/public/branding/login-fondo.png), nunca de
+   un tercero sin licencia -- ver historial del commit que la agrega. Se oscurece
+   con un velo neutro (no azul) para que no reintroduzca "todo azul" justo en la
+   puerta de entrada y para que el texto/tarjeta mantengan AA encima. */
+.login-fondo {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-image:
+    linear-gradient(180deg, rgba(18, 18, 17, 0.55) 0%, rgba(18, 18, 17, 0.72) 100%),
+    url("/branding/login-fondo.png");
+  background-size: cover;
+  background-position: center;
+}
+
+/* Glassmorphism intencionalmente opaco, no transparente -- pedido explícito de
+   diseño: suficiente blur para leerse como "vidrio" sobre la foto, pero la
+   tarjeta debe quedar legible por sí sola, sin depender de lo que haya detrás
+   (mismo criterio AA que el resto de la app: los pares de texto de --card ya
+   validados con validate_palette.js siguen aplicando a --card-glass). */
+.login-card-glass {
+  --card-glass: color-mix(in srgb, var(--card) 92%, transparent);
+  background: var(--card-glass);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.45);
 }

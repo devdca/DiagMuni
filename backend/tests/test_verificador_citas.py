@@ -1,7 +1,7 @@
 """Tests de la compuerta determinista de F9 (backend/app/ia/verificador_citas.py).
 Sin LLM, sin mocks de red -- son funciones puras de texto."""
 
-from app.ia.verificador_citas import citas_y_numeros_son_fieles
+from app.adaptadores.llm.verificador_citas import citas_y_numeros_son_fieles
 
 BRECHA_DETERMINISTA = {
     "paso_administrativo": "Suscribir convenio de homologación con la e.firma del SAT",
@@ -76,3 +76,19 @@ def test_campo_ausente_en_brecha_no_rompe_la_funcion():
     brecha_incompleta = {"paso_administrativo": "Hacer el trámite correspondiente."}
     narrativa = "Hacer el trámite correspondiente, sin ninguna cita normativa."
     assert citas_y_numeros_son_fieles(narrativa, brecha_incompleta) is True
+
+
+def test_cifra_real_del_contexto_de_gobierno_no_se_rechaza_como_inventada():
+    # Hallazgo real al agregar el perfil del gobierno al prompt: sin este
+    # parámetro, "MXN" (3+ mayúsculas -> "acrónimo") o cualquier cifra del
+    # presupuesto se rechazarían por no estar en los 5 campos fijos de la
+    # brecha -- aunque sean datos reales del contexto, no inventados.
+    contexto_gobierno = "- Presupuesto anual de TIC: 50000.00 MXN"
+    narrativa = "Dado un presupuesto anual de TIC de 50000.00 MXN, se recomienda un enfoque gradual."
+    assert citas_y_numeros_son_fieles(narrativa, BRECHA_DETERMINISTA, contexto_gobierno) is True
+
+
+def test_cifra_que_no_esta_ni_en_la_brecha_ni_en_el_contexto_se_sigue_rechazando():
+    contexto_gobierno = "- Presupuesto anual de TIC: 50000.00 MXN"
+    narrativa = "Conforme al artículo 999 inventado, corresponde este trámite."
+    assert citas_y_numeros_son_fieles(narrativa, BRECHA_DETERMINISTA, contexto_gobierno) is False
