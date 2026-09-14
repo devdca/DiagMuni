@@ -119,14 +119,25 @@ def _narrativa_llm(
     return _narrativa_plantilla(accion)
 
 
-def generar_contenido_llm(respuestas: dict, pais: str, *, override: OverrideLlmTenant | None = None) -> dict:
+def generar_contenido_llm(
+    respuestas: dict,
+    pais: str,
+    nivel_gobierno: str = "municipal",
+    tipo_tramite: str | None = None,
+    *,
+    override: OverrideLlmTenant | None = None,
+) -> dict:
     """Equivalente en forma a `generar_contenido_degradado` (mismo recorrido de
     catálogo, mismos campos por brecha) pero con la `narrativa` de cada brecha
     redactada vía LLM (ruta `calidad`, con respaldo en `calidad_respaldo`) cuando
     hay API key configurada (propia del tenant vía `override`, BYOK, o del
     operador), y con fallback automático a la plantilla determinista en
-    cualquier otro caso -- ausencia de key o fallo de ambas rutas."""
-    catalogo = cargar_catalogo()
+    cualquier otro caso -- ausencia de key o fallo de ambas rutas.
+
+    `nivel_gobierno`/`tipo_tramite` (Fase A, ambos con default retrocompatible):
+    igual criterio que `generar_contenido_degradado`, misma carpeta de catálogo
+    para ambos modos."""
+    catalogo = cargar_catalogo(nivel_gobierno, tipo_tramite)
     contexto_gobierno = formatear_contexto_gobierno(respuestas, pais)
     brechas = []
     for regla in catalogo.values():
@@ -158,6 +169,7 @@ def generar_contenido_llm(respuestas: dict, pais: str, *, override: OverrideLlmT
                 "fuente_normativa": accion.fuente_normativa,
                 "narrativa": narrativa,
                 "componente_recomendado": componente_recomendado_para(accion.categoria_catalogo, pais),
+                "requiere_nueva_norma": accion.requiere_nueva_norma,
             }
         )
 

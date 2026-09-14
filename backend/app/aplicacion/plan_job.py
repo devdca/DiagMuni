@@ -30,7 +30,12 @@ from app.aplicacion.preferencia_modelo_ia import resolver_override
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.dominio.plantillas import generar_contenido_degradado
-from app.dominio.resumen_plan import calcular_orden_sugerido, calcular_resumen_inversion, calcular_resumen_personal
+from app.dominio.resumen_plan import (
+    calcular_factibilidad,
+    calcular_orden_sugerido,
+    calcular_resumen_inversion,
+    calcular_resumen_personal,
+)
 from app.dominio.tipos_tramite_loader import completar_respuestas_no_aplicables, evaluar_brechas_adicionales
 from app.models import (
     AccionSeguimiento,
@@ -93,25 +98,20 @@ def _namespace_efectivo(db: Session, tenant_id: UUID, respuestas: dict, tipo_tra
     if contexto is None:
         namespace = dict(respuestas)
     else:
+        # QA (ronda 2, consolidado de rondas anteriores): esta lista se escribía
+        # a mano y se quedó atrás de la migración 0009 -- 24 de los 34 campos
+        # reales de ContextoInstitucional (personal_area_ti incluido, el que
+        # reportó QA, pero también toda la sección "madurez digital
+        # transversal" del Perfil del gobierno) nunca llegaban a evaluarse ni
+        # al plan ni al índice: el funcionario los llenaba, se guardaban bien,
+        # pero acá se leían como si no existieran. Se deriva de las columnas
+        # reales del modelo en vez de mantener una segunda lista a mano -- un
+        # campo nuevo en el modelo queda incluido automáticamente, sin
+        # depender de acordarse de actualizar esto también.
         namespace_contexto = {
-            "poblacion_total": contexto.poblacion_total,
-            "personal_total_gobierno": contexto.personal_total_gobierno,
-            "presupuesto_tic_anual": contexto.presupuesto_tic_anual,
-            "area_tic_existe": contexto.area_tic_existe,
-            "conectividad": contexto.conectividad,
-            "normativa_local_emitida": contexto.normativa_local_emitida,
-            "autoridad_gobernanza_digital": contexto.autoridad_gobernanza_digital,
-            "agenda_simplificacion_publicada": contexto.agenda_simplificacion_publicada,
-            "portal_datos_abiertos_existe": contexto.portal_datos_abiertos_existe,
-            "linea_atencion_ciudadana_centralizada": contexto.linea_atencion_ciudadana_centralizada,
-            "capacitacion_personal_tic_anual": contexto.capacitacion_personal_tic_anual,
-            "protocolo_ciberseguridad_existe": contexto.protocolo_ciberseguridad_existe,
-            "presupuesto_total_anual": contexto.presupuesto_total_anual,
-            "numero_tramites_totales": contexto.numero_tramites_totales,
-            "ingresos_propios_porcentaje": contexto.ingresos_propios_porcentaje,
-            "numero_oficinas_atencion": contexto.numero_oficinas_atencion,
-            "enlace_notificado_formalmente": contexto.enlace_notificado_formalmente,
-            "convenio_colaboracion_estado": contexto.convenio_colaboracion_estado,
+            columna.key: getattr(contexto, columna.key)
+            for columna in ContextoInstitucional.__table__.columns
+            if columna.key not in {"id", "tenant_id", "actualizado_en", "created_at"}
         }
         namespace = {**namespace_contexto, **respuestas}
 
@@ -123,7 +123,8 @@ def _con_brechas_adicionales(contenido: dict, tipo_tramite: str, respuestas: dic
     tipos_tramite_loader.py) al `contenido` ya generado -- determinista, nunca
     pasa por el LLM, para no depender de que el modelo conozca estas fuentes
     normativas nuevas. `"generico"` (o cualquier tipo sin variables_adicionales)
-    no agrega nada, así que llamar esto con el default es un no-op seguro."""
+    no agrega nada, así que llamar esto con el valor por defecto es una operación
+    nula segura."""
     brechas_adicionales = evaluar_brechas_adicionales(tipo_tramite, respuestas)
     if not brechas_adicionales:
         return contenido
@@ -165,10 +166,15 @@ def _con_estimacion_recursos(
 def _con_resumen(contenido: dict, respuestas: dict, pais: str) -> dict:
     """Agrega la síntesis determinista de presupuesto, personal y orden sugerido
     (app/engine/resumen_plan.py) -- se calcula sobre `contenido["brechas"]` ya
-    completo (incluidas las brechas adicionales del tipo de trámite), nunca antes."""
-    brechas = contenido["brechas"]
+    completo (incluidas las brechas adicionales del tipo de trámite), nunca antes.
+
+    Fase A: también agrega `factibilidad` a cada brecha (`calcular_factibilidad`)
+    antes de calcular los resúmenes de arriba, para que estos ya operen sobre
+    brechas con el campo presente."""
+    brechas = [{**brecha, "factibilidad": calcular_factibilidad(brecha, respuestas)} for brecha in contenido["brechas"]]
     return {
         **contenido,
+        "brechas": brechas,
         "resumen_inversion": calcular_resumen_inversion(brechas, pais),
         "resumen_personal": calcular_resumen_personal(brechas, respuestas, pais),
         "orden_sugerido": calcular_orden_sugerido(brechas),
@@ -180,23 +186,27 @@ def _generar_contenido_y_modo(
     pais: str,
     tipo_tramite: str = "generico",
     descripcion: str = "",
+    nivel_gobierno: str = "municipal",
     *,
     override: OverrideLlmTenant | None = None,
 ) -> tuple[str, dict, bool]:
     """Devuelve `(modo, contenido, verificado)` -- `verificado` siempre `True`.
     `override` (BYOK, ver app/aplicacion/preferencia_modelo_ia.py): credencial y
     preferencia propia del tenant, gana sobre cualquier config global del
-    operador -- ver app/adaptadores/llm/config.py::obtener_proveedor_llm."""
+    operador -- ver app/adaptadores/llm/config.py::obtener_proveedor_llm.
+    `nivel_gobierno`/`tipo_tramite` (Fase A): seleccionan qué carpeta del
+    catálogo de reglas usar (genérica del nivel, o el override específico de
+    este tipo de trámite si existe), ver `reglas_loader.cargar_catalogo`."""
     rutas_generacion = obtener_rutas_generacion(override=override)
     if not any(esta_disponible(nombre, override=override) for nombre in rutas_generacion):
-        contenido = generar_contenido_degradado(respuestas, pais)
+        contenido = generar_contenido_degradado(respuestas, pais, nivel_gobierno, tipo_tramite)
         contenido = _con_brechas_adicionales(contenido, tipo_tramite, respuestas)
         contenido = _con_resumen(contenido, respuestas, pais)
         contenido = _con_sugerencia_libre(contenido, descripcion, respuestas, pais, override=override)
         return "degradado", _con_estimacion_recursos(contenido, respuestas, pais, override=override), True
 
-    contenido_llm = generar_contenido_llm(respuestas, pais, override=override)
-    contenido_determinista = generar_contenido_degradado(respuestas, pais)
+    contenido_llm = generar_contenido_llm(respuestas, pais, nivel_gobierno, tipo_tramite, override=override)
+    contenido_determinista = generar_contenido_degradado(respuestas, pais, nivel_gobierno, tipo_tramite)
     contexto_gobierno = formatear_contexto_gobierno(respuestas, pais)
 
     if verificar_contenido(contenido_llm, contenido_determinista, contexto_gobierno, override=override):
@@ -205,8 +215,9 @@ def _generar_contenido_y_modo(
         contenido = _con_sugerencia_libre(contenido, descripcion, respuestas, pais, override=override)
         return "llm", _con_estimacion_recursos(contenido, respuestas, pais, override=override), True
 
-    # verificar_contenido ya es fail-closed (rechazo, fallo o no disponible = no
-    # aprobado); en cualquier caso se descarta el LLM y se persiste el determinista.
+    # verificar_contenido ya cierra por defecto ante cualquier duda (rechazo,
+    # fallo o no disponible = no aprobado); en cualquier caso se descarta el LLM
+    # y se persiste el determinista.
     contenido = _con_brechas_adicionales(contenido_determinista, tipo_tramite, respuestas)
     contenido = _con_resumen(contenido, respuestas, pais)
     contenido = _con_sugerencia_libre(contenido, descripcion, respuestas, pais, override=override)
@@ -279,7 +290,9 @@ def _persistir_plan_degradado(db: Session, tenant_id: UUID, diagnostico_tramite_
     override = resolver_override(tenant)
     namespace_efectivo = _namespace_efectivo(db, tenant_id, diagnostico.respuestas, tramite.tipo)
     contenido = _con_brechas_adicionales(
-        generar_contenido_degradado(namespace_efectivo, tenant.pais), tramite.tipo, namespace_efectivo
+        generar_contenido_degradado(namespace_efectivo, tenant.pais, tenant.nivel_gobierno, tramite.tipo),
+        tramite.tipo,
+        namespace_efectivo,
     )
     contenido = _con_resumen(contenido, namespace_efectivo, tenant.pais)
     contenido = _con_sugerencia_libre(
@@ -331,7 +344,12 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
         # global y sobre cualquier key del operador.
         override = resolver_override(tenant)
         modo, contenido, verificado = _generar_contenido_y_modo(
-            namespace_efectivo, tenant.pais, tramite.tipo, tramite.descripcion, override=override
+            namespace_efectivo,
+            tenant.pais,
+            tramite.tipo,
+            tramite.descripcion,
+            tenant.nivel_gobierno,
+            override=override,
         )
 
         version_previa = db.execute(

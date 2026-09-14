@@ -134,6 +134,72 @@ def calcular_orden_sugerido(brechas: list[dict]) -> dict:
     }
 
 
+# Fase A: % de `presupuesto_tic_anual` que el costo de UNA acción puede
+# representar antes de considerarse "presupuesto_extraordinario", por bracket
+# de `poblacion_total` (techo inclusive, `None` = sin techo). Default de
+# producto, calibrable sin tocar `calcular_factibilidad`: gobiernos más chicos
+# tienen más tolerancia relativa porque su presupuesto TIC total ya es
+# pequeño en términos absolutos.
+_UMBRAL_PRESUPUESTO_TIC_POR_POBLACION: tuple[tuple[int | None, Decimal], ...] = (
+    (20_000, Decimal("0.15")),
+    (100_000, Decimal("0.10")),
+    (None, Decimal("0.05")),
+)
+
+
+def _umbral_extraordinario(poblacion_total: object) -> Decimal:
+    poblacion = poblacion_total if isinstance(poblacion_total, int) else None
+    if poblacion is None:
+        # Sin dato de población: el bracket más chico (más tolerante) evita
+        # marcar "extraordinario" con menos certeza de la que el dato sustenta.
+        return _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION[0][1]
+    for techo, umbral in _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION:
+        if techo is None or poblacion <= techo:
+            return umbral
+    return _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION[-1][1]
+
+
+def calcular_factibilidad(brecha: dict, respuestas: dict) -> str:
+    """"config_existente" | "presupuesto_extraordinario" | "nueva_norma" --
+    nunca inventa una cifra: sin dato suficiente para decidir, cae en
+    "config_existente" (el default menos alarmante, consistente con no forzar
+    una alerta que el dato disponible no sustenta).
+
+    Orden de evaluación:
+    1. `requiere_nueva_norma` (declarado en el YAML de la regla, ver
+       `reglas_loader.AccionPais`) -- si `True`, es "nueva_norma" sin más
+       cálculo: la acción exige una reforma/norma antes de poder ejecutarse
+       (ej. crear una autoridad que hoy no existe en ese gobierno).
+    2. Costo estimado de la acción (licenciamiento + implementación, mismo
+       campo que ya usa `calcular_resumen_inversion`, nunca un costo nuevo)
+       contra `presupuesto_tic_anual`, con el umbral de `_umbral_extraordinario`
+       según `poblacion_total`.
+    3. Sin componente de costo, o sin `presupuesto_tic_anual` capturado:
+       "config_existente" -- no se puede afirmar que sea extraordinario sin
+       ambos datos."""
+    if brecha.get("requiere_nueva_norma"):
+        return "nueva_norma"
+
+    componente = brecha.get("componente_recomendado")
+    presupuesto_tic_anual = respuestas.get("presupuesto_tic_anual")
+    if componente is None or presupuesto_tic_anual is None:
+        return "config_existente"
+
+    costo_licenciamiento = _parsear_monto(componente["costo_licenciamiento"]["moneda_local"])
+    costo_implementacion = _parsear_monto(componente["costo_implementacion"]["moneda_local"])
+    costo_total = _sumar_opcionales(costo_licenciamiento, costo_implementacion)
+    if costo_total is None:
+        return "config_existente"
+
+    presupuesto = Decimal(str(presupuesto_tic_anual))
+    if presupuesto <= 0:
+        return "config_existente"
+
+    if costo_total > presupuesto * _umbral_extraordinario(respuestas.get("poblacion_total")):
+        return "presupuesto_extraordinario"
+    return "config_existente"
+
+
 def calcular_progreso_historico(brechas_actuales: list[dict], brechas_anteriores: list[dict]) -> dict:
     """Diff determinista por `variable` entre dos versiones de plan del mismo
     trámite -- se computa en lectura (app/api/planes.py), no se persiste, porque

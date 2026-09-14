@@ -76,6 +76,21 @@
   --semaforo-completado: #0d770d;
   --semaforo-en-progreso: #fab219;
   --semaforo-atrasado: #d03b3b;
+
+  /* Navbar -- pedido explícito de diseño: azul marino fijo, distinto del resto
+     de la paleta (que reserva el azul solo para la rampa de madurez). Mismo
+     valor en claro/oscuro a propósito -- es una barra con identidad visual
+     propia, no debe cambiar con el tema. Texto blanco sobre #0f2a52 da >8:1,
+     de sobra sobre el piso AA 4.5:1. */
+  --navbar-bg: #0f2a52;
+  --navbar-bg-hover: #1c3d6e;
+  --navbar-foreground: #f5f7fb;
+  --navbar-foreground-muted: #b7c4dc;
+  --navbar-border: #1c3d6e;
+  /* Acento dorado -- pedido explícito: línea bajo el link activo, anillo
+     alrededor del avatar. Un solo tono para ambos usos, mismo criterio del
+     resto del navbar (identidad visual propia, no del sistema de color base). */
+  --navbar-accent-dorado: #d4af37;
 }
 
 .dark {
@@ -244,8 +259,8 @@
     left: 0;
     right: 0;
     z-index: 50;
-    border-bottom: 1px solid var(--border);
-    background: var(--card);
+    border-bottom: 1px solid var(--navbar-border);
+    background: var(--navbar-bg);
   }
 
   .app-navbar-inner {
@@ -263,7 +278,7 @@
     font-size: 0.95rem;
     font-weight: 700;
     letter-spacing: 0.02em;
-    color: var(--foreground);
+    color: var(--navbar-foreground);
     text-transform: uppercase;
     /* Revisión de QA visual: sin esto, un nombre de gobierno largo se envolvía
        en hasta 3 líneas cuando la ventana se achicaba (el flex item se
@@ -289,24 +304,36 @@
     align-items: center;
     gap: 0.5rem;
     font-size: 0.95rem;
-    color: var(--foreground);
+    color: var(--navbar-foreground);
     padding: 0.65rem 1rem;
     border-radius: 0.75rem;
-    transition: background-color 180ms ease, color 180ms ease;
+    /* Línea inferior propia (no border-bottom): así el link activo no
+       "empuja" el contenido 2px hacia arriba al aparecer/desaparecer -- el
+       espacio para la línea ya existe siempre, transparente cuando no aplica. */
+    border-bottom: 2px solid transparent;
+    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+  }
+
+  /* Link activo (NavBar.tsx, NavLink con `isActive`) -- pedido explícito:
+     línea dorada bajo el link seleccionado. Selector con la misma
+     especificidad que ".app-navbar-links a" (no !important) para que gane
+     sin depender de un escape de especificidad. */
+  .app-navbar-links a.app-navbar-link-activo {
+    border-bottom-color: var(--navbar-accent-dorado);
   }
 
   .app-navbar-links a svg {
-    color: var(--muted-foreground);
+    color: var(--navbar-foreground-muted);
     transition: color 180ms ease;
   }
 
   .app-navbar-links a:hover svg {
-    color: var(--primary);
+    color: var(--navbar-foreground);
   }
 
   .app-navbar-links a:hover {
-    background-color: var(--secondary);
-    color: var(--primary);
+    background-color: var(--navbar-bg-hover);
+    color: var(--navbar-foreground);
   }
 
   .app-navbar-links a {
@@ -341,13 +368,20 @@
     padding: 0;
     border: none;
     border-radius: 9999px;
-    background-color: var(--primary);
-    color: var(--primary-foreground);
+    /* Círculo claro sobre la barra azul (mismo look que el mockup) --
+       distinto del resto de avatares/botones "primary" de la app a propósito,
+       mismo criterio que el resto del navbar (identidad visual propia). */
+    background-color: var(--navbar-foreground);
+    color: var(--navbar-bg);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.02em;
     cursor: pointer;
     transition: opacity 180ms ease;
+    /* Anillo dorado alrededor del avatar -- pedido explícito. box-shadow (no
+       border) para que no cambie el tamaño de la caja (border sumaría 4px
+       extra al width/height ya fijo de arriba). */
+    box-shadow: 0 0 0 2px var(--navbar-accent-dorado);
   }
 
   .app-navbar-avatar:hover {

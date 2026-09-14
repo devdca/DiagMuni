@@ -77,7 +77,7 @@ def usuario_desactivado():
 
 def test_get_current_token_rechaza_usuario_desactivado(usuario_desactivado):
     tenant_id, usuario_id = usuario_desactivado
-    token = create_access_token(usuario_id, tenant_id, "funcionario", "Tenant desactivado", "mx")
+    token = create_access_token(usuario_id, tenant_id, "funcionario", "Tenant desactivado", "mx", "municipal")
 
     with pytest.raises(HTTPException) as exc_info:
         get_current_token(_credenciales(token))
@@ -99,6 +99,6 @@ def test_get_current_token_acepta_usuario_activo(usuario_desactivado):
     finally:
         db.close()
 
-    token = create_access_token(usuario_id, tenant_id, "funcionario", "Tenant desactivado", "mx")
+    token = create_access_token(usuario_id, tenant_id, "funcionario", "Tenant desactivado", "mx", "municipal")
     resultado = get_current_token(_credenciales(token))
     assert resultado.usuario_id == usuario_id

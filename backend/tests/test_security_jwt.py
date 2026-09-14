@@ -24,7 +24,7 @@ def _secreto_de_prueba(monkeypatch):
 
 def _token_valido() -> tuple[str, dict]:
     usuario_id, tenant_id = uuid4(), uuid4()
-    token = create_access_token(usuario_id, tenant_id, "funcionario", "Intendencia de prueba", "uy")
+    token = create_access_token(usuario_id, tenant_id, "funcionario", "Intendencia de prueba", "uy", "municipal")
     return token, {"usuario_id": usuario_id, "tenant_id": tenant_id}
 
 

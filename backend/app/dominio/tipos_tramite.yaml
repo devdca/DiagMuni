@@ -17,6 +17,18 @@ tipos:
     etiqueta: "Genérico (todas las preguntas)"
     variables_excluidas: []
     variables_adicionales: []
+  # Fase A (expansión a los 3 órdenes de gobierno) -- piloto de tenants con
+  # nivel_gobierno=federal. El nombre de cada tipo debe coincidir exactamente
+  # con la subcarpeta de override en backend/app/dominio/reglas/federal/<tipo>/
+  # (ver reglas_loader.cargar_catalogo) -- no es solo una etiqueta cosmética.
+  sat_rfc:
+    etiqueta: "Inscripción al RFC (SAT)"
+    variables_excluidas: []
+    variables_adicionales: []
+  transparencia:
+    etiqueta: "Solicitud de acceso a la información"
+    variables_excluidas: []
+    variables_adicionales: []
   licencia_funcionamiento:
     etiqueta: "Licencia de funcionamiento"
     variables_excluidas: []

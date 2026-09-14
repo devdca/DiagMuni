@@ -1,0 +1,14 @@
+# Fase A -- piloto estatal (LNETB). Verificado leyendo el texto oficial completo.
+# Solo México, sin rama `uy`.
+version: "1.0"
+variable: requisitos_publicados_claramente
+criterio_deteccion: "requisitos_publicados_claramente == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar en el Portal Ciudadano Único de Trámites y Servicios cada uno de los requisitos que se solicitan para este trámite"
+    paso_tecnico: "Sección de requisitos en el portal del trámite, sin necesidad de acudir a preguntar"
+    paso_organizacional: "Mantener actualizada la lista de requisitos cuando cambien"
+    prerrequisitos: []
+    por_que_importa: "La LNETB exige explícitamente listar 'cada uno de los requisitos que se solicitan' como parte del registro obligatorio del trámite -- no es solo buena práctica, es un requisito de registro"
+    fuente_normativa: "LNETB art. 54, fracc. VI (requisitos del trámite) -- marco general, aplicable a las 32 entidades por igual"
+    categoria_catalogo: "requisitos_publicados"

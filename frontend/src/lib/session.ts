@@ -19,6 +19,7 @@ interface JwtClaims {
   tenant_id: string;
   nombre_gobierno: string;
   pais: string;
+  nivel_gobierno: string;
   rol: string;
   exp: number;
 }
@@ -71,6 +72,18 @@ export function obtenerPais(): string | null {
   if (!token) return null;
   const claims = decodeJwtClaims(token);
   return claims?.pais && claims.pais.length > 0 ? claims.pais : null;
+}
+
+// "municipal" | "estatal" | "federal" -- claim nuevo del JWT (migración 0018),
+// ortogonal a `pais`, mismo criterio de arriba: solo para que el frontend sepa
+// qué mostrar (ej. opciones de mecanismo_identidad a nivel federal), nunca para
+// decidir nada de seguridad. `null` si el token es viejo y no trae el claim
+// todavía (mismo caso de borde transitorio que `obtenerPais`).
+export function obtenerNivelGobierno(): string | null {
+  const token = obtenerToken();
+  if (!token) return null;
+  const claims = decodeJwtClaims(token);
+  return claims?.nivel_gobierno && claims.nivel_gobierno.length > 0 ? claims.nivel_gobierno : null;
 }
 
 // "funcionario" | "admin_gobierno" (RBAC, migración 0011 del backend). Solo para

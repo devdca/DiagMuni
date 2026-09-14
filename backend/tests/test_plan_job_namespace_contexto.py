@@ -81,6 +81,38 @@ def test_namespace_efectivo_fusiona_contexto_y_respuestas_sin_colision():
     assert resultado["conectividad"] == "intermitente"
 
 
+def test_namespace_efectivo_incluye_campos_de_la_migracion_0009():
+    """Regresión (QA ronda 2, consolidado): la fusión se armaba con una lista de
+    18 campos escrita a mano que nunca se actualizó tras la migración 0009 --
+    `personal_area_ti` (el que reportó QA -- el plan seguía diciendo "No
+    capturado" aunque el funcionario ya lo había llenado en el Perfil del
+    gobierno) y otros 23 campos de esa migración (madurez digital transversal,
+    interoperabilidad, ciberseguridad, capital humano de TI, medición,
+    financiamiento, accesibilidad) quedaban invisibles para el motor de reglas
+    y para `calcular_resumen_personal` por igual. Ahora se deriva de las
+    columnas reales del modelo -- este test fija que un campo de esa
+    migración sí llega al namespace fusionado, sin tener que enumerar los 24."""
+    contexto = ContextoInstitucional(
+        tenant_id=uuid4(),
+        personal_area_ti=7,
+        rotacion_personal_ti="alta",
+        catalogo_tramites_propio_existe=True,
+    )
+    db = _SesionSoloContexto(contexto)
+
+    resultado = plan_job._namespace_efectivo(db, uuid4(), {}, "generico")
+
+    assert resultado["personal_area_ti"] == 7
+    assert resultado["rotacion_personal_ti"] == "alta"
+    assert resultado["catalogo_tramites_propio_existe"] is True
+    # Metadatos de la fila (no son "datos del perfil") nunca deben colarse al
+    # namespace que evalúa el motor de reglas.
+    assert "id" not in resultado
+    assert "tenant_id" not in resultado
+    assert "created_at" not in resultado
+    assert "actualizado_en" not in resultado
+
+
 def test_namespace_efectivo_las_respuestas_del_tramite_ganan_si_hubiera_colision():
     # Ninguna de las 6 claves de `respuestas` colisiona hoy con las 7 de
     # contexto_institucional (confirmado en el diseño) -- este test fija el
@@ -185,7 +217,7 @@ def test_persistir_plan_degradado_incluye_la_brecha_de_autoridad_cuando_hay_cont
     diagnostico = DiagnosticoTramite(
         id=diagnostico_id, tenant_id=tenant_id, tramite_id=tramite_id, respuestas=RESPUESTAS_NIVEL_MAXIMO
     )
-    tenant = Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
+    tenant = Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx", nivel_gobierno="municipal")
     tramite = Tramite(
         id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan", tipo="generico"
     )
@@ -207,7 +239,7 @@ def test_persistir_plan_degradado_sin_fila_de_contexto_no_agrega_brecha_de_autor
     diagnostico = DiagnosticoTramite(
         id=diagnostico_id, tenant_id=tenant_id, tramite_id=tramite_id, respuestas=RESPUESTAS_NIVEL_MAXIMO
     )
-    tenant = Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
+    tenant = Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx", nivel_gobierno="municipal")
     tramite = Tramite(
         id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan", tipo="generico"
     )

@@ -77,7 +77,7 @@ def gobierno_y_funcionario():
 
 def test_token_valido_de_usuario_real_resuelve_desde_la_base_de_datos(gobierno_y_funcionario):
     tenant_id, usuario_id = gobierno_y_funcionario
-    token = create_access_token(usuario_id, tenant_id, "funcionario", "Tenant de prueba auth", "uy")
+    token = create_access_token(usuario_id, tenant_id, "funcionario", "Tenant de prueba auth", "uy", "municipal")
 
     resultado = get_current_token(_credenciales(token))
 

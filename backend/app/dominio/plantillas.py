@@ -15,11 +15,16 @@ def _narrativa_plantilla(accion: AccionPais) -> str:
     )
 
 
-def generar_contenido_degradado(respuestas: dict, pais: str) -> dict:
+def generar_contenido_degradado(
+    respuestas: dict, pais: str, nivel_gobierno: str = "municipal", tipo_tramite: str | None = None
+) -> dict:
     """Recorre el catálogo (engine/reglas/*.yaml), evalúa qué brechas aplican para
     estas `respuestas`, y arma el `contenido` con texto de plantilla — nunca decide
-    una acción fuera de lo que ya está en el YAML (docs/plan-implementacion.md, E2)."""
-    catalogo = cargar_catalogo()
+    una acción fuera de lo que ya está en el YAML (docs/plan-implementacion.md, E2).
+
+    `nivel_gobierno`/`tipo_tramite` (Fase A, ambos con default retrocompatible):
+    seleccionan qué carpeta del catálogo usar, ver `reglas_loader.cargar_catalogo`."""
+    catalogo = cargar_catalogo(nivel_gobierno, tipo_tramite)
     brechas = []
     for regla in catalogo.values():
         if not criterio_se_cumple(regla.criterio_deteccion, respuestas):
@@ -39,6 +44,7 @@ def generar_contenido_degradado(respuestas: dict, pais: str) -> dict:
                 "fuente_normativa": accion.fuente_normativa,
                 "narrativa": _narrativa_plantilla(accion),
                 "componente_recomendado": componente_recomendado_para(accion.categoria_catalogo, pais),
+                "requiere_nueva_norma": accion.requiere_nueva_norma,
             }
         )
 

@@ -21,6 +21,19 @@ class Tenant(Base):
     # sección 1) — normalizado (trim + minúsculas) en capa de aplicación, no acá.
     clave: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     pais: Mapped[str] = mapped_column(Enum("mx", "uy", name="pais_enum"), nullable=False)
+    # Ortogonal a `pais` (migración 0018, ver docstring) -- CHECK constraint,
+    # no Enum nativo, mismo motivo que `proveedor_llm_preferido` abajo.
+    # `default` (Python) además de `server_default` (DB): un `Tenant(...)`
+    # construido en memoria sin pasar `nivel_gobierno` (ej. en tests, o en
+    # `crear_gobierno` con el parámetro por defecto) debe quedar en
+    # "municipal" de inmediato, no solo al hacer flush/commit contra la BD.
+    nivel_gobierno: Mapped[str] = mapped_column(String, nullable=False, default="municipal", server_default="municipal")
+
+    # Clave geoestadística INEGI de 5 dígitos (2 entidad + 3 municipio, ej.
+    # "09004" = Cuajimalpa de Morelos) -- migración 0019. Nullable: sin ella,
+    # app/adaptadores/inegi/cliente_inegi.py simplemente no puede sincronizar
+    # (cierra de forma segura, ver ese módulo), y no aplica a nivel_gobierno="federal".
+    clave_geoestadistica: Mapped[str | None] = mapped_column(String(5), nullable=True)
 
     # BYOK (bring your own key, ver migración 0016): cada gobierno trae y paga su
     # propia credencial de IA -- en el despliegue real el operador no deja ninguna

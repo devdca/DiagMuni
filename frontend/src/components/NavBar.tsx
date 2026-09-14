@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import {
   DropdownMenu,
@@ -142,7 +142,7 @@ function MenuMovil() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-secondary lg:hidden"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-[var(--navbar-foreground)] hover:bg-[var(--navbar-bg-hover)] lg:hidden"
         aria-label="Abrir menú de navegación"
       >
         <IconoMenu />
@@ -193,23 +193,28 @@ export function NavBar() {
       <div className="app-navbar-inner">
         <span className="app-navbar-brand">{obtenerNombreGobierno()}</span>
         <div className="app-navbar-links hidden lg:flex">
-          <Link to="/">
+          {/* `end` en "/" -- sin él, NavLink marca activo cualquier ruta (todas
+              empiezan con "/"), no solo Inicio. Las demás no lo necesitan: si
+              el día de mañana hay subrutas (ej. "/seguimiento/algo"), siguen
+              contando como "Seguimiento" activo, que es el comportamiento que
+              se espera de una nav de secciones. */}
+          <NavLink to="/" end className={({ isActive }) => (isActive ? "app-navbar-link-activo" : "")}>
             <IconoInicio />
             Inicio
-          </Link>
-          <Link to="/gobierno/perfil">
+          </NavLink>
+          <NavLink to="/gobierno/perfil" className={({ isActive }) => (isActive ? "app-navbar-link-activo" : "")}>
             <IconoPerfilGobierno />
             Perfil del gobierno
-          </Link>
-          <Link to="/seguimiento">
+          </NavLink>
+          <NavLink to="/seguimiento" className={({ isActive }) => (isActive ? "app-navbar-link-activo" : "")}>
             <IconoSeguimiento />
             Seguimiento
-          </Link>
+          </NavLink>
           {esAdmin() && (
-            <Link to="/admin/usuarios">
+            <NavLink to="/admin/usuarios" className={({ isActive }) => (isActive ? "app-navbar-link-activo" : "")}>
               <IconoAdministracion />
               Administración
-            </Link>
+            </NavLink>
           )}
         </div>
         <div className="flex items-center gap-4">

@@ -27,7 +27,12 @@ def test_timeout_de_pool_durante_una_peticion_real_responde_503(monkeypatch):
     monkeypatch.setattr(deps, "abrir_sesion_tenant", _pool_agotado)
 
     token = create_access_token(
-        usuario_id=uuid4(), tenant_id=uuid4(), rol="funcionario", nombre_gobierno="Prueba", pais="mx"
+        usuario_id=uuid4(),
+        tenant_id=uuid4(),
+        rol="funcionario",
+        nombre_gobierno="Prueba",
+        pais="mx",
+        nivel_gobierno="municipal",
     )
     response = client.get(
         f"/api/tramites/{uuid4()}/diagnostico", headers={"Authorization": f"Bearer {token}"}

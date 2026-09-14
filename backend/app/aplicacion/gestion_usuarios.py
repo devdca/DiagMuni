@@ -27,7 +27,12 @@ from app.models.usuario import ROLES_VALIDOS
 
 EMAIL_VALIDO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 CLAVE_VALIDA = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Clave geoestadística INEGI: 2 dígitos de entidad + 3 de municipio (ej. "09004").
+CLAVE_GEOESTADISTICA_VALIDA = re.compile(r"^\d{5}$")
 PAISES_SOPORTADOS = ("mx", "uy")
+# Ortogonal a PAISES_SOPORTADOS (migración 0018, Fase A de la expansión a los
+# tres órdenes de gobierno) -- "municipal" es el default histórico del producto.
+NIVELES_GOBIERNO_SOPORTADOS = ("municipal", "estatal", "federal")
 
 
 def normalizar_clave(clave: str) -> str:
@@ -51,7 +56,15 @@ def _crear_fila_usuario(
 
 
 def crear_gobierno(
-    db: Session, *, nombre: str, clave: str, pais: str, email: str, nombre_funcionario: str
+    db: Session,
+    *,
+    nombre: str,
+    clave: str,
+    pais: str,
+    email: str,
+    nombre_funcionario: str,
+    nivel_gobierno: str = "municipal",
+    clave_geoestadistica: str | None = None,
 ) -> tuple[Tenant, Usuario, str] | None:
     """Crea un tenant y su primer usuario (rol `admin_gobierno`: alguien tiene que
     poder gestionar el gobierno desde el primer día, sin depender de la CLI para
@@ -68,6 +81,10 @@ def crear_gobierno(
         raise ValueError("El nombre del funcionario no puede estar vacío.")
     if pais not in PAISES_SOPORTADOS:
         raise ValueError(f"País '{pais}' no soportado -- use 'mx' o 'uy'.")
+    if nivel_gobierno not in NIVELES_GOBIERNO_SOPORTADOS:
+        raise ValueError(
+            f"Nivel de gobierno '{nivel_gobierno}' no soportado -- use 'municipal', 'estatal' o 'federal'."
+        )
     if not CLAVE_VALIDA.match(clave):
         raise ValueError(
             f"La clave '{clave}' no es válida -- solo minúsculas, números y guiones simples "
@@ -75,12 +92,23 @@ def crear_gobierno(
         )
     if not EMAIL_VALIDO.match(email):
         raise ValueError(f"El email '{email}' no tiene un formato válido.")
+    if clave_geoestadistica is not None and not CLAVE_GEOESTADISTICA_VALIDA.match(clave_geoestadistica):
+        raise ValueError(
+            f"La clave geoestadística '{clave_geoestadistica}' no es válida -- deben ser "
+            "5 dígitos (2 de entidad + 3 de municipio, ej. '09004')."
+        )
 
     existente = db.execute(select(Tenant).where(Tenant.clave == clave)).scalar_one_or_none()
     if existente is not None:
         return None
 
-    tenant = Tenant(nombre=nombre, clave=clave, pais=pais)
+    tenant = Tenant(
+        nombre=nombre,
+        clave=clave,
+        pais=pais,
+        nivel_gobierno=nivel_gobierno,
+        clave_geoestadistica=clave_geoestadistica,
+    )
     db.add(tenant)
     db.flush()  # tenant no tiene RLS propio -- puede insertarse sin fijar app.tenant_id
 

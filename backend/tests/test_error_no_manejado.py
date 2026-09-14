@@ -29,7 +29,12 @@ def test_error_no_manejado_no_fuga_el_detalle_de_la_excepcion(monkeypatch):
     monkeypatch.setattr(deps, "abrir_sesion_tenant", _falla)
 
     token = create_access_token(
-        usuario_id=uuid4(), tenant_id=uuid4(), rol="funcionario", nombre_gobierno="Prueba", pais="mx"
+        usuario_id=uuid4(),
+        tenant_id=uuid4(),
+        rol="funcionario",
+        nombre_gobierno="Prueba",
+        pais="mx",
+        nivel_gobierno="municipal",
     )
     response = client.get(
         f"/api/tramites/{uuid4()}/diagnostico", headers={"Authorization": f"Bearer {token}"}
@@ -55,7 +60,12 @@ def test_pool_agotado_sigue_teniendo_prioridad_sobre_el_catch_all(monkeypatch):
     monkeypatch.setattr(deps, "abrir_sesion_tenant", _pool_agotado)
 
     token = create_access_token(
-        usuario_id=uuid4(), tenant_id=uuid4(), rol="funcionario", nombre_gobierno="Prueba", pais="mx"
+        usuario_id=uuid4(),
+        tenant_id=uuid4(),
+        rol="funcionario",
+        nombre_gobierno="Prueba",
+        pais="mx",
+        nivel_gobierno="municipal",
     )
     response = client.get(
         f"/api/tramites/{uuid4()}/diagnostico", headers={"Authorization": f"Bearer {token}"}

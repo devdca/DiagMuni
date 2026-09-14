@@ -58,7 +58,9 @@ def login(payload: LoginRequest, request: Request) -> TokenResponse:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Las credenciales no coinciden")
 
         registrar_login(db, usuario)
-        token = create_access_token(usuario.id, usuario.tenant_id, usuario.rol, tenant.nombre, tenant.pais)
+        token = create_access_token(
+            usuario.id, usuario.tenant_id, usuario.rol, tenant.nombre, tenant.pais, tenant.nivel_gobierno
+        )
         db.commit()
     finally:
         db.close()

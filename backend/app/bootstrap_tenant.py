@@ -7,6 +7,11 @@ Uso:
   python -m app.bootstrap_tenant crear-gobierno --nombre "Ayuntamiento de Querétaro" \
     --clave queretaro --pais mx --email maria.perez@queretaro.gob.mx \
     --nombre-funcionario "María Pérez"
+  # --nivel-gobierno es opcional (default: municipal) -- estatal/federal, Fase A
+  # de la expansión a los tres órdenes de gobierno:
+  python -m app.bootstrap_tenant crear-gobierno --nombre "Secretaría de Ejemplo" \
+    --clave sat-piloto --pais mx --nivel-gobierno federal \
+    --email admin@ejemplo.gob.mx --nombre-funcionario "Admin Piloto"
   python -m app.bootstrap_tenant agregar-funcionario --clave queretaro \
     --email juan.gonzalez@queretaro.gob.mx --nombre "Juan González"
   python -m app.bootstrap_tenant resetear-password --clave queretaro \
@@ -27,6 +32,7 @@ import argparse
 import sys
 
 from app.aplicacion.gestion_usuarios import (
+    NIVELES_GOBIERNO_SOPORTADOS,
     PAISES_SOPORTADOS,
     agregar_funcionario,
     crear_gobierno,
@@ -56,6 +62,8 @@ def _comando_crear_gobierno(args: argparse.Namespace) -> int:
             pais=args.pais,
             email=args.email,
             nombre_funcionario=args.nombre_funcionario,
+            nivel_gobierno=args.nivel_gobierno,
+            clave_geoestadistica=args.clave_geoestadistica,
         )
         if resultado is None:
             db.rollback()
@@ -150,6 +158,20 @@ def main() -> int:
     crear.add_argument("--nombre", required=True, help="Nombre del gobierno (municipio o intendencia).")
     crear.add_argument("--clave", required=True, help="Identificador corto único que el funcionario usa en login.")
     crear.add_argument("--pais", required=True, choices=list(PAISES_SOPORTADOS))
+    crear.add_argument(
+        "--nivel-gobierno",
+        dest="nivel_gobierno",
+        default="municipal",
+        choices=list(NIVELES_GOBIERNO_SOPORTADOS),
+        help="Nivel de gobierno (default: municipal).",
+    )
+    crear.add_argument(
+        "--clave-geoestadistica",
+        dest="clave_geoestadistica",
+        default=None,
+        help="Clave INEGI de 5 dígitos (entidad+municipio, ej. '09004') -- habilita "
+        "la sincronización de población con INEGI. Opcional.",
+    )
     crear.add_argument("--email", required=True, help="Email del primer usuario (rol administrador).")
     crear.add_argument("--nombre-funcionario", required=True, dest="nombre_funcionario")
     crear.set_defaults(func=_comando_crear_gobierno)

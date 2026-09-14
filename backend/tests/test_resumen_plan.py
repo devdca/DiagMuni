@@ -1,4 +1,5 @@
 from app.dominio.resumen_plan import (
+    calcular_factibilidad,
     calcular_orden_sugerido,
     calcular_progreso_historico,
     calcular_resumen_inversion,
@@ -125,3 +126,54 @@ def test_progreso_historico_sin_version_anterior_no_hay_resueltas_ni_persistente
     progreso = calcular_progreso_historico([{"variable": "motor_pagos"}], [])
 
     assert progreso == {"brechas_resueltas": [], "brechas_nuevas": ["motor_pagos"], "brechas_persistentes": []}
+
+
+# --- Fase A: calcular_factibilidad ------------------------------------------------------
+
+
+def test_factibilidad_requiere_nueva_norma_gana_sobre_cualquier_costo():
+    brecha = {"requiere_nueva_norma": True, "componente_recomendado": _COMPONENTE_B}
+    respuestas = {"presupuesto_tic_anual": 1_000_000, "poblacion_total": 5_000}
+
+    assert calcular_factibilidad(brecha, respuestas) == "nueva_norma"
+
+
+def test_factibilidad_config_existente_sin_componente_recomendado():
+    brecha = _brecha("a", componente=None)
+    respuestas = {"presupuesto_tic_anual": 100_000, "poblacion_total": 50_000}
+
+    assert calcular_factibilidad(brecha, respuestas) == "config_existente"
+
+
+def test_factibilidad_config_existente_sin_presupuesto_tic_anual_capturado():
+    brecha = _brecha("a", componente=_COMPONENTE_B)
+
+    assert calcular_factibilidad(brecha, {}) == "config_existente"
+
+
+def test_factibilidad_config_existente_bajo_el_umbral():
+    # _COMPONENTE_B: implementacion 500.00 + licenciamiento 0 = 500.00 de costo.
+    # Presupuesto 100,000 * umbral 0.10 (bracket 20k-100k) = 10,000 -- 500 no lo supera.
+    brecha = _brecha("a", componente=_COMPONENTE_B)
+    respuestas = {"presupuesto_tic_anual": 100_000, "poblacion_total": 50_000}
+
+    assert calcular_factibilidad(brecha, respuestas) == "config_existente"
+
+
+def test_factibilidad_presupuesto_extraordinario_sobre_el_umbral():
+    # Mismo costo (500.00), presupuesto mucho menor: 1,000 * 0.10 = 100 -- 500 sí lo supera.
+    brecha = _brecha("a", componente=_COMPONENTE_B)
+    respuestas = {"presupuesto_tic_anual": 1_000, "poblacion_total": 50_000}
+
+    assert calcular_factibilidad(brecha, respuestas) == "presupuesto_extraordinario"
+
+
+def test_factibilidad_sin_poblacion_usa_el_bracket_mas_tolerante():
+    # Sin poblacion_total: bracket más tolerante (0.15). Presupuesto 1,000 * 0.15 =
+    # 150 -- el costo de 500.00 igual lo supera, pero con un presupuesto mayor
+    # (4,000 * 0.15 = 600) ya no lo supera, a diferencia de si cayera en el
+    # bracket más estricto (0.05, que sí lo marcaría extraordinario: 4,000*0.05=200).
+    brecha = _brecha("a", componente=_COMPONENTE_B)
+    respuestas = {"presupuesto_tic_anual": 4_000}
+
+    assert calcular_factibilidad(brecha, respuestas) == "config_existente"

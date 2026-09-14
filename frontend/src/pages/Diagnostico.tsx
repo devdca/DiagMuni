@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { clasificarConsistenciaBooleana, clasificarMecanismoIdentidad } from "@/lib/asistenteCapturaApi";
+import { registrarCorreccionIa } from "@/lib/correccionIaApi";
 import {
   enviarDiagnostico,
   guardarDiagnostico,
@@ -20,7 +21,7 @@ import { ApiError } from "@/lib/httpClient";
 import { obtenerNivelMadurez } from "@/lib/madurez";
 import { cn } from "@/lib/utils";
 import { planListo } from "@/lib/planApi";
-import { obtenerPais } from "@/lib/session";
+import { obtenerNivelGobierno, obtenerPais } from "@/lib/session";
 import { obtenerTiposTramite, obtenerTramite } from "@/lib/tramitesApi";
 
 // Cuestionario de captura (F1 producto), docs/ux-brief.md sección "3. Cuestionario
@@ -201,18 +202,46 @@ const OPCION_OTRO = "otro";
 const ETIQUETA_MECANISMO: Record<string, string> = {
   llave_mx: "Llave MX",
   id_uruguay: "ID Uruguay",
+  // Fase A (expansión a los 3 órdenes de gobierno): mecanismos verificados
+  // contra fuente oficial, distintos de Llave MX -- ver
+  // backend/app/dominio/reglas/federal/sat_rfc/identidad_acceso.yaml y
+  // backend/app/dominio/reglas/estatal/identidad_acceso.yaml.
+  e_firma_sat: "e.firma / Contraseña del SAT",
+  propio_estatal_interoperable: "Mecanismo propio de la entidad federativa (interoperable con Llave MX)",
   propio: "Un mecanismo propio de este gobierno",
   ninguno: "Ninguno",
 };
 
-function opcionesMecanismo(pais: string | null): { valor: string; etiqueta: string }[] {
+function opcionesMecanismo(pais: string | null, nivel: string | null): { valor: string; etiqueta: string }[] {
   const opciones: { valor: string; etiqueta: string }[] = [];
   if (pais === "mx") opciones.push({ valor: "llave_mx", etiqueta: ETIQUETA_MECANISMO.llave_mx });
   if (pais === "uy") opciones.push({ valor: "id_uruguay", etiqueta: ETIQUETA_MECANISMO.id_uruguay });
+  // Fase A: opciones adicionales verificadas por nivel de gobierno -- e.firma
+  // del SAT es un sistema distinto de Llave MX (sin integración confirmada),
+  // por eso es una opción aparte y no un caso de "llave_mx" a nivel federal.
+  if (nivel === "federal") {
+    opciones.push({ valor: "e_firma_sat", etiqueta: ETIQUETA_MECANISMO.e_firma_sat });
+  }
+  if (nivel === "estatal") {
+    opciones.push({
+      valor: "propio_estatal_interoperable",
+      etiqueta: ETIQUETA_MECANISMO.propio_estatal_interoperable,
+    });
+  }
   opciones.push({ valor: "propio", etiqueta: ETIQUETA_MECANISMO.propio });
   opciones.push({ valor: "ninguno", etiqueta: ETIQUETA_MECANISMO.ninguno });
   opciones.push({ valor: OPCION_OTRO, etiqueta: "Otro, especifique" });
   return opciones;
+}
+
+// Fase A: `interoperabilidad` cambia de redacción por nivel de gobierno --
+// mismo patrón ya usado en GobiernoPerfil.tsx (preguntaAutoridadGobernanza).
+// `null`/"municipal" usa el texto original de PREGUNTAS_BOOLEANAS, sin cambio.
+function textoInteroperabilidad(nivel: string | null): string | null {
+  if (nivel === "federal") {
+    return "¿Este trámite comparte información automáticamente entre dependencias de la misma administración pública federal?";
+  }
+  return null;
 }
 
 type ValoresBooleanos = Record<IdBooleano, boolean | null>;
@@ -533,6 +562,7 @@ function CardTramiteConcurrente({
 
 function CardMecanismoIdentidad({
   pais,
+  nivel,
   seleccion,
   aclaracion,
   sugerencia,
@@ -545,6 +575,7 @@ function CardMecanismoIdentidad({
   onDescartarSugerencia,
 }: {
   pais: string | null;
+  nivel: string | null;
   seleccion: string | null;
   aclaracion: string;
   sugerencia: string | null;
@@ -556,7 +587,7 @@ function CardMecanismoIdentidad({
   onConfirmarSugerencia: () => void;
   onDescartarSugerencia: () => void;
 }) {
-  const opciones = opcionesMecanismo(pais);
+  const opciones = opcionesMecanismo(pais, nivel);
   const esOtro = seleccion === OPCION_OTRO;
 
   return (
@@ -619,11 +650,36 @@ function CardMecanismoIdentidad({
           </div>
         )}
 
+        {/* QA (ronda 2, hallazgo #2; re-verificado en ronda 3): "Otro,
+            especifique" nunca puede quedar como valor final -- el motor de
+            reglas necesita uno de los 4 mecanismos reales (backend/app/
+            schemas/diagnostico.py::MECANISMOS_IDENTIDAD_VALIDOS), "otro"
+            nunca fue un valor almacenable (docs/ux-brief.md línea 71); esto
+            es una regla de producto, no el bug. El RadioGroup de arriba
+            sigue seleccionable en todo momento como salida.
+            Lo que sí era un bug real (ronda 3): el botón de un clic
+            ofrecía SIEMPRE "propio", sin importar qué describió el
+            funcionario -- para una descripción como "muestra su credencial
+            física en ventanilla, no hay nada digital" la respuesta correcta
+            es "ninguno", no "propio", y el botón sugería la equivocada.
+            Ahora se ofrecen las dos salidas de un clic (propio/ninguno) y el
+            funcionario elige cuál describe su caso -- nunca se adivina por
+            él cuál es la correcta. */}
         {esOtro && !sugerencia && !clasificando && errorClasificacion && (
-          <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm">
-            No pudimos determinar automáticamente a qué opción corresponde su descripción. Seleccione una de las
-            opciones de la lista de arriba para poder enviar el diagnóstico.
-          </p>
+          <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm">
+            <p>
+              No pudimos determinar automáticamente a qué opción corresponde su descripción. Elija la que más se
+              parezca de la lista de arriba, o use una de las sugerencias de abajo.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => onCambiarSeleccion("ninguno")}>
+                Marcar como "{ETIQUETA_MECANISMO.ninguno}"
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => onCambiarSeleccion("propio")}>
+                Marcar como "{ETIQUETA_MECANISMO.propio}"
+              </Button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -691,12 +747,27 @@ function PanelProyeccion({ simulacion, cargando }: { simulacion: SimulacionRespo
   );
 }
 
+// 409 (el plan de este trámite todavía se está generando) y 429 (cooldown del
+// endpoint de envío) traen un `detail` en lenguaje llano y accionable, distinto
+// para cada caso -- el genérico "intenta de nuevo" es además mal consejo para
+// un 429, donde reintentar de inmediato vuelve a fallar. Función de módulo
+// (no local al componente) a propósito -- es pura, sin depender de ningún
+// estado del componente, y así se puede probar directo sin renderizar nada
+// (ver Diagnostico.test.tsx).
+export function mensajeDeError(error: unknown): string {
+  if (error instanceof ApiError && (error.status === 409 || error.status === 429)) {
+    return error.message;
+  }
+  return "No se pudo completar la operación. Intenta de nuevo.";
+}
+
 // --- Pantalla principal --------------------------------------------------------------
 
 export function Diagnostico() {
   const { tramiteId } = useParams<{ tramiteId: string }>();
   const navigate = useNavigate();
   const pais = obtenerPais();
+  const nivel = obtenerNivelGobierno();
 
   const [valores, setValores] = useState<ValoresBooleanos>(VALORES_INICIALES);
   const [aclaraciones, setAclaraciones] = useState<Aclaraciones>({});
@@ -716,6 +787,16 @@ export function Diagnostico() {
   const [mecanismoSugerencia, setMecanismoSugerencia] = useState<string | null>(null);
   const [clasificandoMecanismo, setClasificandoMecanismo] = useState(false);
   const [mecanismoErrorClasificacion, setMecanismoErrorClasificacion] = useState(false);
+  // Bitácora de correcciones IA (correccion_ia): se arma cuando el funcionario
+  // descarta la sugerencia del clasificador de "Otro, especifique" ("Elegir
+  // manualmente") -- todavía no sabemos la respuesta correcta en ese momento,
+  // solo que la sugerida está mal. Se registra la corrección real en cuanto
+  // elige un mecanismo distinto de "otro" (ver onCambiarSeleccion abajo), y se
+  // limpia sin registrar nada si vuelve a "otro" sin llegar a elegir.
+  const [correccionPendienteMecanismo, setCorreccionPendienteMecanismo] = useState<{
+    entrada: string;
+    salida: string;
+  } | null>(null);
 
   const [esperandoPlan, setEsperandoPlan] = useState(false);
 
@@ -907,17 +988,6 @@ export function Diagnostico() {
     return respuestas;
   }
 
-  // 409 (el plan de este trámite todavía se está generando) y 429 (cooldown del
-  // endpoint de envío) traen un `detail` en lenguaje llano y accionable, distinto
-  // para cada caso -- el genérico "intenta de nuevo" es además mal consejo para
-  // un 429, donde reintentar de inmediato vuelve a fallar.
-  function mensajeDeError(error: unknown): string {
-    if (error instanceof ApiError && (error.status === 409 || error.status === 429)) {
-      return error.message;
-    }
-    return "No se pudo completar la operación. Intenta de nuevo.";
-  }
-
   const guardarMutacion = useMutation({
     mutationFn: () => guardarDiagnostico(tramiteId!, construirRespuestas()),
     onSuccess: () => navigate("/"),
@@ -940,7 +1010,7 @@ export function Diagnostico() {
         categoria === "posible_contradiccion_hacia_si" || categoria === "posible_contradiccion_hacia_no";
       setSugerencias((prev) => ({ ...prev, [id]: esSugerenciaDeContradiccion ? categoria : null }));
     } catch {
-      // Fail-safe: sin sugerencia visible, la aclaración ya quedó guardada como
+      // Respaldo seguro: sin sugerencia visible, la aclaración ya quedó guardada como
       // texto de apoyo -- mismo comportamiento que si la clasificación no existiera.
       setSugerencias((prev) => ({ ...prev, [id]: null }));
     } finally {
@@ -1030,7 +1100,11 @@ export function Diagnostico() {
           {preguntas.map((definicion) => (
             <CardBooleana
               key={definicion.id}
-              definicion={definicion}
+              definicion={
+                definicion.id === "interoperabilidad" && textoInteroperabilidad(nivel)
+                  ? { ...definicion, pregunta: textoInteroperabilidad(nivel) as string }
+                  : definicion
+              }
               valor={valores[definicion.id]}
               aclaracion={aclaraciones[definicion.id] ?? ""}
               sugerencia={sugerencias[definicion.id]}
@@ -1048,7 +1122,27 @@ export function Diagnostico() {
                 }
                 setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
               }}
-              onDescartarSugerencia={() => setSugerencias((prev) => ({ ...prev, [definicion.id]: null }))}
+              onDescartarSugerencia={() => {
+                // Bitácora de correcciones IA -- a diferencia de mecanismo_identidad
+                // (2 pasos, porque "otro" no tiene valor determinado hasta que el
+                // funcionario elige), acá el valor "correcto" ya se conoce en el
+                // momento de descartar: es el que ya tenía marcado (el funcionario
+                // dice "no, mi valor original es el consistente", desmintiendo la
+                // sugerencia de contradicción). Se registra de inmediato, sin estado
+                // pendiente. Mismo criterio de "nunca bloquea el flujo principal" que
+                // el resto de esta pantalla.
+                const sugerencia = sugerencias[definicion.id];
+                if (sugerencia) {
+                  registrarCorreccionIa({
+                    pieza: "consistencia_booleana",
+                    entrada_llm: aclaraciones[definicion.id] ?? "",
+                    salida_llm: sugerencia,
+                    correccion: "consistente",
+                    tramite_id: tramiteId,
+                  }).catch(() => {});
+                }
+                setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
+              }}
             />
           ))}
         </div>
@@ -1077,6 +1171,7 @@ export function Diagnostico() {
 
       <CardMecanismoIdentidad
         pais={pais}
+        nivel={nivel}
         seleccion={mecanismoSeleccion}
         aclaracion={mecanismoAclaracion}
         sugerencia={mecanismoSugerencia}
@@ -1086,6 +1181,20 @@ export function Diagnostico() {
           setMecanismoSeleccion(valor);
           setMecanismoSugerencia(null);
           setMecanismoErrorClasificacion(false);
+          if (correccionPendienteMecanismo && valor !== OPCION_OTRO) {
+            registrarCorreccionIa({
+              pieza: "mecanismo_identidad",
+              entrada_llm: correccionPendienteMecanismo.entrada,
+              salida_llm: correccionPendienteMecanismo.salida,
+              correccion: valor,
+              tramite_id: tramiteId,
+            }).catch(() => {
+              // Telemetría de apoyo -- un fallo acá nunca debe interrumpir la
+              // captura del diagnóstico (mismo criterio que el resto de esta
+              // pantalla con llamadas no esenciales, ej. el simulador).
+            });
+            setCorreccionPendienteMecanismo(null);
+          }
         }}
         onCambiarAclaracion={(texto) => {
           setMecanismoAclaracion(texto);
@@ -1095,8 +1204,14 @@ export function Diagnostico() {
         onConfirmarSugerencia={() => {
           if (mecanismoSugerencia) setMecanismoSeleccion(mecanismoSugerencia);
           setMecanismoSugerencia(null);
+          setCorreccionPendienteMecanismo(null);
         }}
-        onDescartarSugerencia={() => setMecanismoSugerencia(null)}
+        onDescartarSugerencia={() => {
+          if (mecanismoSugerencia) {
+            setCorreccionPendienteMecanismo({ entrada: mecanismoAclaracion, salida: mecanismoSugerencia });
+          }
+          setMecanismoSugerencia(null);
+        }}
       />
 
       {(guardarMutacion.isError || enviarMutacion.isError) && (

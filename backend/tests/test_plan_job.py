@@ -365,7 +365,7 @@ class _SesionEspia:
     """Sesión mínima que registra `commit` -- extendida (sin cambiar el uso existente
     en los tests de `revisar_job_obsoleto` de este archivo, que solo pasan `orden`)
     para registrar `.add()` y admitir `.get()`/`.execute()`/`.flush()`/`.close()` como
-    no-op o devolviendo los objetos de prueba fijados en el constructor -- suficiente
+    sin hacer nada, o devolviendo los objetos de prueba fijados en el constructor -- suficiente
     para ejercitar `_persistir_plan_degradado` y `ejecutar_generacion_plan` completos
     sin ninguna infraestructura de Postgres real."""
 
@@ -512,7 +512,7 @@ def _diagnostico_de_prueba(diagnostico_id: UUID, tenant_id: UUID, tramite_id: UU
 
 
 def _tenant_de_prueba(tenant_id: UUID) -> Tenant:
-    return Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
+    return Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx", nivel_gobierno="municipal")
 
 
 def _verificar_acciones_creadas_una_por_brecha(db: _SesionEspia, tenant_id: UUID) -> None:
