@@ -17,6 +17,7 @@ const buttonVariants = cva(
         outline: "border border-input bg-background hover:bg-secondary",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-secondary hover:text-secondary-foreground",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
       },
       size: {
         default: "h-10 px-4 py-2 min-h-[44px]", // objetivo de toque >= 44px, docs/ux-brief.md "Accesibilidad"

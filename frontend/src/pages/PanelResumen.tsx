@@ -121,13 +121,41 @@ function AccionTramite({ tramite }: { tramite: TramiteResponse }) {
   return <span className="text-sm text-atenuado">Generando plan de modernización...</span>;
 }
 
+// QA (ronda 2, hallazgo #4): "Eliminar" no disparaba ninguna petición --
+// `window.confirm` es un diálogo nativo y bloqueante del navegador; bajo
+// automatización/testing (y en algunos entornos con restricciones del propio
+// navegador) nunca llega a mostrarse y el clic que lo dispara queda "sin
+// efecto" desde afuera, indistinguible de un botón roto. Confirmación inline
+// de dos pasos en su lugar -- nunca depende de una API del navegador que
+// pueda no estar disponible, y es un `<button>` normal de principio a fin.
+function BotonEliminar({ tramite, disabled, onEliminar }: { tramite: TramiteResponse; disabled: boolean; onEliminar: () => void }) {
+  const [confirmando, setConfirmando] = useState(false);
+
+  if (confirmando) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-atenuado">¿Eliminar "{tramite.nombre}"?</span>
+        <Button size="sm" variant="destructive" disabled={disabled} onClick={onEliminar}>
+          Sí, eliminar
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setConfirmando(false)}>
+          Cancelar
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button size="sm" variant="outline" disabled={disabled} onClick={() => setConfirmando(true)}>
+      Eliminar
+    </Button>
+  );
+}
+
 // Gestión de un trámite: eliminar (borrado físico, backend/app/api/tramites.py
 // solo lo permite si `completado_en` es null -- mismo campo que ya trae
 // TramiteResponse, sin duplicar esa regla en el frontend) o archivar/desarchivar
-// (reversible, oculta del panel sin borrar nada). `window.confirm` en vez de un
-// modal propio -- no existe un componente de diálogo en el kit de UI todavía y el
-// resto de este panel ya sigue el criterio de "sin metodologías pesadas"
-// (docs/ux-brief.md) para lo que no lo necesita.
+// (reversible, oculta del panel sin borrar nada).
 function AccionesGestion({ tramite, archivados }: { tramite: TramiteResponse; archivados: boolean }) {
   const queryClient = useQueryClient();
   const invalidar = () => void queryClient.invalidateQueries({ queryKey: ["panel-resumen"] });
@@ -152,18 +180,11 @@ function AccionesGestion({ tramite, archivados }: { tramite: TramiteResponse; ar
   return (
     <div className="flex justify-end gap-2">
       {tramite.completado_en === null && (
-        <Button
-          size="sm"
-          variant="outline"
+        <BotonEliminar
+          tramite={tramite}
           disabled={eliminarMutacion.isPending}
-          onClick={() => {
-            if (window.confirm(`¿Eliminar el trámite "${tramite.nombre}"? Esta acción no se puede deshacer.`)) {
-              eliminarMutacion.mutate(tramite.id);
-            }
-          }}
-        >
-          Eliminar
-        </Button>
+          onEliminar={() => eliminarMutacion.mutate(tramite.id)}
+        />
       )}
       <Button
         size="sm"
@@ -228,6 +249,12 @@ function FormularioNuevoTramite({
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Ej. Licencia de funcionamiento"
+          // QA (ronda 2, hallazgo #6): sin tope, un nombre larguísimo rompía
+          // visualmente la tabla de trámites catalogados. 150 alcanza de sobra
+          // para cualquier nombre real de trámite; el backend (TramiteCreate)
+          // pone el mismo tope como fuente de verdad real, esto es solo para
+          // que el funcionario lo note al escribir, no al enviar.
+          maxLength={150}
           required
         />
       </div>
@@ -421,16 +448,33 @@ export function PanelResumen() {
 
           <Card>
             <CardContent className="flex flex-col gap-2 pt-6">
-              <p className="text-xs font-semibold tracking-wide text-atenuado uppercase">Acciones atrasadas</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold tabular-nums" style={{ color: "var(--semaforo-atrasado)" }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold tracking-wide text-atenuado uppercase">Acciones atrasadas</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tabular-nums" style={{ color: "var(--semaforo-atrasado)" }}>
+                      {accionesAtrasadas.length}
+                    </span>
+                    <span className="text-sm text-muted-foreground">de {accionesActivas.length} activas</span>
+                  </div>
+                  <Link to="/seguimiento" className="text-sm font-semibold text-primary">
+                    Ver en seguimiento →
+                  </Link>
+                </div>
+                {/* Círculo decorativo (aria-hidden) -- mismo dato ya mostrado como
+                    texto a la izquierda, nunca la única forma de leerlo (docs/
+                    ux-brief.md, mismo criterio que AnilloAvance/BadgeIndice). */}
+                <span
+                  aria-hidden
+                  className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold tabular-nums"
+                  style={{
+                    borderColor: "var(--semaforo-atrasado)",
+                    color: "var(--semaforo-atrasado)",
+                  }}
+                >
                   {accionesAtrasadas.length}
                 </span>
-                <span className="text-sm text-muted-foreground">de {accionesActivas.length} activas</span>
               </div>
-              <Link to="/seguimiento" className="text-sm font-semibold text-primary">
-                Ver en seguimiento →
-              </Link>
             </CardContent>
           </Card>
         </div>

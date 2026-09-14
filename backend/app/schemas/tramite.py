@@ -1,13 +1,18 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.dominio.tipos_tramite_loader import cargar_tipos_tramite
 
 
 class TramiteCreate(BaseModel):
-    nombre: str
+    # QA (ronda 2, hallazgo #6): sin tope, la API aceptaba un nombre de 940
+    # caracteres que rompía visualmente la tabla del panel -- sin riesgo de
+    # seguridad (React ya escapa el texto), pero sin ningún límite razonable
+    # tampoco. 150 es la fuente de verdad real; el frontend (PanelResumen.tsx)
+    # pone el mismo tope solo para avisar al escribir, no al enviar.
+    nombre: str = Field(min_length=1, max_length=150)
     descripcion: str = ""
     tipo: str = "generico"
 

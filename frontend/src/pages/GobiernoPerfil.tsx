@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -19,7 +20,9 @@ import {
   type SiNoSoloAlgunos,
   guardarContextoInstitucional,
   obtenerContextoInstitucional,
+  sincronizarPoblacionInegi,
 } from "@/lib/gobiernoContextoApi";
+import { ApiError } from "@/lib/httpClient";
 import { obtenerPais } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -158,12 +161,26 @@ function CampoBooleano({
   );
 }
 
+// QA (ronda 2, hallazgo #5): un valor fuera de rango (ej. población -500, o
+// -- para CampoPorcentajeConBandera de abajo -- un porcentaje de 150) se
+// descartaba en el `onBlur` sin decir nada: ni error visible, ni el campo se
+// revertía, ni el valor inválido se guardaba -- el funcionario veía su "150"
+// seguir ahí como si se hubiera guardado, y solo se enteraba de que nunca se
+// guardó si recargaba la página semanas después. `min`/`max` ahora son props
+// reales (antes `min={0}` estaba fijo a mano y el tope superior, cuando
+// existía, vivía suelto en el `onGuardar` del llamador -- ver
+// ingresos_propios_porcentaje más abajo, que además nunca tuvo el atributo
+// HTML `max`). El mensaje de error se muestra junto al campo y se limpia en
+// cuanto el funcionario vuelve a escribir -- nunca se guarda ni se descarta
+// en silencio.
 function CampoNumerico({
   etiqueta,
   ayuda,
   valorInicial,
   guardando,
   error,
+  min = 0,
+  max,
   onGuardar,
 }: {
   etiqueta: string;
@@ -171,32 +188,53 @@ function CampoNumerico({
   valorInicial: string;
   guardando: boolean;
   error: boolean;
+  min?: number;
+  max?: number;
   onGuardar: (valor: number) => void;
 }) {
   const [valor, setValor] = useState(valorInicial);
+  const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
   useEffect(() => {
     setValor(valorInicial);
+    setErrorValidacion(null);
   }, [valorInicial]);
+
+  function validar(numero: number): string | null {
+    if (!Number.isFinite(numero)) return "Escribe un número válido.";
+    if (numero < min) return `El valor mínimo es ${min}.`;
+    if (max !== undefined && numero > max) return `El valor máximo es ${max}.`;
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium">{etiqueta}</label>
       <Input
         type="number"
-        min={0}
+        min={min}
+        max={max}
         inputMode="numeric"
         value={valor}
-        onChange={(e) => setValor(e.target.value)}
+        aria-invalid={errorValidacion !== null}
+        onChange={(e) => {
+          setValor(e.target.value);
+          if (errorValidacion) setErrorValidacion(null);
+        }}
         onBlur={() => {
+          if (valor.trim() === "" || valor === valorInicial) return;
           const numero = Number(valor);
-          if (valor.trim() !== "" && Number.isFinite(numero) && numero >= 0 && valor !== valorInicial) {
-            onGuardar(numero);
+          const mensaje = validar(numero);
+          if (mensaje) {
+            setErrorValidacion(mensaje);
+            return;
           }
+          onGuardar(numero);
         }}
         className="sm:w-64"
       />
       {ayuda && <p className="text-xs text-atenuado">{ayuda}</p>}
+      {errorValidacion && <p className="text-xs text-destructive">{errorValidacion}</p>}
       <EstadoGuardado guardando={guardando} error={error} />
     </div>
   );
@@ -310,30 +348,48 @@ function CampoPorcentajeConBandera({
   onCambiarBandera: (valor: boolean) => void;
 }) {
   const [valor, setValor] = useState(valorInicial);
+  const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
   useEffect(() => {
     setValor(valorInicial);
+    setErrorValidacion(null);
   }, [valorInicial]);
 
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium">{etiqueta}</label>
       {!bandera && (
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          inputMode="numeric"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          onBlur={() => {
-            const numero = Number(valor);
-            if (valor.trim() !== "" && Number.isFinite(numero) && numero >= 0 && numero <= 100 && valor !== valorInicial) {
+        <>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            inputMode="numeric"
+            value={valor}
+            aria-invalid={errorValidacion !== null}
+            onChange={(e) => {
+              setValor(e.target.value);
+              if (errorValidacion) setErrorValidacion(null);
+            }}
+            onBlur={() => {
+              // Mismo criterio que CampoNumerico -- ver su comentario: nunca
+              // descartar en silencio, siempre decir por qué no se guardó.
+              if (valor.trim() === "" || valor === valorInicial) return;
+              const numero = Number(valor);
+              if (!Number.isFinite(numero)) {
+                setErrorValidacion("Escribe un número válido.");
+                return;
+              }
+              if (numero < 0 || numero > 100) {
+                setErrorValidacion("Escribe un número de 0 a 100.");
+                return;
+              }
               onGuardarValor(numero);
-            }
-          }}
-          className="sm:w-64"
-        />
+            }}
+            className="sm:w-64"
+          />
+          {errorValidacion && <p className="text-xs text-destructive">{errorValidacion}</p>}
+        </>
       )}
       <label className="flex items-center gap-2 text-xs text-atenuado">
         <input type="checkbox" checked={bandera} onChange={(e) => onCambiarBandera(e.target.checked)} />
@@ -351,6 +407,11 @@ export function GobiernoPerfil() {
   const inicializadoRef = useRef(false);
 
   const [poblacionTotal, setPoblacionTotal] = useState("");
+  // Migración 0019 -- de dónde salió `poblacion_total`: badge "Fuente: INEGI"
+  // solo cuando vino del botón de sincronización, nunca cuando el funcionario
+  // lo escribió a mano (backend/app/aplicacion/sincronizacion_inegi.py).
+  const [poblacionTotalFuente, setPoblacionTotalFuente] = useState<ContextoInstitucionalResponse["poblacion_total_fuente"]>(null);
+  const [errorInegi, setErrorInegi] = useState<string | null>(null);
   const [personalTotalGobierno, setPersonalTotalGobierno] = useState("");
   const [presupuestoTicAnual, setPresupuestoTicAnual] = useState("");
   const [presupuestoTotalAnual, setPresupuestoTotalAnual] = useState("");
@@ -422,6 +483,7 @@ export function GobiernoPerfil() {
   // pisar una edición en curso (nada dispara esto mientras el usuario solo escribe).
   function aplicarDatos(datos: ContextoInstitucionalResponse) {
     if (datos.poblacion_total !== null) setPoblacionTotal(String(datos.poblacion_total));
+    setPoblacionTotalFuente(datos.poblacion_total_fuente);
     if (datos.personal_total_gobierno !== null) setPersonalTotalGobierno(String(datos.personal_total_gobierno));
     if (datos.presupuesto_tic_anual !== null) setPresupuestoTicAnual(String(datos.presupuesto_tic_anual));
     if (datos.presupuesto_total_anual !== null) setPresupuestoTotalAnual(String(datos.presupuesto_total_anual));
@@ -496,6 +558,24 @@ export function GobiernoPerfil() {
     });
   }
 
+  // Botón "Sincronizar con INEGI" -- trae `poblacion_total` real desde la API de
+  // Indicadores de INEGI (backend/app/adaptadores/inegi/), en vez de que el
+  // funcionario lo escriba a mano. El backend responde 422 con un `detail` en
+  // lenguaje llano si el gobierno no tiene `clave_geoestadistica` configurada o
+  // si INEGI no está disponible -- ese texto ya viene listo para mostrar tal
+  // cual (mismo criterio que `ApiError.message` en el resto de la app).
+  const sincronizarInegiMutacion = useMutation({
+    mutationFn: sincronizarPoblacionInegi,
+    onSuccess: (respuesta: ContextoInstitucionalResponse) => {
+      setErrorInegi(null);
+      queryClient.setQueryData(["gobierno-contexto"], respuesta);
+      aplicarDatos(respuesta);
+    },
+    onError: (error: unknown) => {
+      setErrorInegi(error instanceof ApiError ? error.message : "No se pudo sincronizar con INEGI.");
+    },
+  });
+
   if (contextoQuery.isLoading) {
     return (
       <div className="mx-auto max-w-3xl p-6">
@@ -529,6 +609,23 @@ export function GobiernoPerfil() {
               guardarCampo("poblacion_total", { poblacion_total: valor });
             }}
           />
+          <div className="-mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={sincronizarInegiMutacion.isPending}
+              onClick={() => sincronizarInegiMutacion.mutate()}
+            >
+              {sincronizarInegiMutacion.isPending ? "Sincronizando..." : "Sincronizar con INEGI"}
+            </Button>
+            {poblacionTotalFuente === "inegi_api" && (
+              <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-xs text-atenuado">
+                Fuente: INEGI
+              </span>
+            )}
+          </div>
+          {errorInegi && <p className="-mt-2 text-xs text-destructive">{errorInegi}</p>}
           <CampoNumerico
             etiqueta="¿Cuál es el total de personal del gobierno local (todas las áreas, no solo el trámite)?"
             valorInicial={personalTotalGobierno}
@@ -577,8 +674,8 @@ export function GobiernoPerfil() {
             valorInicial={ingresosPropiosPorcentaje}
             guardando={campoGuardando === "ingresos_propios_porcentaje"}
             error={campoConError === "ingresos_propios_porcentaje"}
+            max={100}
             onGuardar={(valor) => {
-              if (valor > 100) return;
               setIngresosPropiosPorcentaje(String(valor));
               guardarCampo("ingresos_propios_porcentaje", { ingresos_propios_porcentaje: valor });
             }}

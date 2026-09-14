@@ -67,6 +67,7 @@ const CONTEXTO_VACIO: ContextoInstitucionalResponse = {
   porcentaje_poblacion_acceso_internet_no_se_tiene_dato: false,
   accesibilidad_sistemas_discapacidad: null,
   catalogo_tramites_propio_existe: null,
+  poblacion_total_fuente: null,
   actualizado_en: null,
 };
 
