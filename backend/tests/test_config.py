@@ -18,7 +18,7 @@ _TENANT_SECRET_KEY_REAL = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI="
 
 
 @pytest.mark.parametrize(
-    "secreto_placeholder", ["dev-secret-cambiar-en-produccion", "cambia-esto-por-un-secreto-real", ""]
+    "secreto_placeholder", ["dev-secret-cambiar-en-produccion", "cambia-esto-por-un-secreto-real-y-largo", ""]
 )
 def test_produccion_aborta_con_secreto_placeholder_o_vacio(secreto_placeholder):
     with pytest.raises(ValidationError, match="JWT_SECRET"):
@@ -45,7 +45,7 @@ def test_development_no_aborta_con_secreto_corto():
 
 
 @pytest.mark.parametrize(
-    "secreto_placeholder", ["dev-secret-cambiar-en-produccion", "cambia-esto-por-un-secreto-real", ""]
+    "secreto_placeholder", ["dev-secret-cambiar-en-produccion", "cambia-esto-por-un-secreto-real-y-largo", ""]
 )
 def test_development_no_aborta_con_secreto_placeholder(secreto_placeholder):
     """El default de desarrollo/tests debe seguir funcionando sin configuración

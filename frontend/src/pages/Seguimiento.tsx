@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { GraficaAvanceSeguimiento } from "@/components/GraficaAvanceSeguimiento";
 import { ESTADOS_SEMAFORO, ORDEN_ESTADOS_SEMAFORO, type EstadoSemaforo } from "@/lib/semaforo";
 import {
   actualizarAccionSeguimiento,
@@ -316,6 +317,13 @@ export function Seguimiento() {
           <CardTitle>Seguimiento de acciones</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Resumen general -- siempre sobre el total del tenant, nunca sobre
+              `datosFiltrados` (ver GraficaAvanceSeguimiento.tsx). */}
+          {data && data.length > 0 && (
+            <div className="mb-6">
+              <GraficaAvanceSeguimiento acciones={data} />
+            </div>
+          )}
           {isLoading && <p className="text-sm text-atenuado">Cargando...</p>}
           {isError && <p className="text-sm text-destructive">No se pudo cargar el panel de seguimiento.</p>}
           {data && data.length === 0 && (

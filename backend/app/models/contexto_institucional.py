@@ -113,5 +113,11 @@ class ContextoInstitucional(Base):
         Enum("si", "no", "parcialmente", name="accesibilidad_sistemas_discapacidad_enum"), nullable=True
     )
     catalogo_tramites_propio_existe: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Migración 0019 -- de dónde salió el `poblacion_total` actual: "inegi_api"
+    # (lo escribió app/aplicacion/sincronizacion_inegi.py) o "manual" (lo
+    # escribió el funcionario por PUT). NULL = campo todavía vacío. Nunca se
+    # sobreescribe en silencio: un PUT con `poblacion_total` en el payload
+    # siempre lo deja en "manual", pise o no un valor previo de INEGI.
+    poblacion_total_fuente: Mapped[str | None] = mapped_column(String, nullable=True)
     actualizado_en: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

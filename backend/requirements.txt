@@ -43,3 +43,9 @@ fpdf2==2.8.7
 # que cada gobierno trae consigo (BYOK, ver app/core/cifrado.py) antes de
 # guardarlas en `tenant` -- nunca se guardan en texto plano.
 cryptography==50.0.1
+# httpx: BSD-3-Clause -- ya llegaba de forma transitiva vía litellm/fastapi
+# TestClient, se declara directo porque app/adaptadores/inegi/cliente_inegi.py
+# ahora lo importa explícitamente (llamada real a la API de Indicadores de
+# INEGI). Versión confirmada como la ya instalada en este entorno (`pip show
+# httpx`) para no introducir un cambio de versión de paso.
+httpx==0.28.1

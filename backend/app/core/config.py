@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # validador de abajo). Incluye el default de este módulo y el de .env.example.
 _JWT_SECRETS_PLACEHOLDER = {
     "dev-secret-cambiar-en-produccion",
-    "cambia-esto-por-un-secreto-real",
+    "cambia-esto-por-un-secreto-real-y-largo",
 }
 
 # RFC 7518 §3.2: mínimo recomendado para una clave HMAC-SHA256.
@@ -82,6 +82,22 @@ class Settings(BaseSettings):
     # — ciclo de vida"): sin actualización por más de este tiempo, se asume que el
     # proceso reinició a medio job y no se asume éxito silencioso.
     job_umbral_obsoleto_minutos: int = 15
+
+    # Integración con la API de Indicadores de INEGI (app/adaptadores/inegi/),
+    # para prellenar `poblacion_total` en el Perfil del gobierno -- ver nota de
+    # arquitectura "De Municipio a Tres Órdenes". Token gratuito de registro en
+    # inegi.org.mx/servicios/api_indicadores.html -- no es un secreto de la
+    # misma clase que JWT_SECRET/TENANT_SECRET_KEY (no protege datos propios de
+    # DiagMuni), por eso no lleva validador anti-placeholder: su ausencia
+    # simplemente deshabilita la sincronización (cierra de forma segura en cliente_inegi.py).
+    inegi_api_token: str | None = None
+    # Id de indicador del Banco de Indicadores para "Población total" -- variable
+    # (no una constante en cliente_inegi.py) porque INEGI publica un id de
+    # indicador distinto por censo/conteo; confirmar contra el catálogo de
+    # indicadores antes de cambiarlo. Sin verificación en vivo contra la API real
+    # todavía (sin token registrado al escribir esto) -- ver advertencia en
+    # cliente_inegi.py.
+    inegi_indicador_poblacion_total: str = "1002000001"
 
 
 settings = Settings()

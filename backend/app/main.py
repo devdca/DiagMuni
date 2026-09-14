@@ -12,6 +12,7 @@ from app.adaptadores.http import (
     admin_usuarios,
     asistente_captura,
     auth,
+    correccion_ia,
     diagnosticos,
     gobierno_contexto,
     gobiernos,
@@ -80,6 +81,7 @@ app.include_router(auth.router)
 app.include_router(gobiernos.router)
 app.include_router(gobierno_contexto.router)
 app.include_router(asistente_captura.router)
+app.include_router(correccion_ia.router)
 app.include_router(tramites.router)
 app.include_router(diagnosticos.router)
 app.include_router(planes.router)

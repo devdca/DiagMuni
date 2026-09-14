@@ -7,7 +7,7 @@ con una sesión doble en memoria.
 
 Al final del archivo hay un test de integración distinto de los de arriba: ejercita
 `guardar_contexto` completo contra Postgres real (RLS incluido), no una sesión
-doble -- la sesión doble de arriba tiene `refresh()` como no-op, así que nunca
+doble -- la sesión doble de arriba tiene un `refresh()` que no hace nada, así que nunca
 hubiera detectado que `db.commit()` sin refijar el contexto de tenant rompe el
 `db.refresh(fila)` real que le sigue (mismo patrón ya visto en
 test_api_seguimiento.py/test_api_diagnosticos.py/test_plan_job.py)."""
@@ -19,8 +19,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.adaptadores.http.deps import TokenData, get_current_token, get_db
+from app.adaptadores.inegi import cliente_inegi
 from app.main import app
-from app.models import ContextoInstitucional
+from app.models import ContextoInstitucional, Tenant
 
 client = TestClient(app)
 
@@ -65,6 +66,11 @@ class _SesionFalsaContexto:
 
     def refresh(self, _obj: object) -> None:
         pass
+
+    def get(self, _modelo: object, _pk: object) -> object:
+        # Usado por POST /sincronizar-poblacion-inegi (resolver_tenant) -- se
+        # inyecta con `sesion.tenant = ...` en cada test que lo necesita.
+        return getattr(self, "tenant", None)
 
 
 def _fila_de_prueba(**overrides: object) -> ContextoInstitucional:
@@ -483,6 +489,74 @@ def _postgres_real_disponible() -> bool:
         return False
     db.close()
     return True
+
+
+# === POST /sincronizar-poblacion-inegi =============================================
+
+
+def _con_tenant(sesion: _SesionFalsaContexto, tenant: Tenant) -> None:
+    sesion.tenant = tenant  # type: ignore[attr-defined]
+
+
+def test_sincronizar_inegi_requiere_sesion() -> None:
+    respuesta = client.post("/api/gobierno/contexto/sincronizar-poblacion-inegi")
+    assert respuesta.status_code in (401, 403)
+
+
+def test_sincronizar_inegi_sin_tenant_devuelve_404() -> None:
+    tenant_id = uuid4()
+    _autenticar(tenant_id)
+    sesion = _con_sesion(None)
+    _con_tenant(sesion, None)  # type: ignore[arg-type]
+
+    respuesta = client.post(
+        "/api/gobierno/contexto/sincronizar-poblacion-inegi", headers={"Authorization": "Bearer x"}
+    )
+    assert respuesta.status_code == 404
+
+
+def test_sincronizar_inegi_sin_clave_geoestadistica_devuelve_422(monkeypatch: pytest.MonkeyPatch) -> None:
+    tenant_id = uuid4()
+    _autenticar(tenant_id)
+    sesion = _con_sesion(None)
+    _con_tenant(sesion, Tenant(id=tenant_id, nombre="x", clave="x", pais="mx", clave_geoestadistica=None))
+
+    respuesta = client.post(
+        "/api/gobierno/contexto/sincronizar-poblacion-inegi", headers={"Authorization": "Bearer x"}
+    )
+    assert respuesta.status_code == 422
+    assert "clave geoestadística" in respuesta.json()["detail"]
+
+
+def test_sincronizar_inegi_sin_servicio_disponible_devuelve_422(monkeypatch: pytest.MonkeyPatch) -> None:
+    tenant_id = uuid4()
+    _autenticar(tenant_id)
+    sesion = _con_sesion(None)
+    _con_tenant(sesion, Tenant(id=tenant_id, nombre="x", clave="x", pais="mx", clave_geoestadistica="09004"))
+    monkeypatch.setattr(cliente_inegi, "esta_disponible", lambda: False)
+
+    respuesta = client.post(
+        "/api/gobierno/contexto/sincronizar-poblacion-inegi", headers={"Authorization": "Bearer x"}
+    )
+    assert respuesta.status_code == 422
+    assert "no está configurada" in respuesta.json()["detail"]
+
+
+def test_sincronizar_inegi_exitoso_guarda_fuente_inegi_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    tenant_id = uuid4()
+    _autenticar(tenant_id)
+    sesion = _con_sesion(None)
+    _con_tenant(sesion, Tenant(id=tenant_id, nombre="x", clave="x", pais="mx", clave_geoestadistica="09004"))
+    monkeypatch.setattr(cliente_inegi, "esta_disponible", lambda: True)
+    monkeypatch.setattr(cliente_inegi, "obtener_poblacion_total", lambda _clave: 217686)
+
+    respuesta = client.post(
+        "/api/gobierno/contexto/sincronizar-poblacion-inegi", headers={"Authorization": "Bearer x"}
+    )
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["poblacion_total"] == 217686
+    assert cuerpo["poblacion_total_fuente"] == "inegi_api"
 
 
 @pytest.mark.skipif(

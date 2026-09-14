@@ -67,6 +67,10 @@ export interface ContextoInstitucionalResponse {
   porcentaje_poblacion_acceso_internet_no_se_tiene_dato: boolean;
   accesibilidad_sistemas_discapacidad: SiNoParcialmente | null;
   catalogo_tramites_propio_existe: boolean | null;
+  // Migración 0019 -- de dónde salió `poblacion_total`: "inegi_api" (botón
+  // "Sincronizar con INEGI") o "manual" (lo escribió el funcionario). Nunca se
+  // envía en el payload de PUT -- el backend la deriva solo.
+  poblacion_total_fuente: "inegi_api" | "manual" | null;
   actualizado_en: string | null;
 }
 
@@ -132,5 +136,15 @@ export function guardarContextoInstitucional(
   return apiFetch<ContextoInstitucionalResponse>("/api/gobierno/contexto", {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+// Botón "Sincronizar con INEGI" del Perfil del gobierno -- trae poblacion_total
+// real desde la API de Indicadores de INEGI (backend/app/adaptadores/inegi/).
+// 422 si el gobierno no tiene clave_geoestadistica configurada, o si INEGI no
+// está disponible/configurado en este ambiente -- ver `ApiError` en httpClient.
+export function sincronizarPoblacionInegi(): Promise<ContextoInstitucionalResponse> {
+  return apiFetch<ContextoInstitucionalResponse>("/api/gobierno/contexto/sincronizar-poblacion-inegi", {
+    method: "POST",
   });
 }

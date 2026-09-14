@@ -1,5 +1,6 @@
 from app.models.accion_seguimiento import AccionSeguimiento
 from app.models.contexto_institucional import ContextoInstitucional
+from app.models.correccion_ia import CorreccionIa
 from app.models.diagnostico_tramite import DiagnosticoTramite
 from app.models.evento_historial import EventoHistorial
 from app.models.historial_indice_global import HistorialIndiceGlobal
@@ -14,6 +15,7 @@ from app.models.usuario import Usuario
 __all__ = [
     "AccionSeguimiento",
     "ContextoInstitucional",
+    "CorreccionIa",
     "DiagnosticoTramite",
     "EventoHistorial",
     "HistorialIndiceGlobal",

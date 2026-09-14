@@ -179,6 +179,11 @@ class ContextoInstitucionalOut(BaseModel):
     porcentaje_poblacion_acceso_internet_no_se_tiene_dato: bool
     accesibilidad_sistemas_discapacidad: str | None
     catalogo_tramites_propio_existe: bool | None
+    # Migración 0019 -- "inegi_api" | "manual" | None (nunca vuelve del backend
+    # como texto libre, ver ck_contexto_institucional_poblacion_total_fuente_valida).
+    # No forma parte de `ContextoInstitucionalIn`: la fuente se deriva, no se
+    # setea directo -- ver guardar_contexto() en adaptadores/http/gobierno_contexto.py.
+    poblacion_total_fuente: str | None
     actualizado_en: datetime | None
 
     model_config = {"from_attributes": True}

@@ -2,11 +2,12 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adaptadores.http.deps import TokenData, get_current_token, get_db
+from app.aplicacion.sincronizacion_inegi import SincronizacionInegiError, resolver_tenant, sincronizar_poblacion
 from app.db.rls import fijar_contexto_tenant
 from app.models import ContextoInstitucional
 from app.schemas.gobierno_contexto import ContextoInstitucionalIn, ContextoInstitucionalOut
@@ -63,6 +64,7 @@ def _shape_vacio(tenant_id: UUID) -> ContextoInstitucionalOut:
         porcentaje_poblacion_acceso_internet_no_se_tiene_dato=False,
         accesibilidad_sistemas_discapacidad=None,
         catalogo_tramites_propio_existe=None,
+        poblacion_total_fuente=None,
         actualizado_en=None,
     )
 
@@ -94,9 +96,18 @@ def guardar_contexto(
     DO UPDATE` vía SELECT + INSERT/UPDATE (mismo criterio de "exclude_unset" que
     `AccionSeguimientoActualizar` en app/api/seguimiento.py). `created_at` solo se
     asigna en el primer INSERT (server_default de la columna); `actualizado_en` se
-    reescribe en cada PUT exitoso."""
+    reescribe en cada PUT exitoso.
+
+    Migración 0019: un PUT que toca `poblacion_total` es siempre captura manual
+    del funcionario (nunca llega por aquí un valor de INEGI, ver
+    POST /sincronizar-poblacion-inegi abajo) -- se marca `poblacion_total_fuente`
+    en consecuencia, pisando cualquier "inegi_api" previo. Si el funcionario
+    borra el campo (lo manda en null), la fuente también se limpia -- no hay
+    nada que atribuir a un valor vacío."""
     fila = _obtener_fila(db, token.tenant_id)
     cambios = payload.model_dump(exclude_unset=True)
+    if "poblacion_total" in cambios:
+        cambios["poblacion_total_fuente"] = "manual" if cambios["poblacion_total"] is not None else None
 
     if fila is None:
         fila = ContextoInstitucional(tenant_id=token.tenant_id, **cambios)
@@ -110,6 +121,31 @@ def guardar_contexto(
     # commit() termina la transacción y con ella el app.tenant_id local (ver
     # app/db/rls.py) -- hay que volver a fijarlo antes del refresh de abajo, que
     # dispara una consulta real con RLS.
+    fijar_contexto_tenant(db, token.tenant_id)
+    db.refresh(fila)
+    return ContextoInstitucionalOut.model_validate(fila)
+
+
+@router.post("/sincronizar-poblacion-inegi", response_model=ContextoInstitucionalOut)
+def sincronizar_poblacion_inegi(
+    token: Annotated[TokenData, Depends(get_current_token)],
+    db: Annotated[Session, Depends(get_db)],
+) -> ContextoInstitucionalOut:
+    """Trae `poblacion_total` desde la API de Indicadores de INEGI (ver
+    app/aplicacion/sincronizacion_inegi.py) y la guarda con
+    `poblacion_total_fuente="inegi_api"`. Acción explícita del funcionario
+    (botón "Sincronizar con INEGI" en el Perfil del gobierno), no automática --
+    un dato oficial nuevo nunca debe aparecer sin que alguien lo haya pedido."""
+    tenant = resolver_tenant(db, token.tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Gobierno no encontrado.")
+
+    try:
+        fila = sincronizar_poblacion(db, tenant)
+    except SincronizacionInegiError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    db.commit()
     fijar_contexto_tenant(db, token.tenant_id)
     db.refresh(fila)
     return ContextoInstitucionalOut.model_validate(fila)
