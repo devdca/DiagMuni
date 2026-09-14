@@ -16,6 +16,7 @@ import {
   type RespuestasDiagnostico,
   type SimulacionResponse,
 } from "@/lib/diagnosticoApi";
+import { ApiError } from "@/lib/httpClient";
 import { obtenerNivelMadurez } from "@/lib/madurez";
 import { cn } from "@/lib/utils";
 import { planListo } from "@/lib/planApi";
@@ -906,6 +907,17 @@ export function Diagnostico() {
     return respuestas;
   }
 
+  // 409 (el plan de este trámite todavía se está generando) y 429 (cooldown del
+  // endpoint de envío) traen un `detail` en lenguaje llano y accionable, distinto
+  // para cada caso -- el genérico "intenta de nuevo" es además mal consejo para
+  // un 429, donde reintentar de inmediato vuelve a fallar.
+  function mensajeDeError(error: unknown): string {
+    if (error instanceof ApiError && (error.status === 409 || error.status === 429)) {
+      return error.message;
+    }
+    return "No se pudo completar la operación. Intenta de nuevo.";
+  }
+
   const guardarMutacion = useMutation({
     mutationFn: () => guardarDiagnostico(tramiteId!, construirRespuestas()),
     onSuccess: () => navigate("/"),
@@ -1089,7 +1101,7 @@ export function Diagnostico() {
 
       {(guardarMutacion.isError || enviarMutacion.isError) && (
         <p role="alert" className="text-sm text-destructive">
-          No se pudo completar la operación. Intenta de nuevo.
+          {mensajeDeError(enviarMutacion.error ?? guardarMutacion.error)}
         </p>
       )}
 
