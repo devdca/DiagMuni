@@ -49,3 +49,13 @@ cryptography==50.0.1
 # INEGI). Versión confirmada como la ya instalada en este entorno (`pip show
 # httpx`) para no introducir un cambio de versión de paso.
 httpx==0.28.1
+# python-multipart: Apache-2.0 -- dependencia de FastAPI para parsear form-data/
+# UploadFile (PUT /api/gobierno/logo, primer endpoint de este repo que recibe un
+# archivo). No llegaba antes de forma transitiva porque ningún endpoint previo
+# usaba `File(...)`/`UploadFile`.
+python-multipart==0.0.32
+# sentry-sdk: BSD-2-Clause (github.com/getsentry/sentry-python/blob/master/LICENSE)
+# -- captura de excepciones/errores 5xx en producción (app/main.py). El extra
+# `[fastapi]` trae la integración nativa de Starlette/FastAPI (ya cubierta por
+# fastapi>=0.79.0/starlette>=0.46.0, ambos ya fijados arriba, sin bajar versión).
+sentry-sdk[fastapi]==2.69.2

@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
+from app import main
 from app.adaptadores.http import deps
 from app.core.security import create_access_token
 from app.main import app, pool_agotado
@@ -18,6 +19,19 @@ def test_pool_agotado_responde_503_con_retry_after():
     response = pool_agotado(None, SQLAlchemyTimeoutError())
     assert response.status_code == 503
     assert response.headers["retry-after"] == "5"
+
+
+def test_pool_agotado_reporta_a_sentry_explicitamente(monkeypatch):
+    """`SQLAlchemyTimeoutError` no trae `.status_code` -- no lo captura ninguna
+    integración automática de Sentry por código HTTP (app/core/observabilidad.py),
+    así que el handler debe llamar a `capture_exception` él mismo."""
+    llamadas = []
+    monkeypatch.setattr(main.sentry_sdk, "capture_exception", llamadas.append)
+
+    excepcion = SQLAlchemyTimeoutError()
+    pool_agotado(None, excepcion)
+
+    assert llamadas == [excepcion]
 
 
 def test_timeout_de_pool_durante_una_peticion_real_responde_503(monkeypatch):

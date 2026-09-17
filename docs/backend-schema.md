@@ -25,9 +25,13 @@ erDiagram
 | `id` | uuid, PK | |
 | `nombre` | text | Nombre del gobierno local |
 | `pais` | enum(`mx`,`uy`) | Determina qué capa de parámetros normativos aplica (ver `entregables/fase-1/matriz-normativa.md`) |
+| `logo_content_type` | text, nullable, CHECK ∈ {`image/png`,`image/jpeg`,`image/svg+xml`} | `NULL` = el tenant nunca subió un logo, la UI cae a mostrar `nombre`. El archivo en sí NO vive en esta fila — vive en disco (migración 0021, ver más abajo) |
+| `logo_actualizado_en` | timestamptz, nullable | `NULL` hasta la primera subida; el frontend lo usa como key de invalidación de su propia caché del logo ya descargado |
 | `created_at` | timestamptz | |
 
 Sin RLS (es la tabla raíz que define el aislamiento, no tiene `tenant_id` propio).
+
+**Logo del gobierno** (`PUT`/`GET /api/gobierno/logo`, migración 0021, `app/adaptadores/http/gobierno_logo.py`): el archivo (png/jpg/svg, tope `LOGO_MAX_BYTES`) se guarda en disco bajo el volumen `diagmuni_logos_data` (`app/adaptadores/almacenamiento/logo_storage.py`, un archivo por `tenant_id`), no como blob en Postgres — mismo criterio de single-host que `diagmuni_db_data` (`docker-compose.yml`), y evita tener que ir a la base de datos para servir un archivo que se lee mucho más de lo que se escribe. Solo `logo_content_type`/`logo_actualizado_en` viven en `tenant`. Ambos endpoints exigen sesión del propio tenant (nunca un tenant_id por URL); subir/reemplazar exige además `admin_gobierno` (`requerir_admin`), ver GET solo exige sesión autenticada porque cualquier funcionario necesita poder cargarlo en su propia UI.
 
 ### `contexto_institucional`
 | Columna | Tipo | Notas |

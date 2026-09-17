@@ -3,6 +3,7 @@ import logging
 import sys
 from datetime import UTC, datetime
 
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
@@ -15,6 +16,7 @@ from app.adaptadores.http import (
     correccion_ia,
     diagnosticos,
     gobierno_contexto,
+    gobierno_logo,
     gobiernos,
     historial,
     notificaciones,
@@ -23,6 +25,10 @@ from app.adaptadores.http import (
     seguimiento,
     tramites,
 )
+from app.core.config import settings
+from app.core.observabilidad import inicializar_sentry
+
+inicializar_sentry(settings.sentry_dsn)
 
 app = FastAPI(title="DiagMuni API")
 
@@ -37,7 +43,14 @@ if not _logger_errores.handlers:  # evita duplicar la línea si el módulo se im
 @app.exception_handler(SQLAlchemyTimeoutError)
 def pool_agotado(request: Request, exc: SQLAlchemyTimeoutError) -> JSONResponse:
     """El pool de conexiones (app/db/session.py) se agotó bajo carga concurrente
-    -- 503 con Retry-After en vez de un 500 genérico."""
+    -- 503 con Retry-After en vez de un 500 genérico.
+
+    `capture_exception` explícito (no automático): esta excepción no trae
+    `.status_code`, así que ni siquiera pasaría el filtro de "solo 5xx" que la
+    integración de Sentry aplica a las excepciones que sí tiene ese atributo
+    (`StarletteIntegration.failed_request_status_codes`, más arriba en este
+    archivo) -- sin este llamado, un pool agotado nunca llegaría a Sentry."""
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=503,
         content={"detail": "Servicio no disponible, intenta de nuevo en unos segundos."},
@@ -57,8 +70,16 @@ def error_no_manejado(request: Request, exc: Exception) -> JSONResponse:
     (False), así que ya no fugaba detalle al cliente en ningún caso -- este
     handler no tapa un hueco de seguridad, ordena el diagnóstico.
 
-    Mismo criterio que app/core/audit_log.py: stdlib `logging` puro, una línea
-    JSON a stdout, sin Sentry/OTel todavía (docs/stack-tecnologico.md)."""
+    Sigue mandando la línea JSON a stdout (mismo criterio que
+    app/core/audit_log.py) además de a Sentry -- uno no reemplaza al otro, stdout
+    es lo único garantizado sin depender de que `SENTRY_DSN` esté configurado.
+
+    `capture_exception` explícito, no automático: este handler está registrado
+    para la clase base `Exception`, que Starlette enruta a `ServerErrorMiddleware`
+    en vez de a `ExceptionMiddleware` -- la integración de Sentry solo parchea
+    esta última, así que sin este llamado ninguna excepción no manejada llegaría
+    nunca a Sentry pese a tener la integración instalada."""
+    sentry_sdk.capture_exception(exc)
     _logger_errores.error(
         json.dumps(
             {
@@ -80,6 +101,7 @@ def error_no_manejado(request: Request, exc: Exception) -> JSONResponse:
 app.include_router(auth.router)
 app.include_router(gobiernos.router)
 app.include_router(gobierno_contexto.router)
+app.include_router(gobierno_logo.router)
 app.include_router(asistente_captura.router)
 app.include_router(correccion_ia.router)
 app.include_router(tramites.router)

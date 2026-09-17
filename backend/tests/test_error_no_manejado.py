@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app import main
 from app.adaptadores.http import deps
 from app.core.security import create_access_token
 from app.main import app
@@ -46,6 +47,33 @@ def test_error_no_manejado_no_fuga_el_detalle_de_la_excepcion(monkeypatch):
     assert body == {"detail": "Ocurrió un error interno. Intenta de nuevo más tarde."}
     assert "supersecret" not in response.text
     assert "ValueError" not in response.text
+
+
+def test_error_no_manejado_reporta_a_sentry_explicitamente(monkeypatch):
+    """El handler está registrado para `Exception` -- Starlette lo enruta a
+    `ServerErrorMiddleware`, que la integración de Sentry no parchea (a
+    diferencia de `ExceptionMiddleware`) -- ver app/core/observabilidad.py. Sin
+    un `capture_exception` explícito acá, esto nunca llegaría a Sentry."""
+    llamadas = []
+    monkeypatch.setattr(main.sentry_sdk, "capture_exception", llamadas.append)
+
+    def _falla(_tenant_id):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(deps, "abrir_sesion_tenant", _falla)
+
+    token = create_access_token(
+        usuario_id=uuid4(),
+        tenant_id=uuid4(),
+        rol="funcionario",
+        nombre_gobierno="Prueba",
+        pais="mx",
+        nivel_gobierno="municipal",
+    )
+    client.get(f"/api/tramites/{uuid4()}/diagnostico", headers={"Authorization": f"Bearer {token}"})
+
+    assert len(llamadas) == 1
+    assert isinstance(llamadas[0], ValueError)
 
 
 def test_pool_agotado_sigue_teniendo_prioridad_sobre_el_catch_all(monkeypatch):

@@ -16,36 +16,29 @@ class Tenant(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(String, nullable=False)
-    # Identificador corto y legible que el funcionario escribe en el login para
-    # identificar a su gobierno (entregables/fase-2/identificacion-gobierno-login.md,
-    # sección 1) — normalizado (trim + minúsculas) en capa de aplicación, no acá.
+    # Id corto del login, normalizado en capa de app.
     clave: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     pais: Mapped[str] = mapped_column(Enum("mx", "uy", name="pais_enum"), nullable=False)
-    # Ortogonal a `pais` (migración 0018, ver docstring) -- CHECK constraint,
-    # no Enum nativo, mismo motivo que `proveedor_llm_preferido` abajo.
-    # `default` (Python) además de `server_default` (DB): un `Tenant(...)`
-    # construido en memoria sin pasar `nivel_gobierno` (ej. en tests, o en
-    # `crear_gobierno` con el parámetro por defecto) debe quedar en
-    # "municipal" de inmediato, no solo al hacer flush/commit contra la BD.
+    # CHECK constraint (no Enum nativo, migración 0018). `default` de Python además
+    # del `server_default`: un Tenant en memoria sin este campo (tests, CLI) queda
+    # en "municipal" de inmediato, sin esperar flush/commit.
     nivel_gobierno: Mapped[str] = mapped_column(String, nullable=False, default="municipal", server_default="municipal")
 
-    # Clave geoestadística INEGI de 5 dígitos (2 entidad + 3 municipio, ej.
-    # "09004" = Cuajimalpa de Morelos) -- migración 0019. Nullable: sin ella,
-    # app/adaptadores/inegi/cliente_inegi.py simplemente no puede sincronizar
-    # (cierra de forma segura, ver ese módulo), y no aplica a nivel_gobierno="federal".
+    # Clave geoestadística INEGI (5 dígitos). Nullable: sin ella, la sincronización
+    # con INEGI simplemente no aplica (no aplica tampoco a nivel_gobierno="federal").
     clave_geoestadistica: Mapped[str | None] = mapped_column(String(5), nullable=True)
 
-    # BYOK (bring your own key, ver migración 0016): cada gobierno trae y paga su
-    # propia credencial de IA -- en el despliegue real el operador no deja ninguna
-    # key propia configurada. NULL = el tenant no configuró nada todavía (para
-    # `proveedor_llm_preferido`, NULL además significa "usar el comportamiento
-    # global de LLM_PROVIDER/autodetect", ver app/adaptadores/llm/config.py).
+    # BYOK: cada gobierno trae y paga su propia credencial de IA. NULL =
+    # comportamiento global (autodetect de LLM_PROVIDER).
     proveedor_llm_preferido: Mapped[str | None] = mapped_column(String, nullable=True)
-    # Cifradas con Fernet (app/core/cifrado.py) usando TENANT_SECRET_KEY -- nunca
-    # texto plano, nunca se devuelven en claro por la API una vez guardadas.
-    deepseek_api_key_cifrada: Mapped[str | None] = mapped_column(String, nullable=True)
+    deepseek_api_key_cifrada: Mapped[str | None] = mapped_column(String, nullable=True)  # Fernet, nunca texto plano
     anthropic_api_key_cifrada: Mapped[str | None] = mapped_column(String, nullable=True)
-    # URL del propio servidor Ollama del tenant -- no es secreto, no se cifra.
-    ollama_api_base: Mapped[str | None] = mapped_column(String, nullable=True)
+    ollama_api_base: Mapped[str | None] = mapped_column(String, nullable=True)  # no es secreto, no se cifra
+
+    # Logo del gobierno: el archivo vive en disco (logo_storage.py), acá solo el
+    # tipo MIME y cuándo se actualizó (el frontend lo usa para invalidar su
+    # caché). Ambos NULL = sin logo, la UI cae a mostrar `nombre`.
+    logo_content_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    logo_actualizado_en: Mapped[datetime | None] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
