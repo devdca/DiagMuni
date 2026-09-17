@@ -9,12 +9,16 @@
 # (funciona igual si el correo ya está verificado en esa cuenta de GitHub,
 # pero @usuario es lo estándar y evita ambigüedad).
 #
-# Regla por defecto: todo el repo, cualquiera de los 3.
-* ricardo.flores@fibroptica.com.mx eduardo.garcia@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+# Regla por defecto: todo el repo, cualquiera de los 2.
+* ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
 
 # Áreas sensibles -- seguridad, secretos, infraestructura de despliegue.
-# Bus factor alto hoy (94% de los commits entre 2 personas, ver auditoría de
-# esta sesión) -- esto no lo resuelve, pero al menos deja constancia de quién
+# Eduardo García Pacheco (eduardo.garcia@fibroptica.com.mx, 17 commits en el
+# historial hasta el 14-sep-2026) ya no está en el proyecto (actualizado el
+# 2026-09-15) -- el equipo completo hoy son estas 2 personas, no una
+# concentración dentro de un grupo más grande. Bus factor de 2 sin margen:
+# la ausencia de cualquiera de las dos deja al proyecto con una sola persona
+# activa -- esto no lo resuelve, pero al menos deja constancia de quién
 # debería revisar cada parte, en vez de que viva solo en la cabeza de alguien.
 /backend/app/core/security.py               ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
 /backend/app/core/cifrado.py                 ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx

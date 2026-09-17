@@ -44,3 +44,8 @@ hallazgos remediados — ver el historial de commits de la rama de parches de
 seguridad para el detalle de cada corrección. No se publica un changelog de
 seguridad separado todavía (ver `CHANGELOG.md` para el historial general de
 versiones una vez que exista el primer release).
+
+Además de las auditorías puntuales, cada pull request corre un escaneo
+automatizado de CVEs conocidos en las dependencias (`pip-audit` en el backend,
+`npm audit` en el frontend) — no reemplaza una auditoría manual, pero evita
+que una vulnerabilidad ya conocida se cuele sin que nadie la note.
