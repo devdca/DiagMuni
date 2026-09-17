@@ -5,6 +5,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GraficaTendenciaIndice } from "@/components/GraficaTendenciaIndice";
+import { HeroIndiceGlobal } from "@/components/HeroIndiceGlobal";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,14 +26,9 @@ import {
   type TramiteResponse,
 } from "../lib/tramitesApi";
 
-// Panel de control (docs/ux-brief.md, "2. Panel resumen") -- índice de madurez
-// global con tendencia real, avance del catálogo, acciones atrasadas,
-// prioridades de la semana (de /api/seguimiento, sin pantalla aparte) y la
-// tabla de trámites catalogados. Revisión de diseño (canvas "DiagMuni —
-// Módulos nuevos", pantalla "Panel de control ejecutivo"): esa propuesta traía
-// una cuarta tarjeta, "Próxima revisión normativa", que no se construyó -- no
-// existe ese concepto en el backend ni en el PRD, y este panel no muestra
-// ningún número que no salga de datos reales.
+// Panel de control: índice de madurez global con tendencia real, avance del
+// catálogo, acciones atrasadas, prioridades de la semana y la tabla de
+// trámites. Nunca muestra un número que no salga de datos reales.
 
 const NOMBRE_PAIS: Record<string, string> = { mx: "México", uy: "Uruguay" };
 
@@ -47,10 +44,8 @@ function formatearFecha(fechaIso: string): string {
   return new Date(fechaIso).toLocaleDateString("es", { year: "numeric", month: "long", day: "numeric" });
 }
 
-// "Última actividad" de la tabla -- relativo mientras es reciente (mismo criterio
-// de lectura rápida que "Actualizado hace N s" de GraficaTendenciaIndice),
-// fecha completa si ya pasó más de un mes (un número de semanas grande no se
-// escanea de un vistazo).
+// "Última actividad": relativo mientras es reciente, fecha completa si ya
+// pasó más de un mes (un número de semanas grande no se escanea rápido).
 function formatearActividad(fechaIso: string): string {
   const dias = Math.floor((Date.now() - new Date(fechaIso).getTime()) / 86_400_000);
   if (dias <= 0) return "hoy";
@@ -113,21 +108,13 @@ function AccionTramite({ tramite }: { tramite: TramiteResponse }) {
     );
   }
 
-  // "diagnosticado" / "generando_plan": enviar_diagnostico (backend/app/api/
-  // diagnosticos.py) ya dispara el job de generación del plan automáticamente,
-  // sin ninguna acción manual pendiente del funcionario -- decisión de esta
-  // tarea (docs/ux-brief.md no fija este caso): mostrar un texto de espera en
-  // vez de un botón de acción, para no sugerir que hay algo que hacer.
+  // "diagnosticado"/"generando_plan": el plan ya se genera solo, sin acción
+  // manual pendiente -- texto de espera en vez de un botón que sugiera lo contrario.
   return <span className="text-sm text-atenuado">Generando plan de modernización...</span>;
 }
 
-// QA (ronda 2, hallazgo #4): "Eliminar" no disparaba ninguna petición --
-// `window.confirm` es un diálogo nativo y bloqueante del navegador; bajo
-// automatización/testing (y en algunos entornos con restricciones del propio
-// navegador) nunca llega a mostrarse y el clic que lo dispara queda "sin
-// efecto" desde afuera, indistinguible de un botón roto. Confirmación inline
-// de dos pasos en su lugar -- nunca depende de una API del navegador que
-// pueda no estar disponible, y es un `<button>` normal de principio a fin.
+// Confirmación inline de dos pasos en vez de `window.confirm` -- ese diálogo
+// nativo no se muestra bajo automatización/testing, dejando el botón "sin efecto".
 function BotonEliminar({ tramite, disabled, onEliminar }: { tramite: TramiteResponse; disabled: boolean; onEliminar: () => void }) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -152,10 +139,8 @@ function BotonEliminar({ tramite, disabled, onEliminar }: { tramite: TramiteResp
   );
 }
 
-// Gestión de un trámite: eliminar (borrado físico, backend/app/api/tramites.py
-// solo lo permite si `completado_en` es null -- mismo campo que ya trae
-// TramiteResponse, sin duplicar esa regla en el frontend) o archivar/desarchivar
-// (reversible, oculta del panel sin borrar nada).
+// Gestión de un trámite: eliminar (borrado físico, solo si no está completado)
+// o archivar/desarchivar (reversible, oculta del panel sin borrar nada).
 function AccionesGestion({ tramite, archivados }: { tramite: TramiteResponse; archivados: boolean }) {
   const queryClient = useQueryClient();
   const invalidar = () => void queryClient.invalidateQueries({ queryKey: ["panel-resumen"] });
@@ -198,12 +183,8 @@ function AccionesGestion({ tramite, archivados }: { tramite: TramiteResponse; ar
   );
 }
 
-// Alta de un trámite en el catálogo (docs/app-flow.md, "Estados del trámite":
-// `sin_iniciar` lo origina la "Alta del trámite en el catálogo") -- ese documento
-// nunca fijó en qué pantalla ocurre; POST /api/tramites (backend/app/api/
-// tramites.py) ya existía sin ningún formulario que lo llamara. Formulario simple
-// (nombre obligatorio, descripción opcional), sin modal -- mismo criterio de "sin
-// metodologías pesadas" que el resto del panel.
+// Alta de un trámite en el catálogo -- formulario simple, sin modal, mismo
+// criterio de "sin metodologías pesadas" que el resto del panel.
 function FormularioNuevoTramite({
   abierto,
   onCerrar,
@@ -249,11 +230,8 @@ function FormularioNuevoTramite({
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Ej. Licencia de funcionamiento"
-          // QA (ronda 2, hallazgo #6): sin tope, un nombre larguísimo rompía
-          // visualmente la tabla de trámites catalogados. 150 alcanza de sobra
-          // para cualquier nombre real de trámite; el backend (TramiteCreate)
-          // pone el mismo tope como fuente de verdad real, esto es solo para
-          // que el funcionario lo note al escribir, no al enviar.
+          // Tope de 150 (el backend es la fuente de verdad real) -- sin esto, un
+          // nombre larguísimo rompía la tabla de trámites (QA ronda 2).
           maxLength={150}
           required
         />
@@ -300,9 +278,8 @@ function FormularioNuevoTramite({
   );
 }
 
-// Anillo de avance (decorativo, aria-hidden) -- el número real ("14 / 18",
-// "78%") siempre se muestra como texto al lado, nunca solo el dibujo
-// (docs/ux-brief.md, mismo criterio que el Badge de índice).
+// Anillo de avance (decorativo, aria-hidden) -- el número real siempre se
+// muestra como texto al lado, nunca solo el dibujo.
 function AnilloAvance({ porcentaje }: { porcentaje: number }) {
   const radio = 28;
   const circunferencia = 2 * Math.PI * radio;
@@ -325,10 +302,8 @@ function AnilloAvance({ porcentaje }: { porcentaje: number }) {
   );
 }
 
-// Delta contra el punto de hace ~3 meses en el historial real (migración 0015
-// del backend) -- si el piloto todavía no tiene esa antigüedad de datos, no hay
-// nada real que comparar y el componente que lo llama simplemente no muestra
-// la línea, en vez de inventar un "+0.0" que no significa nada.
+// Delta contra el punto de hace ~3 meses -- si no hay esa antigüedad de datos,
+// simplemente no se muestra la línea, en vez de inventar un "+0.0".
 function calcularDeltaTrimestre(
   puntos: { indice_global: number; creado_en: string }[],
   indiceActual: number,
@@ -349,9 +324,8 @@ function obtenerPrioridades(acciones: AccionSeguimientoResponse[]): AccionSeguim
 
 export function PanelResumen() {
   const [verArchivados, setVerArchivados] = useState(false);
-  // El query key incluye `verArchivados` -- son dos listas mutuamente excluyentes
-  // (backend/app/api/tramites.py nunca las mezcla), no una misma lista filtrada
-  // en el cliente.
+  // `verArchivados` en el query key: son dos listas mutuamente excluyentes, no
+  // una misma lista filtrada en el cliente.
   const { data, isLoading, isError } = useQuery({
     queryKey: ["panel-resumen", verArchivados],
     queryFn: () => obtenerPanelResumen(verArchivados),
@@ -379,57 +353,42 @@ export function PanelResumen() {
 
   return (
     <div className="mx-auto flex max-w-[1360px] flex-col gap-5 p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold">Panel de control</h1>
-          <p className="text-sm text-muted-foreground">
-            {NOMBRE_PAIS[obtenerPais() ?? ""] ?? ""}
-          </p>
-        </div>
-        <span className="text-sm text-atenuado">
-          {data?.fecha_ultimo_diagnostico
-            ? `Último diagnóstico: ${formatearFecha(data.fecha_ultimo_diagnostico)}`
-            : "Aún no hay ningún diagnóstico completado"}
-        </span>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <PageHeader
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+              <path d="M4 19V10" />
+              <path d="M12 19V5" />
+              <path d="M20 19v-7" />
+            </svg>
+          }
+          kicker={NOMBRE_PAIS[obtenerPais() ?? ""] ?? ""}
+          title="Panel de control"
+        />
+        {(!data || verArchivados) && (
+          <span className="text-sm text-atenuado">
+            {data?.fecha_ultimo_diagnostico
+              ? `Último diagnóstico: ${formatearFecha(data.fecha_ultimo_diagnostico)}`
+              : "Aún no hay ningún diagnóstico completado"}
+          </span>
+        )}
       </div>
 
       {isLoading && <p className="text-sm text-atenuado">Cargando...</p>}
       {isError && <p className="text-sm text-destructive">No se pudo cargar el panel de control.</p>}
 
       {data && !verArchivados && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="flex flex-col gap-2 pt-6">
-              <p className="text-xs font-semibold tracking-wide text-atenuado uppercase">Índice de madurez global</p>
-              {data.indice_global === null ? (
-                <p className="text-sm">Todavía no hay ningún trámite diagnosticado.</p>
-              ) : (
-                <>
-                  <div className="flex items-baseline gap-2">
-                    <span
-                      className="text-4xl font-bold tabular-nums"
-                      style={{ color: obtenerNivelMadurez(data.indice_global).varTexto }}
-                    >
-                      {data.indice_global.toFixed(1)}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {obtenerNivelMadurez(data.indice_global).etiqueta}
-                    </span>
-                  </div>
-                  {delta !== null && (
-                    <p
-                      className="text-sm font-semibold"
-                      style={{ color: delta >= 0 ? "var(--semaforo-completado)" : "var(--semaforo-atrasado)" }}
-                    >
-                      {delta >= 0 ? "↗" : "↘"} {delta >= 0 ? "+" : ""}
-                      {delta.toFixed(1)} vs. hace 3 meses
-                    </p>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+        <HeroIndiceGlobal
+          pais={NOMBRE_PAIS[obtenerPais() ?? ""] ?? ""}
+          indiceGlobal={data.indice_global}
+          delta={delta}
+          fechaUltimoDiagnostico={data.fecha_ultimo_diagnostico}
+          historial={historialQuery.data ?? []}
+        />
+      )}
 
+      {data && !verArchivados && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card>
             <CardContent className="flex flex-col gap-2 pt-6">
               <p className="text-xs font-semibold tracking-wide text-atenuado uppercase">Trámites diagnosticados</p>
@@ -461,9 +420,7 @@ export function PanelResumen() {
                     Ver en seguimiento →
                   </Link>
                 </div>
-                {/* Círculo decorativo (aria-hidden) -- mismo dato ya mostrado como
-                    texto a la izquierda, nunca la única forma de leerlo (docs/
-                    ux-brief.md, mismo criterio que AnilloAvance/BadgeIndice). */}
+                {/* Decorativo (aria-hidden) -- el dato ya se muestra como texto a la izquierda. */}
                 <span
                   aria-hidden
                   className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold tabular-nums"
@@ -559,11 +516,7 @@ export function PanelResumen() {
           {verArchivados && data?.tramites.length === 0 && (
             <p className="text-sm text-atenuado">No hay ningún trámite archivado.</p>
           )}
-          {/* overflow-x-auto propio -- revisión de QA visual: sin este contenedor,
-              una ventana angosta hacía scrollear TODA la página (incluido el
-              nav) en vez de solo la tabla. DiagMuni sigue siendo desktop-only
-              (sin layout mobile dedicado), pero no debe verse desfasado si la
-              ventana de escritorio se reduce. */}
+          {/* Sin esto, una ventana angosta hacía scrollear toda la página, no solo la tabla. */}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead>

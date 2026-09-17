@@ -16,7 +16,7 @@ vi.mock("@/lib/gobiernoContextoApi", async () => {
   const real = await vi.importActual<typeof import("@/lib/gobiernoContextoApi")>("@/lib/gobiernoContextoApi");
   return { ...real, obtenerContextoInstitucional: vi.fn(), guardarContextoInstitucional: vi.fn() };
 });
-vi.mock("@/lib/session", () => ({ obtenerPais: () => "mx" }));
+vi.mock("@/lib/session", () => ({ obtenerPais: () => "mx", esAdmin: () => false }));
 
 import { guardarContextoInstitucional, obtenerContextoInstitucional } from "@/lib/gobiernoContextoApi";
 

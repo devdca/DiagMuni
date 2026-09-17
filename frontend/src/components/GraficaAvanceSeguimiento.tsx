@@ -12,42 +12,25 @@ import { resolverColorCss } from "@/lib/colorCss";
 import { ESTADOS_SEMAFORO, ORDEN_ESTADOS_SEMAFORO, type EstadoSemaforo } from "@/lib/semaforo";
 import type { AccionSeguimientoResponse } from "@/lib/seguimientoApi";
 
-// % de avance del seguimiento -- pedido explícito del usuario: reproducir el
-// look del ejemplo oficial de ECharts "Customized Pie" (roseType: 'radius',
-// glow), con fondo blanco fijo (pedido explícito, no el fondo oscuro del
-// ejemplo original) sin importar el modo claro/oscuro del resto del
-// producto -- es una tarjeta con identidad visual propia, no una gráfica que
-// deba theme-earse con resolverColorCss como el resto del kit.
-//
-// Nota de precisión de datos, ya comunicada y aceptada: un rose chart codifica
-// el valor en el RADIO, así que el área crece al cuadrado del valor y
-// distorsiona la magnitud real -- la alternativa correcta (barra apilada) es
-// la que se usó en la primera versión de esta gráfica. El usuario pidió
-// explícitamente ver esta versión de todas formas y juzgar él mismo si el
-// resultado visual vale la pena frente a esa distorsión.
+// Rose chart de avance -- fondo blanco fijo a propósito, sin theme-arse.
+// Nota de precisión: un rose chart codifica el valor en el RADIO, así que el
+// área crece al cuadrado y distorsiona la magnitud real -- aceptado a propósito.
 echarts.use([LegendComponent, TooltipComponent, PieChart, CanvasRenderer]);
 
 type OpcionGrafica = ComposeOption<LegendComponentOption | TooltipComponentOption | PieSeriesOption>;
 
 const FONDO_TARJETA = "#ffffff";
-// Texto/líneas oscuras sobre el fondo blanco fijo de arriba -- mismo criterio
-// que el ejemplo original (texto claro sobre fondo oscuro), solo invertido.
 const TEXTO_SOBRE_FONDO = "rgba(30, 30, 28, 0.85)";
 const TEXTO_ATENUADO_SOBRE_FONDO = "rgba(30, 30, 28, 0.65)";
 const LINEA_SOBRE_FONDO = "rgba(30, 30, 28, 0.35)";
 
 function construirOpcion(conteos: Record<EstadoSemaforo, number>, total: number): OpcionGrafica {
-  // Orden ascendente por valor, igual que el ejemplo de referencia -- en un
-  // rose chart el orden importa para la lectura visual (radios crecientes en
-  // sentido horario desde el más chico).
+  // Orden ascendente por valor -- en un rose chart, radios crecientes en
+  // sentido horario desde el más chico.
   const datos = [...ORDEN_ESTADOS_SEMAFORO]
     .map((estado) => {
       const info = ESTADOS_SEMAFORO[estado];
-      // `info.hex` es un string "var(--...)" (semaforo.ts), no un color ya
-      // resuelto -- un <canvas> no entiende esa sintaxis, así que ECharts
-      // caía al negro por default del navegador (bug reportado: círculo
-      // negro sólido cuando una sola categoría llega al 100%). Mismo
-      // resolvedor que ya usa GraficaTendenciaIndice.tsx para este problema.
+      // `info.hex` es "var(--...)" -- <canvas> no lo entiende sin resolver.
       const color = resolverColorCss(info.hex);
       return {
         estado,
@@ -129,9 +112,7 @@ export function GraficaAvanceSeguimiento({ acciones }: { acciones: AccionSeguimi
   const contenedorRef = useRef<HTMLDivElement>(null);
   const graficaRef = useRef<echarts.ECharts | null>(null);
 
-  // Mismo patrón de inicialización perezosa que GraficaTendenciaIndice.tsx --
-  // ver el comentario extenso ahí sobre por qué no puede ser un efecto de
-  // montaje con deps [].
+  // Inicialización perezosa -- ver GraficaTendenciaIndice.tsx para el porqué.
   useEffect(() => {
     if (!contenedorRef.current || !opcion) return;
     if (graficaRef.current && graficaRef.current.getDom() !== contenedorRef.current) {
@@ -159,12 +140,7 @@ export function GraficaAvanceSeguimiento({ acciones }: { acciones: AccionSeguimi
   return (
     <div className="flex flex-col gap-1">
       <div ref={contenedorRef} style={{ width: "100%", height: 320, borderRadius: 12, overflow: "hidden" }} />
-      {/* Fallback textual accesible -- mismas cifras que la gráfica, siempre
-          visible, nunca depende de hover ni de leer el tamaño relativo de un
-          radio (que además, por diseño de un rose chart, no es proporcional
-          al valor -- ver nota de precisión de datos arriba). La tabla
-          completa de acciones, con el detalle de cada una, ya vive justo
-          debajo en esta misma pantalla. */}
+      {/* Fallback textual accesible -- mismas cifras, siempre visible, sin depender del hover. */}
       <p className="text-xs text-atenuado">
         {ORDEN_ESTADOS_SEMAFORO.map((estado, i) => (
           <span key={estado}>

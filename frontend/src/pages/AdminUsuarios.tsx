@@ -19,20 +19,16 @@ import {
 } from "@/lib/usuariosApi";
 import { obtenerMiPerfil } from "@/lib/usuariosApi";
 
-// Panel de administración -- pestaña "Usuarios y roles" (/admin/usuarios, RBAC
-// migración 0011). Solo llega aquí quien tiene rol admin_gobierno -- protegido
-// en App.tsx (RutaAdmin) y, de fondo, por cada endpoint de /api/admin/usuarios
-// (app/adaptadores/http/deps.py::requerir_admin).
+// "Usuarios y roles" -- solo admin_gobierno, protegido en App.tsx y en cada
+// endpoint del backend.
 
 function formatearFecha(fechaIso: string | null): string {
   if (!fechaIso) return "Nunca";
   return new Date(fechaIso).toLocaleDateString("es", { year: "numeric", month: "short", day: "numeric" });
 }
 
-// El backend rechaza desactivar/degradar al último admin_gobierno activo con un
-// 400 en lenguaje llano -- se muestra tal cual (ApiError.message), sin adivinar
-// aquí en el cliente quién es "el último" (esa regla vive en un solo lugar:
-// backend/app/aplicacion/gestion_usuarios.py).
+// El backend rechaza desactivar al último admin_gobierno activo con un 400 en
+// lenguaje llano -- se muestra tal cual, sin adivinar la regla en el cliente.
 function mensajeError(error: unknown, generico: string): string {
   return error instanceof ApiError ? error.message : generico;
 }
@@ -264,7 +260,7 @@ export function AdminUsuarios() {
           {usuariosQuery.isError && <p className="text-sm text-destructive">No se pudo cargar la lista de usuarios.</p>}
 
           {usuariosQuery.data && (
-            // overflow-x-auto propio -- ver misma nota en AdminSaludIA.tsx.
+            // Scroll horizontal propio (ver AdminSaludIA.tsx).
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>

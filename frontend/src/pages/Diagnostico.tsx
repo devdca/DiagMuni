@@ -5,10 +5,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { CampoBooleanoRadio } from "@/components/ui/campo-booleano-radio";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { clasificarConsistenciaBooleana, clasificarMecanismoIdentidad } from "@/lib/asistenteCapturaApi";
 import { registrarCorreccionIa } from "@/lib/correccionIaApi";
+import { useAutoguardadoCampo } from "@/hooks/useAutoguardadoCampo";
 import {
   enviarDiagnostico,
   guardarDiagnostico,
@@ -24,11 +26,8 @@ import { planListo } from "@/lib/planApi";
 import { obtenerNivelGobierno, obtenerPais } from "@/lib/session";
 import { obtenerTiposTramite, obtenerTramite } from "@/lib/tramitesApi";
 
-// Cuestionario de captura (F1 producto), docs/ux-brief.md sección "3. Cuestionario
-// de captura (F1)": un Card por cada una de las 6 variables reales del catálogo
-// (docs/backend-schema.md) -- `preguntasEfectivas` excluye las que no aplican al
-// tipo de trámite (app/engine/tipos_tramite.yaml), `mecanismo_identidad` siempre
-// se muestra.
+// Cuestionario F1 (docs/ux-brief.md): `preguntasEfectivas` excluye las que no
+// aplican al tipo de trámite; `mecanismo_identidad` siempre se muestra.
 
 type IdBooleano =
   | "documentos_digitalizados"
@@ -202,10 +201,7 @@ const OPCION_OTRO = "otro";
 const ETIQUETA_MECANISMO: Record<string, string> = {
   llave_mx: "Llave MX",
   id_uruguay: "ID Uruguay",
-  // Fase A (expansión a los 3 órdenes de gobierno): mecanismos verificados
-  // contra fuente oficial, distintos de Llave MX -- ver
-  // backend/app/dominio/reglas/federal/sat_rfc/identidad_acceso.yaml y
-  // backend/app/dominio/reglas/estatal/identidad_acceso.yaml.
+  // Fase A: mecanismos verificados por nivel de gobierno, distintos de Llave MX.
   e_firma_sat: "e.firma / Contraseña del SAT",
   propio_estatal_interoperable: "Mecanismo propio de la entidad federativa (interoperable con Llave MX)",
   propio: "Un mecanismo propio de este gobierno",
@@ -216,9 +212,7 @@ function opcionesMecanismo(pais: string | null, nivel: string | null): { valor: 
   const opciones: { valor: string; etiqueta: string }[] = [];
   if (pais === "mx") opciones.push({ valor: "llave_mx", etiqueta: ETIQUETA_MECANISMO.llave_mx });
   if (pais === "uy") opciones.push({ valor: "id_uruguay", etiqueta: ETIQUETA_MECANISMO.id_uruguay });
-  // Fase A: opciones adicionales verificadas por nivel de gobierno -- e.firma
-  // del SAT es un sistema distinto de Llave MX (sin integración confirmada),
-  // por eso es una opción aparte y no un caso de "llave_mx" a nivel federal.
+  // e.firma del SAT es un sistema distinto de Llave MX, sin integración confirmada.
   if (nivel === "federal") {
     opciones.push({ valor: "e_firma_sat", etiqueta: ETIQUETA_MECANISMO.e_firma_sat });
   }
@@ -234,9 +228,8 @@ function opcionesMecanismo(pais: string | null, nivel: string | null): { valor: 
   return opciones;
 }
 
-// Fase A: `interoperabilidad` cambia de redacción por nivel de gobierno --
-// mismo patrón ya usado en GobiernoPerfil.tsx (preguntaAutoridadGobernanza).
-// `null`/"municipal" usa el texto original de PREGUNTAS_BOOLEANAS, sin cambio.
+// `interoperabilidad` cambia de redacción por nivel de gobierno; municipal usa
+// el texto original de PREGUNTAS_BOOLEANAS.
 function textoInteroperabilidad(nivel: string | null): string | null {
   if (nivel === "federal") {
     return "¿Este trámite comparte información automáticamente entre dependencias de la misma administración pública federal?";
@@ -341,27 +334,7 @@ function CardBooleana({
         <CardTitle className="text-base font-medium">{definicion.pregunta}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <RadioGroup
-          value={valor === null ? undefined : valor ? "si" : "no"}
-          onValueChange={(v) => onCambiarValor(v === "si")}
-          className="grid grid-cols-2 gap-3 sm:w-64"
-        >
-          {(["si", "no"] as const).map((opcion) => (
-            <label
-              key={opcion}
-              htmlFor={`${definicion.id}-${opcion}`}
-              className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2",
-                (valor === true && opcion === "si") || (valor === false && opcion === "no")
-                  ? "border-primary"
-                  : "border-border",
-              )}
-            >
-              <RadioGroupItem value={opcion} id={`${definicion.id}-${opcion}`} />
-              <span className="text-sm">{opcion === "si" ? "Sí" : "No"}</span>
-            </label>
-          ))}
-        </RadioGroup>
+        <CampoBooleanoRadio valor={valor} onCambiar={onCambiarValor} idPrefix={definicion.id} />
 
         <p className="text-xs text-atenuado">{definicion.ayuda}</p>
 
@@ -396,11 +369,9 @@ function CardBooleana({
   );
 }
 
-// --- Card de una variable adicional (propia del tipo de trámite) --------------------
-//
-// Más simple que CardBooleana a propósito: sin aclaración ni sugerencia asistida por
-// IA -- son preguntas nuevas, propias de app/engine/tipos_tramite.yaml, no del
-// catálogo de 6 variables que ya tiene ese flujo.
+// --- Card de una variable adicional (propia del tipo de trámite) -------------------
+// Sin aclaración ni sugerencia asistida por IA -- son preguntas nuevas del tipo
+// de trámite, no del catálogo de 6 variables que ya tiene ese flujo.
 
 function CardVariableAdicional({
   pregunta,
@@ -420,27 +391,7 @@ function CardVariableAdicional({
         <CardTitle className="text-base font-medium">{pregunta}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <RadioGroup
-          value={valor === null ? undefined : valor ? "si" : "no"}
-          onValueChange={(v) => onCambiarValor(v === "si")}
-          className="grid grid-cols-2 gap-3 sm:w-64"
-        >
-          {(["si", "no"] as const).map((opcion) => (
-            <label
-              key={opcion}
-              htmlFor={`${id}-${opcion}`}
-              className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2",
-                (valor === true && opcion === "si") || (valor === false && opcion === "no")
-                  ? "border-primary"
-                  : "border-border",
-              )}
-            >
-              <RadioGroupItem value={opcion} id={`${id}-${opcion}`} />
-              <span className="text-sm">{opcion === "si" ? "Sí" : "No"}</span>
-            </label>
-          ))}
-        </RadioGroup>
+        <CampoBooleanoRadio valor={valor} onCambiar={onCambiarValor} idPrefix={id} />
         <p className="text-xs text-atenuado">{ayuda}</p>
       </CardContent>
     </Card>
@@ -448,11 +399,8 @@ function CardVariableAdicional({
 }
 
 // --- Contexto adicional (opcional, no genera brecha) --------------------------------
-//
-// volumen_demanda_anual y tramite_concurrente/tramite_concurrente_detalle no
-// afectan el índice de madurez ni el catálogo de brechas -- solo alimentan
-// app/ia/estimacion_recursos.py para que la estimación de personal/presupuesto
-// sea más puntual. Por eso son opcionales, no bloquean "Enviar diagnóstico".
+// No afecta el índice de madurez, solo alimenta la estimación de recursos -- por
+// eso es opcional y no bloquea "Enviar diagnóstico".
 
 const OPCIONES_VOLUMEN_DEMANDA: { valor: string; etiqueta: string }[] = [
   { valor: "menos_100", etiqueta: "Menos de 100 al año" },
@@ -515,27 +463,7 @@ function CardTramiteConcurrente({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <RadioGroup
-          value={valor === null ? undefined : valor ? "si" : "no"}
-          onValueChange={(v) => onCambiarValor(v === "si")}
-          className="grid grid-cols-2 gap-3 sm:w-64"
-        >
-          {(["si", "no"] as const).map((opcion) => (
-            <label
-              key={opcion}
-              htmlFor={`concurrente-${opcion}`}
-              className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2",
-                (valor === true && opcion === "si") || (valor === false && opcion === "no")
-                  ? "border-primary"
-                  : "border-border",
-              )}
-            >
-              <RadioGroupItem value={opcion} id={`concurrente-${opcion}`} />
-              <span className="text-sm">{opcion === "si" ? "Sí" : "No"}</span>
-            </label>
-          ))}
-        </RadioGroup>
+        <CampoBooleanoRadio valor={valor} onCambiar={onCambiarValor} idPrefix="concurrente" />
         <p className="text-xs text-atenuado">
           Distinto de si comparte información automáticamente con otros registros: aquí importa si el trámite
           depende de que otra dependencia u orden de gobierno intervenga para poder concluirse. Opcional.
@@ -650,21 +578,9 @@ function CardMecanismoIdentidad({
           </div>
         )}
 
-        {/* QA (ronda 2, hallazgo #2; re-verificado en ronda 3): "Otro,
-            especifique" nunca puede quedar como valor final -- el motor de
-            reglas necesita uno de los 4 mecanismos reales (backend/app/
-            schemas/diagnostico.py::MECANISMOS_IDENTIDAD_VALIDOS), "otro"
-            nunca fue un valor almacenable (docs/ux-brief.md línea 71); esto
-            es una regla de producto, no el bug. El RadioGroup de arriba
-            sigue seleccionable en todo momento como salida.
-            Lo que sí era un bug real (ronda 3): el botón de un clic
-            ofrecía SIEMPRE "propio", sin importar qué describió el
-            funcionario -- para una descripción como "muestra su credencial
-            física en ventanilla, no hay nada digital" la respuesta correcta
-            es "ninguno", no "propio", y el botón sugería la equivocada.
-            Ahora se ofrecen las dos salidas de un clic (propio/ninguno) y el
-            funcionario elige cuál describe su caso -- nunca se adivina por
-            él cuál es la correcta. */}
+        {/* "Otro" nunca es un valor final (regla de producto, no bug) -- por
+            eso se ofrecen dos botones de salida (propio/ninguno) en vez de
+            adivinar uno solo. */}
         {esOtro && !sugerencia && !clasificando && errorClasificacion && (
           <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm">
             <p>
@@ -686,11 +602,9 @@ function CardMecanismoIdentidad({
   );
 }
 
-// --- Panel de proyección en vivo ("qué pasa si") -------------------------------------
-//
-// Corre el motor determinista sobre las respuestas actuales del formulario, sin
-// guardar nada (backend/app/adaptadores/http/diagnosticos.py::simular_diagnostico)
-// -- deja ver el impacto de una respuesta antes de "Guardar" o "Enviar".
+// --- Panel de proyección en vivo ("qué pasa si") ------------------------------------
+// Corre el motor determinista sobre las respuestas actuales sin guardar nada --
+// deja ver el impacto antes de "Guardar" o "Enviar".
 
 function PanelProyeccion({ simulacion, cargando }: { simulacion: SimulacionResponse | null; cargando: boolean }) {
   if (simulacion === null) return null;
@@ -747,18 +661,47 @@ function PanelProyeccion({ simulacion, cargando }: { simulacion: SimulacionRespo
   );
 }
 
-// 409 (el plan de este trámite todavía se está generando) y 429 (cooldown del
-// endpoint de envío) traen un `detail` en lenguaje llano y accionable, distinto
-// para cada caso -- el genérico "intenta de nuevo" es además mal consejo para
-// un 429, donde reintentar de inmediato vuelve a fallar. Función de módulo
-// (no local al componente) a propósito -- es pura, sin depender de ningún
-// estado del componente, y así se puede probar directo sin renderizar nada
-// (ver Diagnostico.test.tsx).
+// 409/429 traen un `detail` en lenguaje llano y accionable; el genérico "intenta
+// de nuevo" es mal consejo para un 429 (reintentar de inmediato vuelve a fallar).
 export function mensajeDeError(error: unknown): string {
   if (error instanceof ApiError && (error.status === 409 || error.status === 429)) {
     return error.message;
   }
   return "No se pudo completar la operación. Intenta de nuevo.";
+}
+
+// --- Autoguardado incremental --------------------------------------------------------
+// El PUT reemplaza `respuestas` por completo (sin merge parcial), así que
+// siempre se manda la foto completa, nunca solo el campo que cambió -- si no,
+// se borrarían las demás respuestas ya guardadas. `respuestasJson` es un string
+// para que el hook compare por valor, no por referencia.
+export function AutoguardadoDiagnostico({
+  tramiteId,
+  respuestasJson,
+}: {
+  tramiteId: string;
+  respuestasJson: string;
+}) {
+  const estado = useAutoguardadoCampo(
+    respuestasJson,
+    (json) => guardarDiagnostico(tramiteId, JSON.parse(json) as RespuestasDiagnostico),
+    1500,
+  );
+
+  if (estado === "guardando") {
+    return <p className="text-xs text-atenuado">Guardando avance automáticamente…</p>;
+  }
+  if (estado === "guardado") {
+    return <p className="text-xs text-atenuado">Avance guardado automáticamente.</p>;
+  }
+  if (estado === "error") {
+    return (
+      <p className="text-xs text-destructive">
+        No se pudo autoguardar el avance. Use &quot;Guardar y continuar después&quot;.
+      </p>
+    );
+  }
+  return null;
 }
 
 // --- Pantalla principal --------------------------------------------------------------
@@ -772,6 +715,9 @@ export function Diagnostico() {
   const [valores, setValores] = useState<ValoresBooleanos>(VALORES_INICIALES);
   const [aclaraciones, setAclaraciones] = useState<Aclaraciones>({});
   const [sugerencias, setSugerencias] = useState<SugerenciasBooleanas>(SUGERENCIAS_INICIALES);
+  // ruta_llm de la última clasificación por pregunta, para la corrección en
+  // onDescartarSugerencia.
+  const [rutasLlmBooleanas, setRutasLlmBooleanas] = useState<SugerenciasBooleanas>(SUGERENCIAS_INICIALES);
   const [clasificandoBooleana, setClasificandoBooleana] = useState<Record<IdBooleano, boolean>>(
     Object.fromEntries(PREGUNTAS_BOOLEANAS.map((p) => [p.id, false])) as Record<IdBooleano, boolean>,
   );
@@ -787,21 +733,23 @@ export function Diagnostico() {
   const [mecanismoSugerencia, setMecanismoSugerencia] = useState<string | null>(null);
   const [clasificandoMecanismo, setClasificandoMecanismo] = useState(false);
   const [mecanismoErrorClasificacion, setMecanismoErrorClasificacion] = useState(false);
-  // Bitácora de correcciones IA (correccion_ia): se arma cuando el funcionario
-  // descarta la sugerencia del clasificador de "Otro, especifique" ("Elegir
-  // manualmente") -- todavía no sabemos la respuesta correcta en ese momento,
-  // solo que la sugerida está mal. Se registra la corrección real en cuanto
-  // elige un mecanismo distinto de "otro" (ver onCambiarSeleccion abajo), y se
-  // limpia sin registrar nada si vuelve a "otro" sin llegar a elegir.
+  // Corrección pendiente: se arma al descartar la sugerencia (aún no se sabe la
+  // respuesta correcta) y se registra al elegir un mecanismo real.
   const [correccionPendienteMecanismo, setCorreccionPendienteMecanismo] = useState<{
     entrada: string;
     salida: string;
+    rutaLlm: string | null;
   } | null>(null);
+  const [mecanismoRutaLlm, setMecanismoRutaLlm] = useState<string | null>(null);
 
   const [esperandoPlan, setEsperandoPlan] = useState(false);
 
   const [simulacion, setSimulacion] = useState<SimulacionResponse | null>(null);
   const [simulando, setSimulando] = useState(false);
+
+  // Evita que la hidratación inicial (abajo) se vea como un cambio y dispare
+  // un autoguardado de datos que el funcionario nunca tocó.
+  const [formularioListo, setFormularioListo] = useState(false);
 
   const inicializadoRef = useRef(false);
 
@@ -811,33 +759,25 @@ export function Diagnostico() {
     enabled: !!tramiteId,
   });
 
-  // Fuente de verdad del estado real del trámite -- distingue un job de plan
-  // efectivamente en curso (estado "generando_plan") de un diagnóstico que
-  // simplemente fue enviado en algún momento del pasado (docs/app-flow.md:
-  // reabrir y modificar respuestas debe regresar el trámite a "en_progreso").
+  // Distingue un job de plan en curso de un diagnóstico ya enviado antes.
   const tramiteQuery = useQuery({
     queryKey: ["tramite", tramiteId],
     queryFn: () => obtenerTramite(tramiteId!),
     enabled: !!tramiteId,
   });
 
-  // Qué preguntas aplican según el tipo de trámite (backend/app/engine/
-  // tipos_tramite.yaml) -- mientras no se sepa el tipo (catálogo o trámite sin
-  // cargar todavía), no se excluye nada, se muestran las 6 de siempre.
+  // Mientras no se sepa el tipo de trámite, no se excluye nada.
   const tiposQuery = useQuery({ queryKey: ["tipos-tramite"], queryFn: obtenerTiposTramite });
   const tipoTramiteActual = tiposQuery.data?.find((t) => t.nombre === tramiteQuery.data?.tipo);
   const variablesExcluidas = new Set(tipoTramiteActual?.variables_excluidas ?? []);
   const preguntasEfectivas = PREGUNTAS_BOOLEANAS.filter((p) => !variablesExcluidas.has(p.id));
-  // Agrupa por sección preservando el orden en que aparece cada una en
-  // PREGUNTAS_BOOLEANAS -- solo para presentación, no afecta qué se envía.
   const seccionesOrdenadas = [...new Set(preguntasEfectivas.map((p) => p.seccion))];
   const preguntasPorSeccion = seccionesOrdenadas.map((seccion) => ({
     seccion,
     preguntas: preguntasEfectivas.filter((p) => p.seccion === seccion),
   }));
-  // Preguntas propias del tipo de trámite, además de las 6 de siempre. useMemo
-  // sobre los datos crudos (no sobre `tipoTramiteActual`, que es un objeto nuevo
-  // en cada render) para que la referencia sea estable en deps de useEffect.
+  // useMemo sobre los datos crudos, no sobre `tipoTramiteActual` (objeto nuevo
+  // en cada render), para una referencia estable en deps de useEffect.
   const variablesAdicionales = useMemo(
     () => tiposQuery.data?.find((t) => t.nombre === tramiteQuery.data?.tipo)?.variables_adicionales ?? [],
     [tiposQuery.data, tramiteQuery.data?.tipo],
@@ -845,58 +785,56 @@ export function Diagnostico() {
 
   useEffect(() => {
     const datos = diagnosticoQuery.data;
-    if (!datos || inicializadoRef.current) return;
-    inicializadoRef.current = true;
+    if (datos && !inicializadoRef.current) {
+      inicializadoRef.current = true;
 
-    const respuestas = datos.respuestas ?? {};
-    setValores((prev) => {
-      const siguiente = { ...prev };
-      for (const pregunta of PREGUNTAS_BOOLEANAS) {
-        const valor = respuestas[pregunta.id];
-        if (typeof valor === "boolean") siguiente[pregunta.id] = valor;
+      const respuestas = datos.respuestas ?? {};
+      setValores((prev) => {
+        const siguiente = { ...prev };
+        for (const pregunta of PREGUNTAS_BOOLEANAS) {
+          const valor = respuestas[pregunta.id];
+          if (typeof valor === "boolean") siguiente[pregunta.id] = valor;
+        }
+        return siguiente;
+      });
+      if (typeof respuestas.volumen_demanda_anual === "string") {
+        setVolumenDemanda(respuestas.volumen_demanda_anual);
       }
-      return siguiente;
-    });
-    if (typeof respuestas.volumen_demanda_anual === "string") {
-      setVolumenDemanda(respuestas.volumen_demanda_anual);
-    }
-    if (typeof respuestas.tramite_concurrente === "boolean") {
-      setTramiteConcurrente(respuestas.tramite_concurrente);
-    }
-    if (typeof respuestas.tramite_concurrente_detalle === "string") {
-      setTramiteConcurrenteDetalle(respuestas.tramite_concurrente_detalle);
-    }
-    if (typeof respuestas.mecanismo_identidad === "string") {
-      setMecanismoSeleccion(respuestas.mecanismo_identidad);
-    }
-    if (respuestas.aclaraciones && typeof respuestas.aclaraciones === "object") {
-      const { mecanismo_identidad: aclaracionMecanismoCargada, ...aclaracionesBooleanas } = respuestas.aclaraciones;
-      if (typeof aclaracionMecanismoCargada === "string") {
-        setMecanismoAclaracion(aclaracionMecanismoCargada);
+      if (typeof respuestas.tramite_concurrente === "boolean") {
+        setTramiteConcurrente(respuestas.tramite_concurrente);
       }
-      setAclaraciones((prev) => ({ ...prev, ...aclaracionesBooleanas }));
-    }
-    for (const va of variablesAdicionales) {
-      const valor = respuestas[va.variable];
-      if (typeof valor === "boolean") {
-        setValoresAdicionales((prev) => ({ ...prev, [va.variable]: valor }));
+      if (typeof respuestas.tramite_concurrente_detalle === "string") {
+        setTramiteConcurrenteDetalle(respuestas.tramite_concurrente_detalle);
+      }
+      if (typeof respuestas.mecanismo_identidad === "string") {
+        setMecanismoSeleccion(respuestas.mecanismo_identidad);
+      }
+      if (respuestas.aclaraciones && typeof respuestas.aclaraciones === "object") {
+        const { mecanismo_identidad: aclaracionMecanismoCargada, ...aclaracionesBooleanas } = respuestas.aclaraciones;
+        if (typeof aclaracionMecanismoCargada === "string") {
+          setMecanismoAclaracion(aclaracionMecanismoCargada);
+        }
+        setAclaraciones((prev) => ({ ...prev, ...aclaracionesBooleanas }));
+      }
+      for (const va of variablesAdicionales) {
+        const valor = respuestas[va.variable];
+        if (typeof valor === "boolean") {
+          setValoresAdicionales((prev) => ({ ...prev, [va.variable]: valor }));
+        }
       }
     }
-  }, [diagnosticoQuery.data, variablesAdicionales]);
+    // isSuccess cubre tanto "había diagnóstico" como "trámite nuevo, sin nada que hidratar".
+    if (diagnosticoQuery.isSuccess) setFormularioListo(true);
+  }, [diagnosticoQuery.data, diagnosticoQuery.isSuccess, variablesAdicionales]);
 
-  // Solo un job de plan efectivamente en curso al momento de cargar la
-  // pantalla debe mostrar la espera; "completado_en" por sí solo no lo indica
-  // porque nunca se limpia una vez fijado. Efecto independiente de la precarga
-  // de respuestas para no atar su temporización a la de esta consulta.
   useEffect(() => {
     if (tramiteQuery.data?.estado === "generando_plan") {
       setEsperandoPlan(true);
     }
   }, [tramiteQuery.data]);
 
-  // Polling de "generando plan" (docs/app-flow.md línea 55): el índice F2 ya se
-  // calculó de forma síncrona al enviar; el job de plan puede tardar. Nunca
-  // bloquea el resto de la navegación -- el funcionario puede volver al panel.
+  // Polling de "generando plan" -- nunca bloquea la navegación, el funcionario
+  // puede volver al panel mientras tanto.
   useEffect(() => {
     if (!esperandoPlan || !tramiteId) return;
     let cancelado = false;
@@ -908,8 +846,7 @@ export function Diagnostico() {
           await navigate(`/tramites/${tramiteId}/plan`);
         }
       } catch {
-        // Fallo de red transitorio -- se reintenta en el siguiente tick, nunca
-        // muestra un error de por sí (el funcionario puede irse y volver).
+        // Fallo transitorio -- se reintenta en el siguiente tick.
       }
     }
 
@@ -921,11 +858,8 @@ export function Diagnostico() {
     };
   }, [esperandoPlan, tramiteId, navigate]);
 
-  // Simulador "qué pasa si" (proyección en vivo, panel lateral): debounced 500ms,
-  // solo dispara sobre las 4 variables booleanas + mecanismo_identidad que
-  // realmente alimentan el índice de madurez (backend/app/dominio/madurez.py) --
-  // el resto del formulario (transparencia, contexto opcional) no cambia el
-  // resultado, recalcular por esos cambios sería una llamada desperdiciada.
+  // Simulador "qué pasa si": debounced 500ms, solo sobre las variables que
+  // realmente alimentan el índice de madurez.
   useEffect(() => {
     if (!tramiteId || esperandoPlan) return;
     let cancelado = false;
@@ -937,9 +871,7 @@ export function Diagnostico() {
           if (!cancelado) setSimulacion(resultado);
         })
         .catch(() => {
-          // Fallo transitorio de red -- el panel simplemente no actualiza, nunca
-          // bloquea el resto del formulario (mismo criterio que el resto de esta
-          // pantalla con llamadas de apoyo, ej. alSalirAclaracionBooleana).
+          // El panel simplemente no actualiza, nunca bloquea el formulario.
         })
         .finally(() => {
           if (!cancelado) setSimulando(false);
@@ -1005,14 +937,15 @@ export function Diagnostico() {
 
     setClasificandoBooleana((prev) => ({ ...prev, [id]: true }));
     try {
-      const { categoria } = await clasificarConsistenciaBooleana(texto, valorActual);
+      const { categoria, ruta_llm } = await clasificarConsistenciaBooleana(texto, valorActual);
       const esSugerenciaDeContradiccion =
         categoria === "posible_contradiccion_hacia_si" || categoria === "posible_contradiccion_hacia_no";
       setSugerencias((prev) => ({ ...prev, [id]: esSugerenciaDeContradiccion ? categoria : null }));
+      setRutasLlmBooleanas((prev) => ({ ...prev, [id]: esSugerenciaDeContradiccion ? (ruta_llm ?? null) : null }));
     } catch {
-      // Respaldo seguro: sin sugerencia visible, la aclaración ya quedó guardada como
-      // texto de apoyo -- mismo comportamiento que si la clasificación no existiera.
+      // Respaldo: sin sugerencia visible, como si la clasificación no existiera.
       setSugerencias((prev) => ({ ...prev, [id]: null }));
+      setRutasLlmBooleanas((prev) => ({ ...prev, [id]: null }));
     } finally {
       setClasificandoBooleana((prev) => ({ ...prev, [id]: false }));
     }
@@ -1024,14 +957,15 @@ export function Diagnostico() {
     setClasificandoMecanismo(true);
     setMecanismoErrorClasificacion(false);
     try {
-      const { categoria } = await clasificarMecanismoIdentidad(mecanismoAclaracion);
+      const { categoria, ruta_llm } = await clasificarMecanismoIdentidad(mecanismoAclaracion);
       const reconocida = categoria in ETIQUETA_MECANISMO;
       setMecanismoSugerencia(reconocida ? categoria : null);
+      setMecanismoRutaLlm(reconocida ? (ruta_llm ?? null) : null);
       if (!reconocida) setMecanismoErrorClasificacion(true);
     } catch {
-      // La clasificación puede fallar por red/timeout -- sin esto el usuario se
-      // queda sin ninguna señal de por qué el botón de enviar sigue deshabilitado.
+      // Sin esto, el usuario no sabría por qué el botón de enviar sigue deshabilitado.
       setMecanismoSugerencia(null);
+      setMecanismoRutaLlm(null);
       setMecanismoErrorClasificacion(true);
     } finally {
       setClasificandoMecanismo(false);
@@ -1092,6 +1026,9 @@ export function Diagnostico() {
         <p className="text-xs text-atenuado">
           {respondidas} de {totalPreguntas} preguntas respondidas
         </p>
+        {formularioListo && (
+          <AutoguardadoDiagnostico tramiteId={tramiteId} respuestasJson={JSON.stringify(construirRespuestas())} />
+        )}
       </div>
 
       {preguntasPorSeccion.map(({ seccion, preguntas }) => (
@@ -1123,14 +1060,8 @@ export function Diagnostico() {
                 setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
               }}
               onDescartarSugerencia={() => {
-                // Bitácora de correcciones IA -- a diferencia de mecanismo_identidad
-                // (2 pasos, porque "otro" no tiene valor determinado hasta que el
-                // funcionario elige), acá el valor "correcto" ya se conoce en el
-                // momento de descartar: es el que ya tenía marcado (el funcionario
-                // dice "no, mi valor original es el consistente", desmintiendo la
-                // sugerencia de contradicción). Se registra de inmediato, sin estado
-                // pendiente. Mismo criterio de "nunca bloquea el flujo principal" que
-                // el resto de esta pantalla.
+                // El valor "correcto" ya se conoce aquí (el que ya tenía marcado),
+                // a diferencia de mecanismo_identidad -- se registra de inmediato.
                 const sugerencia = sugerencias[definicion.id];
                 if (sugerencia) {
                   registrarCorreccionIa({
@@ -1139,9 +1070,11 @@ export function Diagnostico() {
                     salida_llm: sugerencia,
                     correccion: "consistente",
                     tramite_id: tramiteId,
+                    ruta_llm: rutasLlmBooleanas[definicion.id] ?? undefined,
                   }).catch(() => {});
                 }
                 setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
+                setRutasLlmBooleanas((prev) => ({ ...prev, [definicion.id]: null }));
               }}
             />
           ))}
@@ -1188,10 +1121,9 @@ export function Diagnostico() {
               salida_llm: correccionPendienteMecanismo.salida,
               correccion: valor,
               tramite_id: tramiteId,
+              ruta_llm: correccionPendienteMecanismo.rutaLlm ?? undefined,
             }).catch(() => {
-              // Telemetría de apoyo -- un fallo acá nunca debe interrumpir la
-              // captura del diagnóstico (mismo criterio que el resto de esta
-              // pantalla con llamadas no esenciales, ej. el simulador).
+              // Telemetría de apoyo -- un fallo acá nunca interrumpe la captura.
             });
             setCorreccionPendienteMecanismo(null);
           }
@@ -1204,13 +1136,19 @@ export function Diagnostico() {
         onConfirmarSugerencia={() => {
           if (mecanismoSugerencia) setMecanismoSeleccion(mecanismoSugerencia);
           setMecanismoSugerencia(null);
+          setMecanismoRutaLlm(null);
           setCorreccionPendienteMecanismo(null);
         }}
         onDescartarSugerencia={() => {
           if (mecanismoSugerencia) {
-            setCorreccionPendienteMecanismo({ entrada: mecanismoAclaracion, salida: mecanismoSugerencia });
+            setCorreccionPendienteMecanismo({
+              entrada: mecanismoAclaracion,
+              salida: mecanismoSugerencia,
+              rutaLlm: mecanismoRutaLlm,
+            });
           }
           setMecanismoSugerencia(null);
+          setMecanismoRutaLlm(null);
         }}
       />
 

@@ -46,31 +46,41 @@ function contrast(hexA, hexB) {
 // azul" -- ver docs/ux-brief.md, sección "Paleta". Ahora la acción/navegación es
 // tinta casi-negra (casi-blanca en oscuro) y el azul de la rampa (sin tocar)
 // queda como el único color con significado propio de toda la interfaz.
+// Sistema "Fría/técnica" (docs/design-system.md) -- reemplaza "Tinta neutra".
 const BASE = {
   light: {
-    background: "#f1f1ef",
+    background: "#fafafa",
     card: "#ffffff",
-    foreground: "#161614",
-    mutedForeground: "#504f4a",
-    atenuado: "#4a4945",
-    border: "#75746d",
-    primary: "#202020",
-    primaryForeground: "#f7f7f5",
+    foreground: "#171717",
+    mutedForeground: "#5c5f66",
+    atenuado: "#6b6e75",
+    border: "#8c8c90",
+    primary: "#171717",
+    primaryForeground: "#fafafa",
     destructive: "#ad2a24",
     destructiveForeground: "#fff5f4",
   },
   dark: {
-    background: "#121212",
-    card: "#1c1c1a",
-    foreground: "#f5f4f0",
-    mutedForeground: "#c7c5be",
-    atenuado: "#8f8d86",
-    border: "#727169",
-    primary: "#f2f1ec",
-    primaryForeground: "#121212",
+    background: "#0a0a0c",
+    card: "#131316",
+    foreground: "#f2f2f3",
+    mutedForeground: "#a8acb8",
+    atenuado: "#8b8e96",
+    border: "#606067",
+    primary: "#f2f2f3",
+    primaryForeground: "#0a0a0c",
     destructive: "#e8635c",
     destructiveForeground: "#280604",
   },
+};
+
+// 4 roles de estado con nombre propio (docs/design-system.md, sección 2) --
+// "exito"/"critico" reutilizan los mismos hex del semáforo (incluidos abajo,
+// no un valor nuevo); "alerta"/"info" son nuevos, reemplazan los admonition
+// boxes que usaban amber-500/emerald-500 de Tailwind sin editar.
+const ESTADOS = {
+  light: { exito: "#0d770d", alerta: "#92620a", critico: "#ad2a24", info: "#33578a" },
+  dark: { exito: "#4dcb4d", alerta: "#e0a83e", critico: "#e8635c", info: "#7fa6d9" },
 };
 
 // Pares de texto normal (< 24px o < 19px bold) -- umbral AA 4.5:1.
@@ -112,6 +122,23 @@ const SEMAFORO = {
 };
 const SEMAFORO_EXENTO_AA = new Set(["en_progreso", "atrasado"]);
 
+// Franja "hero" del índice global (Panel resumen) -- frontend/src/index.css,
+// identidad fija en claro/oscuro (mismo criterio que el navbar, ninguno de
+// los dos hereda de BASE/.dark). docs/ux-brief.md, "Revisión de diseño --
+// ronda 2". Se valida una sola vez, no por modo -- esta superficie no cambia
+// con el tema de la página.
+const HERO = {
+  bg: "#161614",
+  foreground: "#f5f4f0",
+  foregroundMuted: "#c7c5be",
+};
+
+// Mismos 5 hex que MADUREZ_TEXTO.dark -- variante "sobre oscuro" de la
+// rampa, para pintar la cifra del índice sobre --hero-bg
+// (frontend/src/lib/madurez.ts, campo `varTextoSobreOscuro`). Si
+// MADUREZ_TEXTO.dark cambia, actualizar también esto.
+const MADUREZ_SOBRE_OSCURO = MADUREZ_TEXTO.dark;
+
 let anyFail = false;
 
 function report(label, ratio, threshold, exempt = false) {
@@ -139,6 +166,11 @@ for (const mode of modes) {
     for (const [estado, hex] of Object.entries(SEMAFORO[mode])) {
       report(`${estado} / superficie de tarjeta`, contrast(hex, base.card), 4.5, SEMAFORO_EXENTO_AA.has(estado));
     }
+    console.log(" Roles de estado (avisos, docs/design-system.md):");
+    for (const [rol, hex] of Object.entries(ESTADOS[mode])) {
+      report(`${rol} / superficie de tarjeta`, contrast(hex, base.card), 4.5);
+      report(`${rol} / superficie de página`, contrast(hex, base.background), 4.5);
+    }
   }
 
   console.log(" Rampa ordinal de madurez -- hexClaro (decorativo, piso 2:1, nunca texto/borde):");
@@ -152,6 +184,16 @@ for (const mode of modes) {
     report(`nivel ${nivel} / superficie de página`, contrast(hex, base.background), 4.5);
   });
 }
+
+if (!onlyOrdinal) {
+  console.log("\n== Franja hero (superficie fija, Panel resumen) ==");
+  report("Texto / fondo hero", contrast(HERO.foreground, HERO.bg), 4.5);
+  report("Texto atenuado / fondo hero", contrast(HERO.foregroundMuted, HERO.bg), 4.5);
+}
+console.log(" Rampa ordinal -- texto sobre oscuro (AA 4.5:1 contra --hero-bg):");
+MADUREZ_SOBRE_OSCURO.forEach((hex, nivel) => {
+  report(`nivel ${nivel} / franja hero`, contrast(hex, HERO.bg), 4.5);
+});
 
 console.log();
 if (anyFail) {

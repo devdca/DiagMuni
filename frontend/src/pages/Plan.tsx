@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconChip } from "@/components/IconChip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { obtenerHistorial, type EventoHistorialResponse } from "@/lib/historialApi";
@@ -24,19 +26,14 @@ import {
   type SugerenciaLibre,
 } from "@/lib/planApi";
 
-// Plan de modernización generado (docs/ux-brief.md sección "4. Plan de modernización
-// generado", docs/app-flow.md paso 4): índice actual→objetivo con la misma paleta
-// ordinal del panel resumen, párrafo introductorio siempre visible, y un Accordion
-// con el desglose completo de cada brecha -- reemplaza el placeholder de F1.
+// Plan de modernización: índice actual→objetivo, párrafo introductorio, y un
+// Accordion con el desglose completo de cada brecha.
 
 const MARCADOR_NO_VERIFICADO = "[NO VERIFICADO]";
 const TEXTO_COSTO_NO_DISPONIBLE = "Costo no verificado: no se encontró una fuente pública confiable";
 
-// El índice objetivo nunca se inventa: backend/app/engine/madurez.py::calcular_indice_madurez
-// deja el índice 4 como el único techo alcanzable -- si el plan lista al menos una
-// brecha, el objetivo siempre es 4. Si no hay ninguna brecha (docs/app-flow.md,
-// "Trámite sin brechas"), el trámite ya está en el máximo alcanzado: actual y
-// objetivo son el mismo número, sin flecha.
+// El índice objetivo nunca se inventa: si hay al menos una brecha, el objetivo
+// siempre es 4; sin brechas, el trámite ya está en el máximo, sin flecha.
 const INDICE_OBJETIVO = 4;
 
 function valorCosto(valor: string, codigo: string): string | null {
@@ -141,34 +138,36 @@ function ItemBrecha({ brecha, indice }: { brecha: Brecha; indice: number }) {
   );
 }
 
-// Siempre visualmente distinta de las brechas verificadas (borde/fondo de aviso,
-// no de tarjeta normal) -- nunca debe confundirse con un hallazgo del catálogo
-// legal, ver backend/app/ia/sugerencia_libre.py.
+// Siempre visualmente distinta de las brechas verificadas -- nunca debe
+// confundirse con un hallazgo del catálogo legal.
 function TarjetaSugerenciaLibre({ sugerencia }: { sugerencia: SugerenciaLibre }) {
   return (
-    <Card className="border-amber-500/50 bg-amber-500/5">
+    <Card className="aviso-alerta">
       <CardHeader>
         <CardTitle className="text-base">Sugerencia a partir de tu descripción</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm">{sugerencia.texto}</p>
-        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{sugerencia.advertencia}</p>
+        <p className="text-xs font-medium" style={{ color: "var(--estado-alerta)" }}>
+          {sugerencia.advertencia}
+        </p>
       </CardContent>
     </Card>
   );
 }
 
-// Mismo criterio que TarjetaSugerenciaLibre -- estimación de IA, no verificada,
-// ver backend/app/ia/estimacion_recursos.py.
+// Mismo criterio que TarjetaSugerenciaLibre -- estimación de IA, no verificada.
 function TarjetaEstimacionRecursos({ estimacion }: { estimacion: EstimacionRecursos }) {
   return (
-    <Card className="border-amber-500/50 bg-amber-500/5">
+    <Card className="aviso-alerta">
       <CardHeader>
         <CardTitle className="text-base">Estimación aproximada de personal y presupuesto</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm">{estimacion.texto}</p>
-        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{estimacion.advertencia}</p>
+        <p className="text-xs font-medium" style={{ color: "var(--estado-alerta)" }}>
+          {estimacion.advertencia}
+        </p>
       </CardContent>
     </Card>
   );
@@ -271,8 +270,8 @@ function TarjetaProgresoHistorico({ progreso }: { progreso: ProgresoHistorico })
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {progreso.brechas_resueltas.length > 0 && (
-          <div className="rounded-md border border-emerald-500/50 bg-emerald-500/5 px-3 py-2 text-sm">
-            <p className="font-medium text-emerald-700 dark:text-emerald-400">
+          <div className="aviso-exito rounded-md px-3 py-2 text-sm">
+            <p className="font-medium" style={{ color: "var(--estado-exito)" }}>
               {progreso.brechas_resueltas.length} brecha(s) resuelta(s) desde el diagnóstico anterior
             </p>
             <ul className="list-disc pl-5">
@@ -283,8 +282,8 @@ function TarjetaProgresoHistorico({ progreso }: { progreso: ProgresoHistorico })
           </div>
         )}
         {progreso.brechas_nuevas.length > 0 && (
-          <div className="rounded-md border border-amber-500/50 bg-amber-500/5 px-3 py-2 text-sm">
-            <p className="font-medium text-amber-700 dark:text-amber-400">
+          <div className="aviso-alerta rounded-md px-3 py-2 text-sm">
+            <p className="font-medium" style={{ color: "var(--estado-alerta)" }}>
               {progreso.brechas_nuevas.length} brecha(s) nueva(s) desde el diagnóstico anterior
             </p>
             <ul className="list-disc pl-5">
@@ -319,17 +318,15 @@ function ListaBrechasCorta({ brechas }: { brechas: Brecha[] }) {
   );
 }
 
-// Ordena por `orden_sugerido` (backend/app/engine/resumen_plan.py) -- brechas sin
-// prerrequisitos pendientes primero. No es un grafo de dependencias real, es la
-// lectura de lo que `prerrequisitos` ya declara por brecha (texto libre).
+// Ordena por `orden_sugerido` -- no es un grafo de dependencias real, es la
+// lectura de `prerrequisitos` (texto libre) por brecha.
 function brechasEnOrdenSugerido(brechas: Brecha[], orden: OrdenSugerido): Brecha[] {
   const porVariable = new Map(brechas.map((b) => [b.variable, b]));
   const ordenadas = [...orden.sin_prerrequisitos, ...orden.con_prerrequisitos]
     .map((variable) => porVariable.get(variable))
     .filter((b): b is Brecha => b !== undefined);
-  // Defensivo: cualquier brecha que por algún motivo no aparezca en `orden` (no
-  // debería pasar, se calcula sobre las mismas `brechas`) se agrega al final en
-  // vez de desaparecer silenciosamente.
+  // Defensivo: una brecha que no aparezca en `orden` se agrega al final, nunca
+  // desaparece en silencio.
   const variablesOrdenadas = new Set(ordenadas.map((b) => b.variable));
   return [...ordenadas, ...brechas.filter((b) => !variablesOrdenadas.has(b.variable))];
 }
@@ -363,11 +360,79 @@ function EncabezadoIndice({ actual, sinBrechas }: { actual: number; sinBrechas: 
   );
 }
 
-// --- Pestaña "Historial" -- línea de tiempo persistida del trámite ------------------
-//
-// Consulta propia (no viaja en PlanOut): se monta solo cuando la pestaña está
-// activa (Radix Tabs no renderiza TabsContent inactivo por defecto), así que no
-// agrega una llamada extra al cargar la pantalla si el funcionario nunca la abre.
+// Panel lateral de orientación -- no calcula ni muestra ningún dato que no
+// exista ya en esta pantalla, solo lo deja visible sin cambiar de pestaña.
+function ResumenPlanRail({
+  indiceActual,
+  sinBrechas,
+  totalBrechas,
+  resumen,
+}: {
+  indiceActual: number | null;
+  sinBrechas: boolean;
+  totalBrechas: number;
+  resumen: ResumenInversion;
+}) {
+  const nivelActual = indiceActual === null ? null : obtenerNivelMadurez(indiceActual);
+  const nivelObjetivo = obtenerNivelMadurez(INDICE_OBJETIVO);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Resumen del plan</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 text-sm">
+        {nivelActual && (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" style={{ borderColor: nivelActual.varTexto, color: nivelActual.varTexto }}>
+              {nivelActual.nivel} — {nivelActual.etiqueta}
+            </Badge>
+            {!sinBrechas && (
+              <>
+                <span aria-hidden className="text-muted-foreground">
+                  →
+                </span>
+                <Badge variant="outline" style={{ borderColor: nivelObjetivo.varTexto, color: nivelObjetivo.varTexto }}>
+                  {nivelObjetivo.nivel}
+                </Badge>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <span className="text-muted-foreground">Brechas detectadas</span>
+          <span className="font-semibold tabular-nums">{totalBrechas}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Con componente identificado</span>
+          <span className="font-semibold tabular-nums">
+            {resumen.brechas_con_componente_software} / {resumen.brechas_totales}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1 border-t border-border pt-3">
+          <span className="text-muted-foreground">Inversión única estimada</span>
+          <span className="font-semibold">{textoMontoDual(resumen.inversion_unica_estimada, resumen.moneda_local_codigo)}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-muted-foreground">Costo recurrente mensual</span>
+          <span className="font-semibold">
+            {textoMontoDual(resumen.costo_recurrente_mensual_estimado, resumen.moneda_local_codigo)}
+          </span>
+        </div>
+
+        <p className="border-t border-border pt-3 text-xs text-atenuado">
+          Se calcula con los mismos datos de las pestañas de la izquierda — no agrega ninguna cifra nueva.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Pestaña "Historial" -- línea de tiempo persistida del trámite -----------------
+// Consulta propia: se monta solo cuando la pestaña está activa, sin llamada
+// extra si el funcionario nunca la abre.
 
 function tituloEvento(tipo: string): string {
   const titulos: Record<string, string> = {
@@ -509,90 +574,117 @@ export function Plan() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>Plan de modernización</CardTitle>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex gap-2">
-              {data.version > 1 && (
-                <Button variant="outline" onClick={() => void navigate(`/tramites/${tramiteId}/plan/comparar`)}>
-                  Comparar versiones
-                </Button>
+    <div className="mx-auto max-w-5xl p-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <IconChip
+                  size="sm"
+                  icon={
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                      <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none" />
+                      <circle cx="19.5" cy="7" r="1.5" fill="currentColor" stroke="none" />
+                      <path d="M4.5 16.5c3-1 3-9 6-9.5s3 6 6 6 2-1.5 3-2" />
+                    </svg>
+                  }
+                />
+                Plan de modernización
+              </CardTitle>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex gap-2">
+                  {data.version > 1 && (
+                    <Button variant="outline" onClick={() => void navigate(`/tramites/${tramiteId}/plan/comparar`)}>
+                      Comparar versiones
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => void alDescargarPdf()} disabled={descargando}>
+                    {descargando ? "Generando PDF..." : "Descargar PDF"}
+                  </Button>
+                </div>
+                {errorDescarga && (
+                  <p role="alert" className="text-xs text-destructive">
+                    No se pudo generar el PDF. Intenta de nuevo.
+                  </p>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {data.indice_madurez === null ? (
+                <p className="text-sm text-muted-foreground">Índice de madurez no disponible para este trámite.</p>
+              ) : (
+                <EncabezadoIndice actual={data.indice_madurez} sinBrechas={sinBrechas} />
               )}
-              <Button variant="outline" onClick={() => void alDescargarPdf()} disabled={descargando}>
-                {descargando ? "Generando PDF..." : "Descargar PDF"}
-              </Button>
-            </div>
-            {errorDescarga && (
-              <p role="alert" className="text-xs text-destructive">
-                No se pudo generar el PDF. Intenta de nuevo.
-              </p>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {data.indice_madurez === null ? (
-            <p className="text-sm text-muted-foreground">Índice de madurez no disponible para este trámite.</p>
-          ) : (
-            <EncabezadoIndice actual={data.indice_madurez} sinBrechas={sinBrechas} />
-          )}
 
-          {data.modo === "degradado" && (
-            <p className="rounded-md border border-border bg-secondary px-4 py-3 text-sm">
-              Este plan se generó con nuestras plantillas internas, sin asistencia de redacción por inteligencia
-              artificial disponible en este momento. Es un plan igual de válido: las acciones, la normativa y los
-              componentes recomendados siguen los mismos criterios en cualquier caso.
-            </p>
-          )}
+              {data.modo === "degradado" && (
+                <p className="rounded-md border border-border bg-secondary px-4 py-3 text-sm">
+                  Este plan se generó con nuestras plantillas internas, sin asistencia de redacción por inteligencia
+                  artificial disponible en este momento. Es un plan igual de válido: las acciones, la normativa y los
+                  componentes recomendados siguen los mismos criterios en cualquier caso.
+                </p>
+              )}
 
-          <p className="text-sm text-muted-foreground">{data.contenido.resumen_narrativo}</p>
-        </CardContent>
-      </Card>
+              <p className="text-sm text-muted-foreground">{data.contenido.resumen_narrativo}</p>
+            </CardContent>
+          </Card>
 
-      <Tabs defaultValue="ejecutivo">
-        <TabsList>
-          <TabsTrigger value="ejecutivo">Resumen ejecutivo</TabsTrigger>
-          <TabsTrigger value="tecnico">Detalle técnico</TabsTrigger>
-          <TabsTrigger value="historial">Historial</TabsTrigger>
-        </TabsList>
+          <Tabs defaultValue="ejecutivo">
+            <TabsList>
+              <TabsTrigger value="ejecutivo">Resumen ejecutivo</TabsTrigger>
+              <TabsTrigger value="tecnico">Detalle técnico</TabsTrigger>
+              <TabsTrigger value="historial">Historial</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="ejecutivo">
-          {data.progreso_historico && <TarjetaProgresoHistorico progreso={data.progreso_historico} />}
-          <TarjetaPresupuesto resumen={data.contenido.resumen_inversion} />
-          <TarjetaPersonal resumen={data.contenido.resumen_personal} />
-          {data.contenido.estimacion_recursos && (
-            <TarjetaEstimacionRecursos estimacion={data.contenido.estimacion_recursos} />
-          )}
-          {data.contenido.sugerencia_libre && <TarjetaSugerenciaLibre sugerencia={data.contenido.sugerencia_libre} />}
-          {!sinBrechas && <ListaBrechasCorta brechas={brechasOrdenadas} />}
-        </TabsContent>
+            <TabsContent value="ejecutivo">
+              {data.progreso_historico && <TarjetaProgresoHistorico progreso={data.progreso_historico} />}
+              <TarjetaPresupuesto resumen={data.contenido.resumen_inversion} />
+              <TarjetaPersonal resumen={data.contenido.resumen_personal} />
+              {data.contenido.estimacion_recursos && (
+                <TarjetaEstimacionRecursos estimacion={data.contenido.estimacion_recursos} />
+              )}
+              {data.contenido.sugerencia_libre && (
+                <TarjetaSugerenciaLibre sugerencia={data.contenido.sugerencia_libre} />
+              )}
+              {!sinBrechas && <ListaBrechasCorta brechas={brechasOrdenadas} />}
+            </TabsContent>
 
-        <TabsContent value="tecnico">
-          {!sinBrechas && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Detalle por brecha (verificado)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="multiple">
-                  {brechasOrdenadas.map((brecha, indice) => (
-                    <ItemBrecha key={`${brecha.variable}-${indice}`} brecha={brecha} indice={indice} />
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+            <TabsContent value="tecnico">
+              {!sinBrechas && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Detalle por brecha (verificado)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Accordion type="multiple">
+                      {brechasOrdenadas.map((brecha, indice) => (
+                        <ItemBrecha key={`${brecha.variable}-${indice}`} brecha={brecha} indice={indice} />
+                      ))}
+                    </Accordion>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
 
-        <TabsContent value="historial">
-          <TarjetaHistorial tramiteId={tramiteId} />
-        </TabsContent>
-      </Tabs>
+            <TabsContent value="historial">
+              <TarjetaHistorial tramiteId={tramiteId} />
+            </TabsContent>
+          </Tabs>
 
-      <Button variant="outline" onClick={() => void navigate("/seguimiento")}>
-        Ir al seguimiento
-      </Button>
+          <Button variant="outline" onClick={() => void navigate("/seguimiento")}>
+            Ir al seguimiento
+          </Button>
+        </div>
+
+        <div className="lg:sticky lg:top-6">
+          <ResumenPlanRail
+            indiceActual={data.indice_madurez}
+            sinBrechas={sinBrechas}
+            totalBrechas={brechas.length}
+            resumen={data.contenido.resumen_inversion}
+          />
+        </div>
+      </div>
     </div>
   );
 }

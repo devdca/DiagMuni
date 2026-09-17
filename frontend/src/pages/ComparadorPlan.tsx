@@ -13,10 +13,8 @@ import {
   type VersionPlanResumen,
 } from "@/lib/planApi";
 
-// Comparador de versiones del plan (/tramites/:tramiteId/plan/comparar) -- deja
-// ver qué cambió entre dos versiones cualesquiera del mismo trámite (nunca se
-// borran, docs/backend-schema.md). Reachable desde Plan.tsx ("Comparar
-// versiones", solo si hay más de una versión).
+// Comparador de versiones del plan -- deja ver qué cambió entre dos versiones
+// cualesquiera del mismo trámite (nunca se borran).
 
 function etiquetaVersion(v: VersionPlanResumen): string {
   const fecha = new Date(v.generado_en).toLocaleDateString("es", { year: "numeric", month: "short", day: "numeric" });
@@ -54,13 +52,16 @@ function SelectorVersion({
 
 function TarjetaBrechaResumen({ brecha, estado }: { brecha: Brecha; estado: "resuelta" | "nueva" | "persistente" }) {
   const estilos = {
-    resuelta: { badge: "Resuelta ✓", clase: "border-l-4 border-l-emerald-500" },
-    nueva: { badge: "Nueva", clase: "border-l-4 border-l-primary" },
-    persistente: { badge: "Sin cambios", clase: "" },
+    resuelta: { badge: "Resuelta ✓", colorBorde: "var(--estado-exito)" },
+    nueva: { badge: "Nueva", colorBorde: "var(--marca-acento)" },
+    persistente: { badge: "Sin cambios", colorBorde: "var(--border)" },
   }[estado];
 
   return (
-    <div className={`rounded-md border border-border p-3 ${estilos.clase}`}>
+    <div
+      className="rounded-md border border-border p-3"
+      style={{ borderLeftWidth: 3, borderLeftColor: estilos.colorBorde }}
+    >
       <div className="mb-1 flex items-center gap-2">
         <Badge variant="outline">{estilos.badge}</Badge>
         <span className="font-medium">{brecha.variable}</span>
@@ -83,9 +84,7 @@ export function ComparadorPlan() {
   const [versionA, setVersionA] = useState<number | null>(null);
   const [versionB, setVersionB] = useState<number | null>(null);
 
-  // Default: la más reciente vs. la inmediatamente anterior -- el caso de uso más
-  // común ("¿qué cambió con la última corrección?"). Solo corre una vez, cuando
-  // llegan las versiones por primera vez.
+  // Default: la más reciente vs. la inmediatamente anterior.
   useEffect(() => {
     const versiones = versionesQuery.data;
     if (!versiones || versiones.length === 0 || versionB !== null) return;
@@ -165,7 +164,7 @@ export function ComparadorPlan() {
             <CardContent className="flex flex-wrap gap-8 pt-6">
               <div>
                 <div className="text-xs text-muted-foreground">Brechas resueltas</div>
-                <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                <div className="text-2xl font-semibold tabular-nums" style={{ color: "var(--estado-exito)" }}>
                   {diferencia.resueltas.length}
                 </div>
               </div>

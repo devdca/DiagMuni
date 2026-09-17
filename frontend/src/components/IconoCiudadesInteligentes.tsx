@@ -1,11 +1,7 @@
-// Marca del login (docs/ux-brief.md, pantalla 1) -- SVG en línea, no un archivo
-// descargado (mismo criterio que los íconos de NavBar.tsx). Fuente original:
-// dos colores fijos (#203b72 ciudad/edificio, #1d9fd9 red de nodos) -- se
-// recolorearon a los tokens neutros (--foreground / --muted-foreground) para no
-// reintroducir azul fuera del índice de madurez, que es el único color con
-// significado propio de toda la interfaz (revisión de diseño, "Tinta neutra").
-// Se conserva el matiz de dos tonos original (estructura vs. red) como dos
-// grises distintos en vez de aplanar todo a un solo currentColor.
+// Marca del login, SVG en línea. Recoloreada a tokens neutros (antes tenía
+// azules fijos) -- el azul de la rampa de madurez es el único color con
+// significado propio de la interfaz. Se conservan dos grises (no un solo
+// currentColor) para mantener el matiz original de estructura vs. red.
 export function IconoCiudadesInteligentes({ className }: { className?: string }) {
   return (
     <svg

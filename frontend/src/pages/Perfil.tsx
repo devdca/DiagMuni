@@ -8,10 +8,8 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/httpClient";
 import { actualizarMiPerfil, cambiarMiPassword, obtenerMiPerfil } from "@/lib/usuariosApi";
 
-// Pantalla "Mi perfil" (/perfil): autoservicio del propio usuario autenticado --
-// distinta de "Perfil del gobierno" (/gobierno/perfil, GobiernoPerfil.tsx), que es
-// el contexto institucional del tenant, no datos de un usuario. Cualquier rol
-// llega aquí desde el chip de usuario en la nav (NavBar.tsx).
+// "Mi perfil": autoservicio del propio usuario -- distinto de "Perfil del
+// gobierno", que es el contexto institucional del tenant.
 
 function etiquetaRol(rol: string): string {
   return rol === "admin_gobierno" ? "Administrador" : "Funcionario";

@@ -12,22 +12,16 @@ import { resolverGobierno } from "../lib/gobiernosApi";
 import { ApiError } from "../lib/httpClient";
 import { guardarSesion } from "../lib/session";
 
-// Pantalla 1 (docs/ux-brief.md, "1. Selección de gobierno (tenant) e ingreso";
-// mecanismo completo en entregables/fase-2/identificacion-gobierno-login.md):
-// el funcionario escribe la clave de su gobierno, el frontend la resuelve contra
+// El funcionario escribe la clave de su gobierno, el frontend la resuelve contra
 // el backend y solo entonces revela correo/contraseña -- el tenant_id que se
-// termina enviando a POST /api/auth/login es siempre el que devolvió el backend,
-// nunca algo que el funcionario haya escrito a mano.
+// envía es siempre el que devolvió el backend, nunca algo escrito a mano.
 interface GobiernoResuelto {
   tenantId: string;
   nombre: string;
 }
 
-// El parámetro ?redirect= de la URL lo escribe SessionExpiredWatcher.tsx de forma
-// controlada, pero llega aquí como texto arbitrario (cualquiera puede armar el link
-// a mano) -- exigir una ruta interna que empiece con "/" y rechazar "//..." (URL
-// protocol-relative, el navegador la resuelve contra otro host) y cualquier "://"
-// evita que ese parámetro se use para un open-redirect hacia un dominio externo.
+// ?redirect= llega como texto arbitrario -- exigir "/" y rechazar "//"/"://"
+// evita un open-redirect hacia un dominio externo.
 function esRutaInternaSegura(candidato: string): boolean {
   return candidato.startsWith("/") && !candidato.startsWith("//") && !candidato.includes("://");
 }
@@ -73,18 +67,10 @@ export function LoginPage() {
   }
 
   return (
-    // Única pantalla con imagen de fondo (frontend/src/index.css, ".login-fondo")
-    // -- momento de bienvenida antes de entrar, el resto de la app se queda en
-    // superficie plana. La tarjeta es glass pero deliberadamente opaco (pedido
-    // de diseño explícito): suficiente blur para leerse como vidrio sobre la
-    // foto, sin sacrificar legibilidad ni el contraste AA ya validado de --card.
+    // Única pantalla con imagen de fondo -- el resto de la app se queda plana.
+    // La tarjeta es glass deliberadamente opaco, no transparente.
     <div className="login-fondo">
-      {/* Franja superior + ícono "ciudades inteligentes": punto de anclaje visual
-          provisional -- NO es el logo institucional del Laboratorio INAP
-          (todavía pendiente, ver docs/ux-brief.md, "Principios de diseño" #4) --
-          sustituir por el logo real cuando exista, sin tocar el resto de la
-          estructura de la tarjeta. Recoloreado a tinta neutra (ver componente):
-          el azul queda reservado para el índice de madurez, en ningún otro lado. */}
+      {/* Ícono provisional -- NO es el logo institucional del Lab INAP, sustituir cuando exista. */}
       <Card className="login-card-glass w-full max-w-sm border-t-[3px] border-t-primary">
         <CardHeader className="items-center text-center">
           <IconoCiudadesInteligentes className="mb-2 size-24" />

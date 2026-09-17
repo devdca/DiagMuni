@@ -18,18 +18,10 @@ import {
   type ActualizarAccionSeguimientoPayload,
 } from "@/lib/seguimientoApi";
 
-// Panel de seguimiento (docs/ux-brief.md sección "5. Panel de seguimiento",
-// docs/app-flow.md paso 5): tabla simple de todas las acciones de todos los
-// trámites con plan generado, con edición inline de responsable/fecha objetivo/
-// semáforo directamente en la fila -- sin Gantt, sin dependencias entre tareas,
-// sin ningún campo adicional a los 4 ya definidos (mandato explícito de "nada de
-// metodologías pesadas"). Clic en la fila navega al plan del trámite de esa
-// acción; los controles de edición y el expandir de notas detienen la
-// propagación del clic.
-//
-// Filtros (búsqueda, estado, responsable): puramente del lado del cliente sobre
-// la lista ya cargada -- `GET /api/seguimiento` ya trae todas las acciones
-// vigentes del tenant (RLS), no hace falta un endpoint nuevo para esto.
+// Tabla simple de acciones con edición inline -- sin Gantt ni dependencias
+// entre tareas ("nada de metodologías pesadas"). Clic en la fila navega al
+// plan; los controles de edición detienen la propagación del clic.
+// Filtros: puramente del lado del cliente sobre la lista ya cargada.
 
 const TODOS = "__todos__";
 
@@ -317,8 +309,7 @@ export function Seguimiento() {
           <CardTitle>Seguimiento de acciones</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Resumen general -- siempre sobre el total del tenant, nunca sobre
-              `datosFiltrados` (ver GraficaAvanceSeguimiento.tsx). */}
+          {/* Siempre sobre el total del tenant, nunca sobre `datosFiltrados`. */}
           {data && data.length > 0 && (
             <div className="mb-6">
               <GraficaAvanceSeguimiento acciones={data} />

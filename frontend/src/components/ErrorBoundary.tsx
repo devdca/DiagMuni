@@ -11,11 +11,9 @@ interface State {
   error: Error | null;
 }
 
-// Red de seguridad: sin esto, un error de render en cualquier pantalla protegida
-// deja la app en blanco y sin forma de recuperarse -- ProtectedLayout.tsx la
-// envuelve alrededor del <Outlet/> con `key={location.pathname}`, así que navegar
-// a otra ruta (incluido "atrás" del navegador) la reinicia sola en vez de quedar
-// atascada en el error de la pantalla anterior.
+// Sin esto, un error de render deja la app en blanco sin forma de recuperarse.
+// ProtectedLayout la envuelve con `key={location.pathname}`, así que cambiar de
+// ruta la reinicia sola en vez de quedar atascada.
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
 

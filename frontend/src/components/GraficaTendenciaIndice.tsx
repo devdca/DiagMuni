@@ -17,19 +17,10 @@ import { resolverColorCss } from "@/lib/colorCss";
 import { obtenerHistorialIndiceGlobal, type PuntoIndiceGlobalResponse } from "@/lib/tramitesApi";
 import { NIVELES_MADUREZ } from "@/lib/madurez";
 
-// Gráfica de tendencia -- distribución de trámites activos por nivel de
-// madurez (0-4), apilada en el tiempo (pedido explícito: que se vea como un
-// "gradient stacked area chart", pero con datos reales -- cuántos trámites
-// hay en cada nivel de la rampa en cada momento, nunca series inventadas).
-// Antes era una sola línea con el promedio; el promedio se sigue mostrando
-// como cifra grande en la tarjeta de arriba (PanelResumen.tsx), esta gráfica
-// ahora cuenta la historia completa detrás de ese promedio.
-//
-// ECharts en vez del SVG hecho a mano de antes (pedido explícito: tooltip
-// real al pasar el mouse y exportar como imagen). Solo se registran los
-// módulos que realmente se usan (line + grid + tooltip + leyenda + canvas),
-// no el paquete completo de echarts -- mismo criterio de "instalar solo lo
-// que la tarea necesita" que el resto del kit de UI (ver button.tsx, tabs.tsx).
+// Distribución de trámites activos por nivel de madurez, apilada en el
+// tiempo, con datos reales (nunca series inventadas). El promedio se muestra
+// aparte como cifra grande (PanelResumen.tsx); esto cuenta la historia detrás.
+// Solo se registran los módulos que se usan, no el paquete completo de echarts.
 echarts.use([GridComponent, LegendComponent, ToolboxComponent, TooltipComponent, LineChart, CanvasRenderer]);
 
 type OpcionGrafica = ComposeOption<
@@ -46,33 +37,18 @@ const CLAVE_CONTEO_POR_NIVEL = [
   "nivel_4_conteo",
 ] as const satisfies readonly (keyof PuntoIndiceGlobalResponse)[];
 
-// Datos REALES de backend/app/aplicacion/historial_indice_global.py (migración
-// 0015), nunca simulados: cada punto es el índice global recalculado en el
-// momento exacto de un envío/corrección de diagnóstico real. `refetchInterval`
-// (no un stream) para que un segundo funcionario viendo el panel al mismo
-// tiempo vea el punto nuevo sin recargar -- "tiempo real" en el sentido de
-// "refleja la base de datos", no de "se mueve solo".
+// `refetchInterval` (no un stream) -- para que otro funcionario viendo el
+// panel vea el punto nuevo sin recargar.
 const REFRESCO_MS = 30_000;
 
-// Referencia estable para cuando `historialQuery.data` todavía es `undefined`
-// -- un `?? []` literal crearía un arreglo nuevo en cada render y rompería la
-// memoización de `useMemo` de abajo (warning de react-hooks/exhaustive-deps).
+// Referencia estable: un `?? []` literal crearía un arreglo nuevo en cada
+// render y rompería la memoización de `useMemo` de abajo.
 const SIN_PUNTOS: PuntoIndiceGlobalResponse[] = [];
 
-// Paleta LOCAL de esta gráfica, distinta de NIVELES_MADUREZ.hexClaro -- pedido
-// explícito del usuario ("estilo semáforo, sin rojo" para las bandas de ESTA
-// gráfica). docs/ux-brief.md fija la rampa de madurez como "un solo hue, nunca
-// semáforo de colores dispares" para texto/badges del índice en el resto del
-// producto (ver madurez.ts) -- esa regla sigue vigente ahí; esta paleta vive
-// aislada acá para no romperla en ningún otro lugar, ya que el pedido fue
-// puntual a esta visualización.
-//
-// Validada con dataviz/scripts/validate_palette.js (categorical, modo light,
-// superficie #fcfcfb): separación CVD y piso de visión normal OK en los 5
-// colores; único WARN es contraste del ámbar contra la superficie (2.86:1,
-// bajo 3:1) -- igual que la excepción ya documentada de "en_progreso" en
-// semaforo.ts, cubierta porque el nivel siempre se identifica también por
-// leyenda/tooltip/eje, nunca solo por el color del área.
+// Paleta LOCAL, distinta de NIVELES_MADUREZ.hexClaro (que es "un solo hue" en
+// el resto del producto) -- pedido puntual de "estilo semáforo sin rojo" para
+// esta gráfica. Validada con validate_palette.js (CVD OK; el ámbar queda bajo
+// 3:1, aceptado porque el nivel también se identifica por leyenda/tooltip/eje).
 const COLOR_BANDA_POR_NIVEL = [
   "#c2410c", // nivel 0 -- peor: naranja profundo, nunca rojo
   "#ca8a04", // nivel 1 -- ámbar
@@ -81,11 +57,8 @@ const COLOR_BANDA_POR_NIVEL = [
   "#16a34a", // nivel 4 -- mejor: verde
 ] as const;
 
-// Para el degradado vertical de cada banda (pedido explícito: que se vea como
-// el ejemplo oficial "Gradient Stacked Area Chart" de ECharts) solo se varía
-// la opacidad del mismo hex de arriba, nunca un segundo tono inventado a mano
-// por nivel. Piso subido de 0.15 a 0.35 (antes el borde inferior del área casi
-// se perdía contra el fondo -- QA propia al tocar esta paleta).
+// Degradado vertical: solo varía la opacidad del hex de arriba, nunca un
+// segundo tono inventado.
 function hexConAlpha(hex: string, alpha: number): string {
   const numero = Number.parseInt(hex.slice(1), 16);
   const r = (numero >> 16) & 255;
@@ -111,8 +84,7 @@ function construirOpcion(puntos: PuntoIndiceGlobalResponse[]): OpcionGrafica {
   const colorTextoTarjeta = resolverColorCss("var(--card-foreground)");
   const colorIndice = resolverColorCss("var(--foreground)");
 
-  // Una serie por nivel de la rampa (0-4), apiladas -- colores de
-  // COLOR_BANDA_POR_NIVEL (arriba), solo para esta gráfica.
+  // Una serie por nivel de la rampa (0-4), apiladas.
   const seriesNiveles: LineSeriesOption[] = NIVELES_MADUREZ.map((nivel, i) => ({
     name: `${nivel.nivel} — ${nivel.etiqueta}`,
     type: "line",
@@ -131,16 +103,9 @@ function construirOpcion(puntos: PuntoIndiceGlobalResponse[]): OpcionGrafica {
     data: puntos.map((p) => p[CLAVE_CONTEO_POR_NIVEL[i]]),
   }));
 
-  // QA (ronda 2, hallazgo #1): el título de esta tarjeta promete "tendencia
-  // del índice", pero solo se dibujaba la distribución de trámites por nivel
-  // (real, pero NO es el índice) -- con los 3 diagnósticos de la prueba, esa
-  // distribución subía de 1 a 3 mientras el índice real se quedaba plano en
-  // 0.0, dando la impresión visual (falsa) de que la madurez mejoraba. El
-  // índice real ahora se dibuja encima, en su propio eje derecho (0-4, la
-  // misma escala fija de siempre) y en tinta neutra -- un color que no es
-  // ninguno de los 5 de la rampa, para que se lea como "la cifra", no como
-  // "un nivel más". `z` alto para que la línea quede sobre las áreas
-  // apiladas, nunca tapada por ellas.
+  // El índice real se dibuja encima de las áreas apiladas (que solo muestran
+  // conteo de trámites, no el índice), en su propio eje y en tinta neutra
+  // para leerse como "la cifra", no como un nivel más. `z` alto para no quedar tapado.
   const serieIndice: LineSeriesOption = {
     name: NOMBRE_SERIE_INDICE,
     type: "line",
@@ -162,9 +127,6 @@ function construirOpcion(puntos: PuntoIndiceGlobalResponse[]): OpcionGrafica {
       itemHeight: 12,
       textStyle: { color: colorTexto, fontSize: 11 },
     },
-    // Exportar como imagen (pedido explícito, mismo motivo que el tooltip real:
-    // reemplazar el SVG hecho a mano de antes por algo que un funcionario pueda
-    // guardar y compartir tal cual).
     toolbox: {
       right: 8,
       top: 0,
@@ -186,10 +148,9 @@ function construirOpcion(puntos: PuntoIndiceGlobalResponse[]): OpcionGrafica {
         type: "value",
         name: "Trámites",
         nameTextStyle: { color: colorTexto, fontSize: 10 },
-        // Sin rango fijo -- a diferencia del índice, esto cuenta TRÁMITES, y
-        // ese total crece con el catálogo del gobierno.
+        // Sin rango fijo -- esto cuenta trámites, y ese total crece.
         minInterval: 1,
-        splitLine: { lineStyle: { color: colorBorde, type: "dashed", opacity: 0.4 } },
+        splitLine: { show: false },
         axisLabel: { color: colorTexto, fontSize: 11 },
         axisLine: { show: false },
       },
@@ -197,9 +158,7 @@ function construirOpcion(puntos: PuntoIndiceGlobalResponse[]): OpcionGrafica {
         type: "value",
         name: "Índice",
         nameTextStyle: { color: colorTexto, fontSize: 10 },
-        // Rango fijo 0-4 -- es el rango real del índice, no el mínimo/máximo
-        // de los datos: así un salto de 3 a 4 se ve igual de grande que uno
-        // de 0 a 1 en cualquier momento que se mire el panel.
+        // Rango fijo 0-4, no el mínimo/máximo de los datos -- escala consistente.
         min: 0,
         max: 4,
         interval: 1,
@@ -216,16 +175,33 @@ function construirOpcion(puntos: PuntoIndiceGlobalResponse[]): OpcionGrafica {
       formatter: (parametros) => {
         const lista = Array.isArray(parametros) ? parametros : [parametros];
         if (lista.length === 0) return "";
-        const fecha = formatearFechaHora(puntos[lista[0].dataIndex ?? 0].creado_en);
-        const filas = lista.map((p) => {
+        const indiceDato = lista[0].dataIndex ?? 0;
+        const fecha = formatearFechaHora(puntos[indiceDato].creado_en);
+        // Delta vs. el punto anterior -- `lista` llega en el mismo orden que
+        // `series`, se usa esa posición para ir a buscar el valor previo.
+        const anterior = indiceDato > 0 ? puntos[indiceDato - 1] : null;
+        const filas = lista.map((p, i) => {
           const marcador = typeof p.marker === "string" ? p.marker : "";
+          const esIndice = p.seriesName === NOMBRE_SERIE_INDICE;
           const numero = typeof p.value === "number" ? p.value : Number(p.value);
-          const valor = p.seriesName === NOMBRE_SERIE_INDICE ? numero.toFixed(1) : String(numero);
-          return `${marcador} ${p.seriesName}: <strong>${valor}</strong>`;
+          const valor = esIndice ? numero.toFixed(1) : String(numero);
+          let delta = "";
+          if (anterior) {
+            const numeroAnterior = esIndice ? anterior.indice_global : anterior[CLAVE_CONTEO_POR_NIVEL[i]];
+            const diferencia = numero - numeroAnterior;
+            if (diferencia !== 0) {
+              const signo = diferencia > 0 ? "+" : "";
+              const texto = esIndice ? diferencia.toFixed(1) : String(diferencia);
+              delta = ` <span style="opacity:0.7;">(${signo}${texto})</span>`;
+            }
+          }
+          return `${marcador} ${p.seriesName}: <strong>${valor}</strong>${delta}`;
         });
         return [fecha, ...filas].join("<br/>");
       },
     },
+    animationDuration: 700,
+    animationEasing: "cubicOut",
     series: [...seriesNiveles, serieIndice],
   };
 }
@@ -238,25 +214,16 @@ export function GraficaTendenciaIndice() {
   });
 
   const puntos = historialQuery.data ?? SIN_PUNTOS;
-  // Con 0-1 puntos no hay "tendencia" que mostrar -- un dibujo con un solo
-  // punto sería más confuso que útil (docs/ux-brief.md, "sin producto de
-  // consumo": no rellenar con algo que parezca dato sin serlo).
+  // Con 0-1 puntos no hay "tendencia" real que mostrar.
   const opcion = useMemo(() => (puntos.length >= 2 ? construirOpcion(puntos) : null), [puntos]);
 
   const contenedorRef = useRef<HTMLDivElement>(null);
   const graficaRef = useRef<echarts.ECharts | null>(null);
 
-  // Bug real (no de caché): un efecto de montaje con deps `[]` solo corre UNA
-  // vez, justo después del primer commit -- pero mientras `historialQuery`
-  // está en "cargando" o hay <2 puntos, este componente todavía no devuelve el
-  // JSX con el <div ref={contenedorRef}>, así que ese primer efecto encontraba
-  // `contenedorRef.current === null` y se quedaba así para siempre: para
-  // cuando los datos reales llegaban y por fin se pintaba el <div>, el efecto
-  // de montaje ya no iba a volver a correr, y `echarts.init` nunca se llamaba.
-  // Ahora la creación es perezosa, dentro del mismo efecto que reacciona a
-  // `opcion` -- corre cada vez que hay datos nuevos, y solo inicializa si
-  // todavía no existe una instancia (o si el contenedor cambió, ej. al pasar
-  // de "cargando" a "con datos" el <div> es un nodo del DOM distinto).
+  // Inicialización perezosa: un efecto de montaje con deps `[]` corría antes
+  // de que el <div ref={contenedorRef}> existiera (mientras cargaba o había
+  // <2 puntos) y nunca volvía a correr -- `echarts.init` nunca se llamaba. Este
+  // efecto reacciona a `opcion`, así que corre de nuevo cuando hay datos reales.
   useEffect(() => {
     if (!contenedorRef.current || !opcion) return;
     if (graficaRef.current && graficaRef.current.getDom() !== contenedorRef.current) {
@@ -269,9 +236,7 @@ export function GraficaTendenciaIndice() {
     graficaRef.current.setOption(opcion, true);
   }, [opcion]);
 
-  // Efecto de limpieza -- solo se encarga del listener de resize y de liberar
-  // la instancia al desmontar el componente, no de crearla (eso ya lo hace el
-  // efecto de arriba, de forma perezosa).
+  // Solo limpieza: listener de resize y liberar la instancia al desmontar.
   useEffect(() => {
     const alRedimensionar = () => graficaRef.current?.resize();
     window.addEventListener("resize", alRedimensionar);
@@ -289,10 +254,29 @@ export function GraficaTendenciaIndice() {
     return <p className="text-sm text-destructive">No se pudo cargar la tendencia del índice.</p>;
   }
   if (puntos.length < 2) {
+    // Ilustración estática que acompaña el texto, nunca lo reemplaza.
     return (
-      <p className="text-sm text-atenuado">
-        Todavía no hay suficientes diagnósticos enviados para mostrar una tendencia (se necesitan al menos 2).
-      </p>
+      <div className="flex flex-col items-center gap-3 py-6 text-center">
+        <svg
+          aria-hidden
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        >
+          <path d="M4 20h16" />
+          <circle cx="8" cy="15" r="1.4" fill="var(--border)" stroke="none" />
+          <circle cx="13" cy="12" r="1.4" fill="var(--border)" stroke="none" />
+          <circle cx="18" cy="8" r="1.4" fill="var(--border)" stroke="none" />
+          <path d="M8 15l5-3 5-4" strokeDasharray="2 3" />
+        </svg>
+        <p className="text-sm text-atenuado">
+          Todavía no hay suficientes diagnósticos enviados para mostrar una tendencia (se necesitan al menos 2).
+        </p>
+      </div>
     );
   }
 

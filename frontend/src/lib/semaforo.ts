@@ -1,22 +1,13 @@
-// Paleta de estado del semáforo de seguimiento (docs/ux-brief.md sección
-// "Semáforo de seguimiento (F6)"), fija y validada -- nunca reutilizada como color
-// de serie ni para otro propósito. Solo 3 estados, mismos valores que
-// backend/app/models/accion_seguimiento.py::AccionSeguimiento.estado_semaforo.
-//
-// Variables CSS (frontend/src/index.css), no hex directo -- "completado" necesita
-// un valor distinto por modo para cumplir AA 4.5:1 contra la tarjeta de cada uno
-// (ver `frontend/scripts/validate_palette.js`). "en_progreso" y "atrasado" quedan
-// como excepción documentada, mismo valor en ambos modos: caen bajo el piso de
-// contraste 4.5:1 (y en algún caso 3:1) por diseño de la paleta -- por eso la
-// regla dura de este documento: todo estado se muestra siempre con ícono +
-// etiqueta de texto, nunca solo el punto de color.
+// Paleta de estado del semáforo (docs/ux-brief.md, "Semáforo de seguimiento"),
+// fija -- nunca reutilizada como color de serie. Variables CSS, no hex directo:
+// "en_progreso"/"atrasado" no cumplen AA en ambos modos por diseño, por eso todo
+// estado va siempre con ícono + etiqueta de texto, nunca solo el color.
 export type EstadoSemaforo = "completado" | "en_progreso" | "atrasado";
 
 export interface InfoEstadoSemaforo {
   etiqueta: string;
   hex: string;
-  // Glyph decorativo (aria-hidden) -- el significado siempre lo lleva `etiqueta`,
-  // nunca el ícono ni el color por sí solos.
+  /** Decorativo (aria-hidden) -- el significado lo lleva `etiqueta`, no el ícono. */
   icono: string;
 }
 

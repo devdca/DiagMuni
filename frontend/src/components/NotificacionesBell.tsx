@@ -9,10 +9,7 @@ import {
   type NotificacionResponse,
 } from "@/lib/notificacionesApi";
 
-// Centro de notificaciones (campana de la barra superior) -- vive en NavBar.tsx,
-// visible en cualquier pantalla con sesión. Sondeo cada 30s (sin WebSocket: el
-// resto del proyecto ya evita infraestructura nueva cuando no hace falta, ver
-// docs/TRD.md "Observabilidad").
+// Sondeo cada 30s -- sin WebSocket, evita infraestructura nueva sin necesidad real.
 const INTERVALO_SONDEO_MS = 30_000;
 
 function formatearRelativo(fechaIso: string): string {

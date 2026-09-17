@@ -15,10 +15,8 @@ import {
   type ResumenSaludIaResponse,
 } from "@/lib/saludIaApi";
 
-// Panel de administración -- pestaña "Salud del sistema" (/admin/salud-ia, solo
-// admin_gobierno): estado del proveedor de IA y actividad reciente, sin ningún
-// stack de observabilidad nuevo -- todo viene de columnas que ya existían
-// (plan_modernizacion, job).
+// "Salud del sistema" (solo admin_gobierno): estado del proveedor de IA y
+// actividad reciente, sin ningún stack de observabilidad nuevo.
 
 function etiquetaProveedor(proveedor: string | null): string {
   if (proveedor === null) return "Ninguno (modo degradado)";
@@ -52,12 +50,8 @@ function FilaPlan({ plan }: { plan: PlanRecienteResponse }) {
   );
 }
 
-// BYOK (bring your own key): cada gobierno trae y paga su propia credencial de
-// IA -- en un despliegue real el operador no deja ninguna key propia
-// configurada. La preferencia de proveedor se guarda de inmediato al elegirla
-// (como el rol en AdminUsuarios.tsx); la credencial en sí usa un botón
-// "Guardar" explícito -- escribir una key carácter por carácter no debe
-// disparar una mutación por cada tecla, a diferencia de un <select>.
+// BYOK: la preferencia de proveedor se guarda al elegirla; la credencial usa
+// un botón "Guardar" explícito -- no dispara una mutación por cada tecla.
 function ConfiguracionProveedorIa({ data }: { data: ResumenSaludIaResponse }) {
   const queryClient = useQueryClient();
   const [credencial, setCredencial] = useState("");
@@ -210,10 +204,8 @@ export function AdminSaludIA() {
               {data.planes_recientes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Todavía no se ha generado ningún plan.</p>
               ) : (
-                // Contenedor propio con scroll horizontal -- así, si la ventana se
-                // achica, solo la tabla se desplaza lateralmente y no toda la
-                // página (revisión de QA visual, DiagMuni desktop-only pero debe
-                // degradarse sin verse desfasado si la ventana se reduce).
+                // Scroll horizontal propio: si la ventana se achica, solo la tabla
+                // se desplaza, no toda la página.
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>

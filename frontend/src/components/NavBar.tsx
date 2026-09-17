@@ -9,15 +9,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { obtenerMiPerfil } from "@/lib/usuariosApi";
+import { useLogoGobiernoUrl } from "@/lib/useLogoGobierno";
 
 import { cerrarSesion, esAdmin, obtenerNombreGobierno } from "../lib/session";
 import { NotificacionesBell } from "./NotificacionesBell";
+import { ThemeToggle } from "./ThemeToggle";
 
-// Íconos de línea puramente decorativos (aria-hidden) -- el texto del enlace ya
-// es la etiqueta accesible, el ícono solo ayuda a escanear la barra de un
-// vistazo (revisión de diseño, docs/ux-brief.md sección "Principios de diseño").
-// size-[18px] en vez de size-4 (16px) -- feedback de que se veían chicos frente
-// al resto de la tipografía de la barra.
+// Íconos de línea decorativos (aria-hidden) -- el texto del enlace ya es la
+// etiqueta accesible.
 function IconoInicio() {
   return (
     <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-[18px] shrink-0">
@@ -82,10 +81,8 @@ function IconoCerrarSesion() {
   );
 }
 
-// Iniciales estilo Microsoft 365 (círculo con 1-2 letras) en vez de un botón de
-// texto -- pedido explícito de diseño. "María Pérez" -> "MP"; un solo nombre sin
-// espacios usa sus 2 primeras letras; sin nombre cargado todavía (query en vuelo
-// o error) cae a la silueta genérica, nunca a un círculo vacío.
+// "María Pérez" -> "MP"; un solo nombre usa sus 2 primeras letras; sin nombre
+// cargado todavía cae a la silueta genérica.
 function inicialesDeNombre(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean);
   if (partes.length === 0) return "";
@@ -93,14 +90,8 @@ function inicialesDeNombre(nombre: string): string {
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
-// Avatar con menú desplegable estilo Microsoft 365 (clic o Enter/Espacio abre
-// el menú -- Radix DropdownMenu ya trae el manejo de teclado/foco) -- reemplaza
-// el enlace directo a /perfil y el botón de "Cerrar sesión" que antes vivían
-// sueltos en la barra. Feedback de diseño: ahorra espacio y evita que el botón
-// de cerrar sesión quede como un bloque de color aparte compitiendo con el
-// resto de la barra. Mismo queryKey ["mi-perfil"] que Perfil.tsx y
-// AdminUsuarios.tsx -- React Query deduplica/cachea la petición entre los tres,
-// no es una llamada extra por cada pantalla que se visita.
+// Mismo queryKey ["mi-perfil"] que Perfil.tsx/AdminUsuarios.tsx -- React Query
+// deduplica la petición entre los tres.
 function AvatarPerfil() {
   const navigate = useNavigate();
   const perfilQuery = useQuery({ queryKey: ["mi-perfil"], queryFn: obtenerMiPerfil });
@@ -133,16 +124,13 @@ function AvatarPerfil() {
   );
 }
 
-// Mismos 4 enlaces que la barra de escritorio, para el menú de hamburguesa que
-// aparece por debajo de 1024px (revisión de QA visual: sin esto, los enlaces
-// de texto se envolvían en filas sueltas y desordenadas en vez de colapsar a
-// un menú -- DiagMuni sigue siendo desktop-only, pero no debe verse desfasado
-// si la ventana de escritorio se reduce).
+// Mismos 4 enlaces que la barra de escritorio, para cuando la ventana baja de
+// 1024px -- DiagMuni sigue siendo desktop-only, pero no debe verse roto.
 function MenuMovil() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-[var(--navbar-foreground)] hover:bg-[var(--navbar-bg-hover)] lg:hidden"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted lg:hidden"
         aria-label="Abrir menú de navegación"
       >
         <IconoMenu />
@@ -179,25 +167,21 @@ function MenuMovil() {
   );
 }
 
-// Nav superior fija en toda pantalla con sesión (docs/app-flow.md línea 17):
-// nombre del tenant en texto plano (nunca un selector), "Inicio",
-// "Perfil del gobierno" y "Seguimiento". Sin sidebar. "Mi perfil" y "Cerrar
-// sesión" viven dentro del menú del avatar (AvatarPerfil arriba) -- antes eran
-// un enlace y un botón sueltos que amontonaban la barra.
-//
-// Por debajo de 1024px (`lg`), `.app-navbar-links` se oculta (`hidden
-// lg:flex`) y `MenuMovil` toma su lugar -- ver nota de esa función.
+// Nav superior fija, sin sidebar. Por debajo de 1024px, `.app-navbar-links` se
+// oculta y `MenuMovil` toma su lugar.
 export function NavBar() {
+  const logoUrl = useLogoGobiernoUrl();
+
   return (
     <nav className="app-navbar">
       <div className="app-navbar-inner">
-        <span className="app-navbar-brand">{obtenerNombreGobierno()}</span>
+        <span className="app-navbar-brand">
+          {/* Junto al nombre, no en su lugar: sin logo (`logoUrl === null`) sigue habiendo texto. */}
+          {logoUrl && <img src={logoUrl} alt="" aria-hidden className="app-navbar-logo" />}
+          <span className="app-navbar-brand-nombre">{obtenerNombreGobierno()}</span>
+        </span>
         <div className="app-navbar-links hidden lg:flex">
-          {/* `end` en "/" -- sin él, NavLink marca activo cualquier ruta (todas
-              empiezan con "/"), no solo Inicio. Las demás no lo necesitan: si
-              el día de mañana hay subrutas (ej. "/seguimiento/algo"), siguen
-              contando como "Seguimiento" activo, que es el comportamiento que
-              se espera de una nav de secciones. */}
+          {/* `end` en "/" -- sin él, NavLink marca activo cualquier ruta (todas empiezan con "/"). */}
           <NavLink to="/" end className={({ isActive }) => (isActive ? "app-navbar-link-activo" : "")}>
             <IconoInicio />
             Inicio
@@ -217,8 +201,9 @@ export function NavBar() {
             </NavLink>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <MenuMovil />
+          <ThemeToggle />
           <NotificacionesBell />
           <AvatarPerfil />
         </div>

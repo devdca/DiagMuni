@@ -7,12 +7,8 @@ import { NavBar } from "./NavBar";
 
 const INTERVALO_REVISION_MS = 30_000;
 
-// Guard de sesión (docs/app-flow.md línea 53): sin sesión válida o con el
-// JWT expirado, ninguna de las 4 rutas protegidas es accesible — redirige a
-// /login preservando la ruta destino en la query "redirect" para volver ahí
-// tras reingresar. La revisión periódica cubre el caso de expiración del JWT
-// mientras el funcionario ya está en una pantalla protegida (no solo al
-// entrar a la ruta).
+// Guard de sesión -- sin JWT válido redirige a /login preservando la ruta
+// destino. La revisión periódica cubre la expiración mientras ya está adentro.
 export function ProtectedLayout() {
   const location = useLocation();
   const [valida, setValida] = useState(() => sesionValida());
@@ -34,7 +30,9 @@ export function ProtectedLayout() {
   return (
     <div className="min-h-screen">
       <NavBar />
-      <main className="pt-28">
+      {/* pt-[7.5rem] debe coincidir con la altura real de .app-navbar (index.css) --
+          actualizar si el tamaño del logo o el padding del navbar cambian. */}
+      <main className="pt-[7.5rem] max-[1200px]:pt-32">
         <ErrorBoundary key={location.pathname}>
           <Outlet />
         </ErrorBoundary>

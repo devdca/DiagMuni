@@ -2,9 +2,7 @@ import { Link } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
 
-// Sub-navegación entre las pantallas de administración (/admin/usuarios,
-// /admin/salud-ia) -- ambas ya están protegidas por RutaAdmin, esto es solo la
-// forma de moverse entre ellas sin volver al panel resumen.
+// Sub-navegación entre las pantallas de administración (ya protegidas por RutaAdmin).
 export function AdminTabs({ activa }: { activa: "usuarios" | "salud-ia" }) {
   const tabs = [
     { valor: "usuarios" as const, etiqueta: "Usuarios y roles", ruta: "/admin/usuarios" },

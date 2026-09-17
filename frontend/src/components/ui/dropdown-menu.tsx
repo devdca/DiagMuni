@@ -30,7 +30,7 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          "z-50 min-w-40 overflow-hidden rounded-md border border-border bg-card p-1 text-card-foreground shadow",
+          "dropdown-content-animado z-50 min-w-40 overflow-hidden rounded-md border border-border bg-card p-1 text-card-foreground shadow",
           className,
         )}
         {...props}
