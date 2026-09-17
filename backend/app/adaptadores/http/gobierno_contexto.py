@@ -118,9 +118,7 @@ def guardar_contexto(
 
     fila.actualizado_en = datetime.now(UTC)
     db.commit()
-    # commit() termina la transacción y con ella el app.tenant_id local (ver
-    # app/db/rls.py) -- hay que volver a fijarlo antes del refresh de abajo, que
-    # dispara una consulta real con RLS.
+    # commit() resetea app.tenant_id -- refijar antes del refresh de abajo.
     fijar_contexto_tenant(db, token.tenant_id)
     db.refresh(fila)
     return ContextoInstitucionalOut.model_validate(fila)

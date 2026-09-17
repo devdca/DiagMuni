@@ -1,16 +1,11 @@
-"""Formatea el contexto institucional del gobierno (perfil, no por trámite) para
-usarlo en dos lugares de la capa de IA que deben ver EXACTAMENTE el mismo texto:
-el prompt de redacción (generador_plan.py) y el texto de referencia contra el que
-se verifica que no se inventen cifras (verificador.py, verificador_citas.py). Si
-no fueran el mismo texto, una cifra real del contexto (ej. presupuesto) se
-rechazaría como inventada solo por no estar en los 5 campos fijos de la brecha.
-"""
+"""Formatea el contexto institucional para dos lugares que deben ver EXACTAMENTE
+el mismo texto: el prompt de redacción y la referencia contra la que se verifica
+que no se inventen cifras -- si no coincidieran, una cifra real (ej. presupuesto)
+se rechazaría como inventada."""
 
 _ETIQUETAS_MONEDA = {"mx": "MXN", "uy": "UYU"}
 
-# Solo las variables puramente descriptivas -- las que ya generan su propia
-# brecha (autoridad_gobernanza_digital y las 5 agregadas después) no necesitan
-# repetirse aquí, ya llegan a la narrativa a través de su propia acción.
+# Solo variables descriptivas -- las que ya generan su propia brecha no se repiten aquí.
 _CAMPOS_CONTEXTO: tuple[tuple[str, str], ...] = (
     ("poblacion_total", "Población total"),
     ("personal_total_gobierno", "Personal total del gobierno"),
@@ -24,8 +19,7 @@ _CAMPOS_CONTEXTO: tuple[tuple[str, str], ...] = (
     ("numero_oficinas_atencion", "Número de oficinas de atención al público"),
     ("personal_area_ti", "Personal del área de TI"),
     ("infraestructura_firma_electronica", "Infraestructura de firma electrónica avanzada"),
-    # Migración 0009 -- madurez digital transversal, interoperabilidad,
-    # ciberseguridad, capital humano de TI, medición, financiamiento, accesibilidad.
+    # Migración 0009 en adelante.
     ("portal_tramites_tipo", "Portal de trámites"),
     ("pagos_electronicos_generalizados", "¿Acepta pagos electrónicos de forma general?"),
     ("mecanismo_identidad_estandar", "Mecanismo de identidad digital estándar"),
@@ -46,9 +40,7 @@ _CAMPOS_CONTEXTO: tuple[tuple[str, str], ...] = (
     ("catalogo_tramites_propio_existe", "¿Cuenta con Registro/Catálogo de Trámites propio actualizado?"),
 )
 
-# Los 2 pares "porcentaje + no_se_mide" no encajan en el recorrido genérico de
-# arriba: si el booleano es true, la línea debe decir "No se mide"/"No se tiene
-# el dato" en vez del número -- una respuesta explícita, no la ausencia de una.
+# Si el booleano "no_se_mide" es true, la línea dice eso en vez del número.
 _CAMPOS_PORCENTAJE_CON_BANDERA: tuple[tuple[str, str, str, str], ...] = (
     (
         "porcentaje_tramites_en_linea",

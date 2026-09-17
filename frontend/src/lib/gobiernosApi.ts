@@ -5,8 +5,7 @@ export interface GobiernoResponse {
   nombre: string;
 }
 
-// Público, sin sesión (entregables/fase-2/identificacion-gobierno-login.md,
-// sección 3) -- paso previo a mostrar los campos de correo y contraseña.
+// Público, sin sesión -- paso previo a mostrar correo y contraseña.
 export function resolverGobierno(clave: string): Promise<GobiernoResponse> {
   return apiFetch<GobiernoResponse>(`/api/gobiernos/${encodeURIComponent(clave)}`, {
     method: "GET",

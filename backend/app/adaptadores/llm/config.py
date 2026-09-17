@@ -1,16 +1,9 @@
-"""Carga de la configuración de la capa de IA (`litellm_config.yaml`) y detección
-de disponibilidad de API key por ruta. Solo config y detección — ninguna llamada
-real a un LLM vive en este módulo.
+"""Carga la configuración de la capa de IA (`litellm_config.yaml`) y detecta
+disponibilidad de API key por ruta -- solo config, ninguna llamada real a un LLM.
 
-El YAML nunca se transcribe a código Python, igual que el catálogo de
-`engine/reglas_loader.py` — cambiar de modelo/ruta es editar un archivo de texto.
-
-Las API keys se leen de `app.core.config.Settings` (nunca de `os.environ`
-directamente), el mismo mecanismo que usa el resto del backend. La convención de
-pydantic-settings mapea cada variable de entorno a un atributo en minúsculas del
-mismo nombre (`DEEPSEEK_API_KEY` -> `deepseek_api_key`), así que
-`RutaLLM.env_var_api_key.lower()` localiza el atributo sin tabla de mapeo aparte.
-"""
+Las API keys se leen de `Settings`, nunca de `os.environ` directo. pydantic-settings
+mapea cada var de entorno a un atributo en minúsculas (`DEEPSEEK_API_KEY` ->
+`deepseek_api_key`), así que `env_var_api_key.lower()` localiza el atributo sin tabla aparte."""
 
 from dataclasses import dataclass
 from functools import lru_cache

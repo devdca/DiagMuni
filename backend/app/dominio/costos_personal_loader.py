@@ -17,10 +17,8 @@ def _cargar() -> dict:
 
 
 def costo_personal_referencia_para(pais: str) -> dict | None:
-    """`None` si el país no está en el catálogo. Un `salario_mensual_promedio` de
-    "[NO VERIFICADO]" es un valor real del catálogo (no un error) -- quien
-    consume esto decide cómo mostrarlo, igual que "[NO VERIFICADO]" en
-    costos_oss.yaml."""
+    """`None` si el país no está en el catálogo. "[NO VERIFICADO]" es un valor
+    real del catálogo, no un error."""
     datos = _cargar().get(pais)
     if datos is None:
         return None

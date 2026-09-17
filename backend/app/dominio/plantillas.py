@@ -1,8 +1,6 @@
-"""Motor de plantillas deterministas (docs/plan-implementacion.md, fase C3): convierte
-el catálogo brecha->acción en el `contenido` que vería el funcionario, **sin ningún
-LLM**. Es el modo `degradado` de `plan_modernizacion.modo` (docs/backend-schema.md) —
-debe producir un plan sustantivo por sí solo, sin ninguna key de API configurada.
-"""
+"""Motor de plantillas deterministas: convierte el catálogo brecha->acción en el
+`contenido` que vería el funcionario, sin ningún LLM. Es el modo `degradado` --
+debe producir un plan sustantivo por sí solo, sin ninguna key de API."""
 
 from app.dominio.catalogo_loader import componente_recomendado_para
 from app.dominio.reglas_loader import AccionPais, cargar_catalogo, criterio_se_cumple
@@ -18,12 +16,10 @@ def _narrativa_plantilla(accion: AccionPais) -> str:
 def generar_contenido_degradado(
     respuestas: dict, pais: str, nivel_gobierno: str = "municipal", tipo_tramite: str | None = None
 ) -> dict:
-    """Recorre el catálogo (engine/reglas/*.yaml), evalúa qué brechas aplican para
-    estas `respuestas`, y arma el `contenido` con texto de plantilla — nunca decide
-    una acción fuera de lo que ya está en el YAML (docs/plan-implementacion.md, E2).
-
-    `nivel_gobierno`/`tipo_tramite` (Fase A, ambos con default retrocompatible):
-    seleccionan qué carpeta del catálogo usar, ver `reglas_loader.cargar_catalogo`."""
+    """Evalúa qué brechas aplican para `respuestas` y arma el `contenido` con
+    texto de plantilla -- nunca decide una acción fuera del YAML.
+    `nivel_gobierno`/`tipo_tramite` seleccionan la carpeta del catálogo (ver
+    `reglas_loader.cargar_catalogo`)."""
     catalogo = cargar_catalogo(nivel_gobierno, tipo_tramite)
     brechas = []
     for regla in catalogo.values():
@@ -49,7 +45,6 @@ def generar_contenido_degradado(
         )
 
     if not brechas:
-        # docs/app-flow.md, "Casos especiales": no forzar una recomendación donde no hay brecha real.
         resumen = "No hay brechas pendientes: todas las variables evaluadas ya cumplen el nivel máximo."
     else:
         resumen = f"Se detectaron {len(brechas)} brecha(s) de modernización. Ver detalle de cada una a continuación."

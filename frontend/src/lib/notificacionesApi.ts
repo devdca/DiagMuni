@@ -1,7 +1,6 @@
 import { apiFetch } from "./httpClient";
 
-// Espejo de backend/app/schemas/notificacion.py (migración 0013) -- centro de
-// notificaciones tenant-wide (sin destinatario individual, ver esa migración).
+// Centro de notificaciones tenant-wide, sin destinatario individual.
 export interface NotificacionResponse {
   id: string;
   tipo: string;

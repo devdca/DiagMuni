@@ -61,9 +61,7 @@ def obtener_poblacion_total(clave_geoestadistica: str) -> int | None:
         observaciones = datos["Series"][0]["OBSERVATIONS"]
         if not observaciones:
             return None
-        # NO asumir el orden del arreglo (verificado en vivo: INEGI lo devuelve
-        # descendente por año, no ascendente) -- se elige explícitamente el
-        # TIME_PERIOD más alto.
+        # INEGI devuelve descendente por año -- se elige el TIME_PERIOD más alto explícito.
         mas_reciente = max(observaciones, key=lambda obs: int(obs["TIME_PERIOD"]))
         return int(float(mas_reciente["OBS_VALUE"]))
     except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as error:

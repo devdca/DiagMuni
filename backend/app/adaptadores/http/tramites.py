@@ -53,17 +53,10 @@ def listar_tramites(
     background_tasks: BackgroundTasks,
     archivados: bool = False,
 ) -> PanelResumenOut:
-    """`archivados=False` (default): solo trámites activos -- lo que ve el panel
-    resumen normalmente, con el índice global y la fecha de último diagnóstico
-    calculados exclusivamente sobre esos (un trámite archivado nunca debe inflar
-    ni corromper el índice del gobierno, ver diseño en docs/app-flow.md). `?archivados=true`
-    devuelve exclusivamente los archivados, para la vista de "ver archivados"."""
+    """`archivados=False` (default): solo activos, el índice global se calcula
+    solo sobre esos -- un trámite archivado nunca debe inflarlo."""
     condicion = Tramite.archivado_en.is_not(None) if archivados else Tramite.archivado_en.is_(None)
-    # order_by explícito -- sin él, Postgres puede devolver las filas en el orden
-    # que le resulte más barato (ej. un index scan sobre la PK uuid, que no tiene
-    # ninguna relación con la fecha de creación), no el orden de inserción. Mismo
-    # criterio que el resto de las consultas de listado del backend (ver
-    # app/aplicacion/notificaciones.py, app/aplicacion/historial.py, etc.).
+    # order_by explícito -- sin él Postgres puede devolver filas en cualquier orden.
     tramites = list(
         db.execute(select(Tramite).where(condicion).order_by(Tramite.created_at.desc())).scalars()
     )
@@ -73,8 +66,7 @@ def listar_tramites(
             assert job.diagnostico_tramite_id is not None
             background_tasks.add_task(ejecutar_generacion_plan, job.id, token.tenant_id, job.diagnostico_tramite_id)
 
-    # Tramite y DiagnosticoTramite no tienen relación ORM declarada (docs de esta
-    # tarea) -- se resuelve con una consulta explícita en vez de agregar una.
+    # Sin relación ORM declarada entre Tramite y DiagnosticoTramite -- consulta explícita.
     ids_tramites = [tramite.id for tramite in tramites]
     diagnosticos_por_tramite = {
         diagnostico.tramite_id: diagnostico
@@ -232,9 +224,7 @@ def archivar_tramite(
         descripcion=f'Trámite "{tramite.nombre}" archivado.',
     )
     db.commit()
-    # commit() resetea app.tenant_id (app/db/rls.py) -- no hay más consultas acá,
-    # pero se refija por el mismo motivo que el resto de este archivo (consistencia).
-    fijar_contexto_tenant(db, token.tenant_id)
+    fijar_contexto_tenant(db, token.tenant_id)  # commit() resetea app.tenant_id
 
     registrar_tramite_archivado(
         tenant_id=token.tenant_id, usuario_id=token.usuario_id, tramite_id=tramite_id, nombre=tramite.nombre

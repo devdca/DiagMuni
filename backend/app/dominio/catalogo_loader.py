@@ -44,12 +44,9 @@ class ComponenteCatalogo:
 
 @lru_cache(maxsize=1)
 def cargar_catalogo_oss() -> dict[str, ComponenteCatalogo]:
-    """Un dict por categoria_catalogo — ej. catalogo['gestor_expediente_electronico'].
-
-    Combina componentes_oss.yaml (F4) y costos_oss.yaml (F5); ambos deben declarar
-    exactamente el mismo conjunto de claves bajo `componentes:` — si no coinciden,
-    falla ruidosamente en el primer acceso en vez de degradar en silencio.
-    """
+    """Un dict por categoria_catalogo. Combina componentes_oss.yaml y
+    costos_oss.yaml; si sus claves no coinciden, falla ruidosamente en vez de
+    degradar en silencio."""
     with COMPONENTES_YAML.open(encoding="utf-8") as f:
         datos_componentes = yaml.safe_load(f)["componentes"]
     with COSTOS_YAML.open(encoding="utf-8") as f:
@@ -90,10 +87,8 @@ def cargar_catalogo_oss() -> dict[str, ComponenteCatalogo]:
 
 
 def componente_recomendado_para(categoria_catalogo: str, pais: str) -> dict | None:
-    """Arma el objeto `componente_recomendado` (forma exacta en
-    entregables/fase-2/catalogo-oss-wiring.md sección 1.1) para una brecha ya
-    decidida por engine/reglas/*.yaml. Devuelve `None` si la categoría o el país
-    no resuelven en el catálogo — nunca lanza una excepción que tumbe el plan."""
+    """Arma `componente_recomendado` para una brecha ya decidida. `None` si la
+    categoría o el país no resuelven -- nunca lanza."""
     catalogo = cargar_catalogo_oss()
     componente = catalogo.get(categoria_catalogo)
     if componente is None:

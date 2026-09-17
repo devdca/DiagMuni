@@ -1,16 +1,11 @@
-"""Carga el catálogo de tipos de trámite desde YAML -- mismo principio que
-reglas_loader.py: nunca se transcribe a código Python.
+"""Carga el catálogo de tipos de trámite desde YAML -- nunca se transcribe a
+código Python. Decide qué variables del cuestionario se preguntan por tipo:
+`documentos_digitalizados`, `proteccion_datos_incompleta` y
+`mecanismo_identidad` son obligatorias siempre; solo `motor_pagos`,
+`firma_electronica_habilitada` e `interoperabilidad` son excluibles.
 
-Decide qué variables del cuestionario (app/engine/reglas/*.yaml) se preguntan
-para cada tipo de trámite. `documentos_digitalizados`, `proteccion_datos_incompleta`
-y `mecanismo_identidad` son obligatorias siempre -- solo `motor_pagos`,
-`firma_electronica_habilitada` e `interoperabilidad` son excluibles por tipo.
-
-`variables_adicionales`: preguntas propias de un tipo, además de las 6 de
-siempre -- transversales (nunca gatillan un nivel del índice de madurez, ver
-app/engine/madurez.py, que no las referencia), solo aparecen como brecha extra
-en el plan si la respuesta es `false`.
-"""
+`variables_adicionales`: preguntas propias de un tipo, nunca gatillan un nivel
+del índice -- solo aparecen como brecha si la respuesta es `false`."""
 
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -93,9 +88,8 @@ def cargar_tipos_tramite() -> dict[str, TipoTramite]:
 
 
 def completar_respuestas_no_aplicables(tipo: str, respuestas: dict) -> dict:
-    """`respuestas` real siempre gana -- mismo patrón de merge que
-    `_namespace_efectivo` en app/jobs/plan_job.py. Lanza `KeyError` si `tipo` no
-    está en el catálogo (error de configuración real, no debe degradarse en silencio)."""
+    """`respuestas` real siempre gana. Lanza `KeyError` si `tipo` no está en
+    el catálogo -- error de configuración real, no se degrada en silencio."""
     tipo_tramite = cargar_tipos_tramite()[tipo]
     satisfechas = {variable: VALORES_SATISFECHOS[variable] for variable in tipo_tramite.variables_excluidas}
     return {**satisfechas, **respuestas}
@@ -109,10 +103,9 @@ def _narrativa_adicional(va: VariableAdicional) -> str:
 
 
 def evaluar_brechas_adicionales(tipo: str, respuestas: dict, pais: str = "mx") -> list[dict]:
-    """Brechas de las variables propias del tipo de trámite -- mismo formato de
-    dict que `generar_contenido_degradado` (app/engine/plantillas.py), para que
-    el llamador solo tenga que concatenar listas. `respuestas.get(variable) is
-    False` es la brecha (la pregunta se redacta en afirmativo: False = falta)."""
+    """Brechas de las variables propias del tipo de trámite, mismo formato de
+    dict que `generar_contenido_degradado`. `respuestas.get(variable) is
+    False` es la brecha (pregunta en afirmativo: False = falta)."""
     tipo_tramite = cargar_tipos_tramite()[tipo]
     brechas = []
     for va in tipo_tramite.variables_adicionales:

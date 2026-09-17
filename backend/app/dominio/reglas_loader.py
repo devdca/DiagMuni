@@ -1,9 +1,5 @@
-"""Carga el catálogo de reglas brecha->acción desde YAML (docs/TRD.md).
-
-Regla dura de docs/plan-implementacion.md, fase C: el catálogo nunca se transcribe a
-código Python, ni siquiera "temporalmente" — este módulo solo lee los archivos en
-tiempo de ejecución.
-"""
+"""Carga el catálogo de reglas brecha->acción desde YAML. Regla dura: el
+catálogo nunca se transcribe a código Python, ni siquiera "temporalmente"."""
 
 from dataclasses import dataclass
 from functools import lru_cache
@@ -13,12 +9,9 @@ import yaml
 
 REGLAS_DIR = Path(__file__).parent / "reglas"
 
-# Fase A de la expansión a los tres órdenes de gobierno: "municipal" son los 29
-# YAML históricos en REGLAS_DIR directo (cero migración de contenido existente);
-# "estatal"/"federal" viven en subcarpetas nuevas (REGLAS_DIR/estatal,
-# REGLAS_DIR/federal) -- carpetas separadas, no un tercer eje anidado dentro de
-# `acciones`, porque `cargar_catalogo` instancia `AccionPais(**contenido)`
-# directo por kwargs y un nivel de anidación extra rompería ese parseo.
+# "municipal" son los YAML directo en REGLAS_DIR; "estatal"/"federal" viven en
+# subcarpetas propias -- nunca un eje anidado dentro de `acciones`, porque
+# `cargar_catalogo` instancia `AccionPais(**contenido)` directo por kwargs.
 NIVELES_GOBIERNO_VALIDOS = ("municipal", "estatal", "federal")
 
 
@@ -31,11 +24,8 @@ class AccionPais:
     por_que_importa: str
     fuente_normativa: str
     categoria_catalogo: str
-    # Fase A: si la acción exige una reforma/norma nueva antes de poder
-    # ejecutarse (ej. crear una autoridad que hoy no existe en ese gobierno),
-    # en vez de ser solo cuestión de presupuesto/config -- ver
-    # `resumen_plan.calcular_factibilidad`. Default False para no romper los
-    # 29 YAML municipales existentes, que no declaran este campo.
+    # Si la acción exige una reforma/norma nueva antes de ejecutarse (ver
+    # `resumen_plan.calcular_factibilidad`). Default False por retrocompatibilidad.
     requiere_nueva_norma: bool = False
 
 
@@ -48,9 +38,8 @@ class Regla:
 
 
 def _parse_criterio(criterio: str) -> tuple[str, object]:
-    """Parsea "clave == valor" sin eval() — el criterio viene de YAML versionado
-    por el equipo, pero evitar eval() mantiene el motor determinista y auditable
-    sin depender de que el YAML sea siempre confiable."""
+    """Parsea "clave == valor" sin eval() -- mantiene el motor determinista y
+    auditable sin depender de que el YAML sea siempre confiable."""
     clave, _, valor_str = criterio.partition("==")
     clave = clave.strip()
     valor_str = valor_str.strip()
@@ -90,25 +79,16 @@ def _cargar_directorio(directorio: Path) -> dict[str, Regla]:
 
 @lru_cache(maxsize=32)
 def cargar_catalogo(nivel_gobierno: str = "municipal", tipo_tramite: str | None = None) -> dict[str, Regla]:
-    """Un dict por variable — ej. catalogo['firma_electronica_habilitada'].
+    """Un dict por variable. `nivel_gobierno` selecciona la carpeta de origen
+    (ver NIVELES_GOBIERNO_VALIDOS).
 
-    `nivel_gobierno` ("municipal" default, o "estatal"/"federal") selecciona la
-    carpeta de origen -- ver NIVELES_GOBIERNO_VALIDOS.
+    `tipo_tramite` (override opcional): si `REGLAS_DIR/<nivel>/<tipo_tramite>/`
+    existe, sus YAML se cargan ENCIMA del catálogo genérico -- una regla con la
+    misma `variable` ahí reemplaza por completo a la genérica. Existe porque
+    dos trámites del mismo nivel pueden tener fundamento normativo distinto
+    para la misma variable (ej. SAT vs. transparencia a nivel federal).
 
-    `tipo_tramite` (Fase A, override opcional): si `REGLAS_DIR/<nivel>/<tipo_tramite>/`
-    existe, sus YAML se cargan ENCIMA del catálogo genérico del nivel -- una
-    regla con la misma `variable` en la carpeta específica del trámite
-    reemplaza por completo a la genérica (no se fusionan campos), y una
-    variable que solo exista en la carpeta específica se agrega. Existe porque
-    dos trámites reales del mismo nivel_gobierno pueden tener fundamento
-    normativo distinto para la misma variable (ej. SAT vs. transparencia a
-    nivel federal: plazos de respuesta y requisitos de identidad muy
-    distintos) -- una sola versión "genérica federal" mentiría sobre uno de
-    los dos. Si un trámite no necesita override, simplemente no tiene carpeta
-    y usa el catálogo genérico del nivel tal cual.
-
-    `maxsize=32` (no 1): varias combinaciones (nivel, tipo_tramite) deben
-    convivir en caché, no invalidarse entre sí."""
+    `maxsize=32`: varias combinaciones (nivel, tipo_tramite) conviven en caché."""
     if nivel_gobierno not in NIVELES_GOBIERNO_VALIDOS:
         raise ValueError(f"Nivel de gobierno '{nivel_gobierno}' no soportado -- use {NIVELES_GOBIERNO_VALIDOS}.")
     directorio_base = REGLAS_DIR if nivel_gobierno == "municipal" else REGLAS_DIR / nivel_gobierno

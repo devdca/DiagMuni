@@ -8,10 +8,7 @@ from sqlalchemy.sql import func
 
 from app.db.base import Base
 
-# Dos roles (migración 0011, RBAC): `admin_gobierno` gestiona usuarios, catálogo
-# de trámites y salud del sistema de IA (app/adaptadores/http/admin_usuarios.py);
-# `funcionario` responde diagnósticos y ve planes. Ya no es el "un solo rol en
-# el MVP" que docs/backend-schema.md listaba como riesgo abierto.
+# admin_gobierno: gestiona usuarios/catálogo/salud de IA. funcionario: diagnósticos y planes.
 ROLES_VALIDOS = ("funcionario", "admin_gobierno")
 
 
@@ -29,12 +26,7 @@ class Usuario(Base):
     rol: Mapped[str] = mapped_column(
         Enum(*ROLES_VALIDOS, name="rol_enum"), nullable=False, default="funcionario"
     )
-    # Alta/baja reversible de un funcionario (antes solo posible tocando la base de
-    # datos a mano) -- `get_current_token` (app/adaptadores/http/deps.py) rechaza
-    # todo token de un usuario inactivo en cada request, no solo en el login.
+    # Rechazado en cada request, no solo en login.
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # `NULL` = nunca inició sesión. Se actualiza en cada login exitoso
-    # (app/adaptadores/http/auth.py) -- visible en el panel de administración para
-    # distinguir una cuenta inactiva de una que nunca se usó.
-    ultimo_login_en: Mapped[datetime | None] = mapped_column(nullable=True)
+    ultimo_login_en: Mapped[datetime | None] = mapped_column(nullable=True)  # NULL = nunca inició sesión
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

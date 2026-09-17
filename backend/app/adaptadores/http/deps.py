@@ -28,20 +28,12 @@ class TokenData:
 def get_current_token(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
 ) -> TokenData:
-    """Nunca confía en los claims del JWT por sí solos: un token con firma válida
-    pero un `sub`/`tenant_id` inventados (o de un usuario real movido a otro
-    tenant desde que se emitió) pasaría la sola verificación de firma. Aquí se
-    resuelve el usuario real desde la base de datos y el `tenant_id`/`rol` que
-    viajan en `TokenData` de ahí en más son siempre los de ese registro, nunca
-    los del claim crudo.
+    """Nunca confía en los claims del JWT solos -- resuelve el usuario real desde
+    la BD, y `tenant_id`/`rol` en `TokenData` son siempre los de ese registro.
 
-    `auto_error=False` en `_bearer_scheme`: el default de `HTTPBearer` responde
-    403 ("Not authenticated") cuando el header `Authorization` falta por
-    completo, distinto del 401 que ya se usa para un token inválido/expirado --
-    inconsistencia de status code sin implicación de seguridad real (la petición
-    se rechaza antes de ejecutar cualquier operación en ambos casos), señalada
-    por una revisión de seguridad externa (Strix) sobre los endpoints de
-    archivar/eliminar trámite. Se estandariza a 401 en los dos casos."""
+    `auto_error=False`: el default de `HTTPBearer` responde 403 sin header
+    Authorization, distinto del 401 de token inválido (hallazgo Strix) -- se
+    estandariza a 401 en ambos casos."""
     if credentials is None:
         raise _CREDENCIALES_INVALIDAS
 
@@ -52,10 +44,8 @@ def get_current_token(
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
         raise _CREDENCIALES_INVALIDAS from exc
 
-    # RLS forzado en `usuario` exige un tenant_id fijado antes de poder leer la fila
-    # -- se fija con el tenant_id reclamado por el propio token, igual que hace el
-    # login (app/api/auth.py), y la verificación real ocurre abajo comparando
-    # `usuario.tenant_id` contra ese mismo valor.
+    # RLS forzado exige tenant_id fijado antes de leer -- la verificación real es
+    # comparar usuario.tenant_id contra ese valor, abajo.
     db = abrir_sesion_tenant(tenant_id_claim)
     try:
         usuario = db.get(Usuario, usuario_id)
@@ -65,12 +55,8 @@ def get_current_token(
     if usuario is None or usuario.tenant_id != tenant_id_claim:
         raise _CREDENCIALES_INVALIDAS
 
-    # Se revisa en CADA request, no solo en el login: si un admin desactiva a un
-    # funcionario a media jornada, ese funcionario pierde acceso de inmediato --
-    # no hay que esperar a que expire su JWT (hasta 8h, ver settings.jwt_expire_hours).
-    # Mismo 401 genérico que el resto de esta función, para no revelar por qué
-    # (evita que alguien confirme por este medio que una cuenta existe pero está
-    # desactivada).
+    # Se revisa en CADA request, no solo en login -- desactivar a alguien corta el
+    # acceso de inmediato, sin esperar a que expire su JWT.
     if not usuario.activo:
         raise _CREDENCIALES_INVALIDAS
 

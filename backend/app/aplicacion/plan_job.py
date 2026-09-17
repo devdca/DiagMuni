@@ -1,14 +1,8 @@
 """Job asíncrono de generación de plan (docs/TRD.md, "Job asíncrono — ciclo de vida").
 
-`_generar_contenido_y_modo` nunca persiste `verificado=False` (docs/backend-schema.md:
-un plan no verificado nunca se muestra). Sin ruta `calidad` disponible, genera
-directo en modo degradado; si el verificador aprueba el contenido LLM, se persiste
-en modo `llm`; si lo rechaza o el verificador falla, se descarta y se persiste el
-contenido determinista. Los tres caminos terminan en `verificado=True` -- el
-degradado es correcto por construcción, el LLM ya pasó auditoría.
-
-Es una función pura (sin sesión de DB) para poder testearla sin Postgres real; el
-resto del job sigue siendo el único responsable de la sesión y de la tabla `job`.
+Un plan siempre queda `verificado=True`: si no hay LLM disponible o el verificador
+rechaza el contenido, se persiste el degradado (correcto por construcción); si el
+verificador aprueba, se persiste el modo `llm`.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -47,25 +41,16 @@ from app.models import (
     Tramite,
 )
 
-# docs/app-flow.md, máquina de estados: "si falla dos veces -> plan_listo en modo
-# degradado". Un mismo contador (`Job.intentos`) cuenta tanto fallos por excepción
-# como detecciones de job obsoleto -- ver `revisar_job_obsoleto`.
+# Si falla 2 veces (excepción o job obsoleto), cae a modo degradado.
 LIMITE_INTENTOS = 2
 
-# Sin blueprint que fije un plazo -- 90 días (un trimestre) como horizonte por
-# defecto, editable por el funcionario desde el panel de seguimiento (F6).
-_DIAS_PLAZO_ACCION_SEGUIMIENTO = 90
+_DIAS_PLAZO_ACCION_SEGUIMIENTO = 90  # horizonte por defecto, editable en F6
 _RESPONSABLE_SIN_ASIGNAR = "Por asignar"
 
 
 def _crear_acciones_seguimiento(db: Session, plan: PlanModernizacion, tenant_id: UUID) -> None:
-    """Una `AccionSeguimiento` por brecha del plan recién persistido (F6, docs/
-    app-flow.md paso 5) -- `descripcion` toma `paso_administrativo`, el paso corto y
-    accionable de cada brecha (presente en ambos modos, `degradado` y `llm`, ver
-    app/engine/plantillas.py y app/ia/generador_plan.py), no la `narrativa` completa
-    que ya se muestra en el plan. `fecha_objetivo` se calcula en Python -- no se
-    puede leer `plan.generado_en` sin refrescar la fila porque es `server_default`.
-    Requiere que `plan.id` ya exista (llamar después de `db.flush()`)."""
+    """Una `AccionSeguimiento` por brecha del plan (F6). Requiere `plan.id` ya
+    asignado (llamar después de `db.flush()`)."""
     fecha_objetivo = datetime.now(UTC).date() + timedelta(days=_DIAS_PLAZO_ACCION_SEGUIMIENTO)
     for brecha in plan.contenido["brechas"]:
         db.add(
@@ -81,33 +66,17 @@ def _crear_acciones_seguimiento(db: Session, plan: PlanModernizacion, tenant_id:
 
 def _namespace_efectivo(db: Session, tenant_id: UUID, respuestas: dict, tipo_tramite: str) -> dict:
     """Fusión `{**contexto_institucional_del_tenant, **respuestas_del_tramite}`
-    (entregables/fase-2/variables-contexto-institucional.md, sección 3.1, punto 2)
-    -- así `autoridad_gobernanza_digital` puede evaluarse como brecha transversal
-    junto a las 6 variables ya existentes del trámite, sin colisión de nombres
-    entre ambos namespaces. Si el tenant todavía no tiene fila de
-    `contexto_institucional`, el campo simplemente no aparece en el dict fusionado
-    -- `criterio_se_cumple` (app/engine/reglas_loader.py) ya maneja una clave
-    ausente sin fallar (`dict.get` devuelve `None`, nunca lanza `KeyError`).
-
-    Al final se completan las variables que `tipo_tramite` no pregunta -- así ni
-    el índice ni el plan las tratan como brecha real (ver
-    app/engine/tipos_tramite_loader.py)."""
+    para evaluar brechas transversales junto a las del trámite. Completa al final
+    las variables que `tipo_tramite` no pregunta, para que no cuenten como brecha."""
     contexto = db.execute(
         select(ContextoInstitucional).where(ContextoInstitucional.tenant_id == tenant_id)
     ).scalar_one_or_none()
     if contexto is None:
         namespace = dict(respuestas)
     else:
-        # QA (ronda 2, consolidado de rondas anteriores): esta lista se escribía
-        # a mano y se quedó atrás de la migración 0009 -- 24 de los 34 campos
-        # reales de ContextoInstitucional (personal_area_ti incluido, el que
-        # reportó QA, pero también toda la sección "madurez digital
-        # transversal" del Perfil del gobierno) nunca llegaban a evaluarse ni
-        # al plan ni al índice: el funcionario los llenaba, se guardaban bien,
-        # pero acá se leían como si no existieran. Se deriva de las columnas
-        # reales del modelo en vez de mantener una segunda lista a mano -- un
-        # campo nuevo en el modelo queda incluido automáticamente, sin
-        # depender de acordarse de actualizar esto también.
+        # Se deriva de las columnas reales del modelo (no una lista a mano) --
+        # bug de QA previo: una lista escrita a mano se quedó atrás de una
+        # migración y perdía campos reales en silencio.
         namespace_contexto = {
             columna.key: getattr(contexto, columna.key)
             for columna in ContextoInstitucional.__table__.columns
@@ -119,12 +88,8 @@ def _namespace_efectivo(db: Session, tenant_id: UUID, respuestas: dict, tipo_tra
 
 
 def _con_brechas_adicionales(contenido: dict, tipo_tramite: str, respuestas: dict) -> dict:
-    """Agrega las brechas propias del tipo de trámite (app/engine/
-    tipos_tramite_loader.py) al `contenido` ya generado -- determinista, nunca
-    pasa por el LLM, para no depender de que el modelo conozca estas fuentes
-    normativas nuevas. `"generico"` (o cualquier tipo sin variables_adicionales)
-    no agrega nada, así que llamar esto con el valor por defecto es una operación
-    nula segura."""
+    """Agrega las brechas propias del tipo de trámite -- siempre determinista,
+    nunca pasa por el LLM. No-op segura para `"generico"`."""
     brechas_adicionales = evaluar_brechas_adicionales(tipo_tramite, respuestas)
     if not brechas_adicionales:
         return contenido
@@ -136,13 +101,8 @@ def _con_brechas_adicionales(contenido: dict, tipo_tramite: str, respuestas: dic
 def _con_sugerencia_libre(
     contenido: dict, descripcion: str, respuestas: dict, pais: str, *, override: OverrideLlmTenant | None = None
 ) -> dict:
-    """Agrega la sugerencia libre (app/adaptadores/llm/sugerencia_libre.py)
-    generada a partir de la descripción del trámite -- complementaria a las
-    brechas verificadas de arriba, nunca las reemplaza ni pasa por el
-    verificador F9 (ver docstring de ese módulo). `sugerencia_libre` queda en
-    `None` si no hay descripción o no hay ninguna ruta de LLM disponible -- a
-    diferencia del resto del plan, no tiene fallback determinista. `override`
-    (BYOK): credencial/preferencia propia del tenant."""
+    """Sugerencia libre generada de la descripción del trámite -- complementa las
+    brechas, nunca pasa por el verificador F9. `None` sin descripción o sin LLM."""
     return {
         **contenido,
         "sugerencia_libre": generar_sugerencia_libre(descripcion, respuestas, pais, override=override),
@@ -152,9 +112,8 @@ def _con_sugerencia_libre(
 def _con_estimacion_recursos(
     contenido: dict, respuestas: dict, pais: str, *, override: OverrideLlmTenant | None = None
 ) -> dict:
-    """Agrega la estimación aproximada de personal/presupuesto (app/adaptadores/
-    llm/estimacion_recursos.py) -- mismo criterio que `_con_sugerencia_libre`:
-    texto libre de IA, sin verificador F9, `None` sin brechas o sin ruta de LLM."""
+    """Estimación aproximada de personal/presupuesto -- mismo criterio que
+    `_con_sugerencia_libre`: texto libre de IA, sin verificador F9."""
     return {
         **contenido,
         "estimacion_recursos": generar_estimacion_recursos(
@@ -164,13 +123,8 @@ def _con_estimacion_recursos(
 
 
 def _con_resumen(contenido: dict, respuestas: dict, pais: str) -> dict:
-    """Agrega la síntesis determinista de presupuesto, personal y orden sugerido
-    (app/engine/resumen_plan.py) -- se calcula sobre `contenido["brechas"]` ya
-    completo (incluidas las brechas adicionales del tipo de trámite), nunca antes.
-
-    Fase A: también agrega `factibilidad` a cada brecha (`calcular_factibilidad`)
-    antes de calcular los resúmenes de arriba, para que estos ya operen sobre
-    brechas con el campo presente."""
+    """Síntesis determinista de presupuesto/personal/orden sugerido, calculada
+    sobre `contenido["brechas"]` ya completo (con `factibilidad` ya agregada)."""
     brechas = [{**brecha, "factibilidad": calcular_factibilidad(brecha, respuestas)} for brecha in contenido["brechas"]]
     return {
         **contenido,
@@ -191,12 +145,7 @@ def _generar_contenido_y_modo(
     override: OverrideLlmTenant | None = None,
 ) -> tuple[str, dict, bool]:
     """Devuelve `(modo, contenido, verificado)` -- `verificado` siempre `True`.
-    `override` (BYOK, ver app/aplicacion/preferencia_modelo_ia.py): credencial y
-    preferencia propia del tenant, gana sobre cualquier config global del
-    operador -- ver app/adaptadores/llm/config.py::obtener_proveedor_llm.
-    `nivel_gobierno`/`tipo_tramite` (Fase A): seleccionan qué carpeta del
-    catálogo de reglas usar (genérica del nivel, o el override específico de
-    este tipo de trámite si existe), ver `reglas_loader.cargar_catalogo`."""
+    `override` (BYOK): credencial del tenant, gana sobre la config global."""
     rutas_generacion = obtener_rutas_generacion(override=override)
     if not any(esta_disponible(nombre, override=override) for nombre in rutas_generacion):
         contenido = generar_contenido_degradado(respuestas, pais, nivel_gobierno, tipo_tramite)
@@ -215,9 +164,7 @@ def _generar_contenido_y_modo(
         contenido = _con_sugerencia_libre(contenido, descripcion, respuestas, pais, override=override)
         return "llm", _con_estimacion_recursos(contenido, respuestas, pais, override=override), True
 
-    # verificar_contenido ya cierra por defecto ante cualquier duda (rechazo,
-    # fallo o no disponible = no aprobado); en cualquier caso se descarta el LLM
-    # y se persiste el determinista.
+    # Rechazo, fallo o no disponible: se descarta el LLM y se persiste el determinista.
     contenido = _con_brechas_adicionales(contenido_determinista, tipo_tramite, respuestas)
     contenido = _con_resumen(contenido, respuestas, pais)
     contenido = _con_sugerencia_libre(contenido, descripcion, respuestas, pais, override=override)
@@ -225,11 +172,8 @@ def _generar_contenido_y_modo(
 
 
 def _registrar_plan_generado(db: Session, *, tenant_id: UUID, tramite: Tramite, plan: PlanModernizacion) -> None:
-    """Historial persistido (pantalla "Historial") + notificación (campana) del
-    evento "se generó un plan" -- un único punto llamado desde los dos lugares que
-    pueden terminar en un `PlanModernizacion` nuevo (`_persistir_plan_degradado` y
-    el camino feliz de `ejecutar_generacion_plan`), para no repetir el texto ni
-    arriesgar que uno de los dos caminos se quede sin avisar."""
+    """Historial + notificación del evento "se generó un plan" -- punto único
+    compartido por los dos caminos que pueden crear un `PlanModernizacion`."""
     registrar_evento(
         db,
         tenant_id=tenant_id,
@@ -262,11 +206,9 @@ def _registrar_plan_generado(db: Session, *, tenant_id: UUID, tramite: Tramite, 
 
 
 def _persistir_plan_degradado(db: Session, tenant_id: UUID, diagnostico_tramite_id: UUID) -> bool:
-    """Genera y persiste el plan en modo degradado y cierra el trámite -- mismo
-    patrón de versionado y transición de estado que el camino feliz de
-    `ejecutar_generacion_plan`, sin intentar la ruta LLM. Devuelve `False` sin
-    persistir nada si el diagnóstico o el tenant ya no existen. No hace commit --
-    lo hace quien la invoca."""
+    """Genera y persiste el plan en modo degradado (sin intentar LLM) y cierra el
+    trámite. `False` sin persistir si el diagnóstico o el tenant ya no existen.
+    No hace commit -- lo hace quien la invoca."""
     diagnostico = db.get(DiagnosticoTramite, diagnostico_tramite_id)
     tenant = db.get(Tenant, tenant_id)
     if diagnostico is None or tenant is None:
@@ -283,10 +225,8 @@ def _persistir_plan_degradado(db: Session, tenant_id: UUID, diagnostico_tramite_
         .limit(1)
     ).scalar_one_or_none()
 
-    # BYOK (app/aplicacion/preferencia_modelo_ia.py): este camino nunca intenta la
-    # ruta LLM para las brechas del catálogo (siempre genera degradado a
-    # propósito), pero `_con_sugerencia_libre`/`_con_estimacion_recursos` sí son
-    # texto libre de IA -- si el tenant configuró su propia credencial, la usan.
+    # Las brechas siempre son degradado a propósito; sugerencia/estimación sí
+    # usan la credencial propia del tenant si existe (BYOK).
     override = resolver_override(tenant)
     namespace_efectivo = _namespace_efectivo(db, tenant_id, diagnostico.respuestas, tramite.tipo)
     contenido = _con_brechas_adicionales(
@@ -325,9 +265,7 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
 
         job.estado = "running"
         db.commit()
-        # commit() termina la transacción y con ella el app.tenant_id local (ver
-        # app/db/rls.py) — hay que volver a fijarlo antes de la siguiente consulta.
-        fijar_contexto_tenant(db, tenant_id)
+        fijar_contexto_tenant(db, tenant_id)  # commit() resetea app.tenant_id (ver app/db/rls.py)
 
         diagnostico = db.get(DiagnosticoTramite, diagnostico_tramite_id)
         tenant = db.get(Tenant, tenant_id)
@@ -339,10 +277,7 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
             return
 
         namespace_efectivo = _namespace_efectivo(db, tenant_id, diagnostico.respuestas, tramite.tipo)
-        # BYOK (app/aplicacion/preferencia_modelo_ia.py): la credencial/preferencia
-        # propia de este gobierno, si la configuró -- gana sobre LLM_PROVIDER
-        # global y sobre cualquier key del operador.
-        override = resolver_override(tenant)
+        override = resolver_override(tenant)  # BYOK: credencial propia del tenant si existe
         modo, contenido, verificado = _generar_contenido_y_modo(
             namespace_efectivo,
             tenant.pais,
@@ -378,15 +313,12 @@ def ejecutar_generacion_plan(job_id: UUID, tenant_id: UUID, diagnostico_tramite_
         db.commit()
     except Exception:
         db.rollback()
-        # rollback() también termina la transacción — mismo motivo que tras el commit de arriba.
-        fijar_contexto_tenant(db, tenant_id)
+        fijar_contexto_tenant(db, tenant_id)  # rollback() también resetea app.tenant_id
         job = db.get(Job, job_id)
         if job is not None:
             job.intentos += 1
             if job.intentos >= LIMITE_INTENTOS:
-                # docs/app-flow.md: "si falla dos veces -> plan_listo en modo degradado".
-                # El trámite no puede quedar colgado en generando_plan esperando un
-                # tercer intento que nunca llega.
+                # El trámite no puede quedar colgado esperando un intento que nunca llega.
                 if _persistir_plan_degradado(db, tenant_id, diagnostico_tramite_id):
                     job.estado = "done"
                 else:
@@ -421,62 +353,39 @@ def obtener_job_vigente(db: Session, diagnostico_tramite_id: UUID) -> Job | None
 
 def revisar_job_obsoleto(db: Session, tenant_id: UUID, job: Job) -> bool:
     """Chequeo perezoso disparado al leer un trámite en `generando_plan` (sin
-    scheduler ni cron -- ver `docs/TRD.md`). Cubre dos orígenes de job sin
-    terminar:
+    scheduler ni cron). Cubre 2 casos de job sin terminar: `failed` (ya
+    incrementó `intentos` en el `except`, solo hay que redisparar) y `running`
+    obsoleto por más de `settings.job_umbral_obsoleto_minutos` (el proceso murió
+    a medio job, acá se incrementa por primera vez). En ambos, si ya se alcanzó
+    `LIMITE_INTENTOS`, se fuerza el degradado en vez de redisparar (evita un
+    ciclo infinito).
 
-    - `failed`: ya pasó por el bloque `except` de `ejecutar_generacion_plan`, que
-      ya incrementó `intentos`. Normalmente hay margen y solo hace falta
-      redisparar sin volver a incrementar -- pero si `intentos` ya alcanzó
-      `LIMITE_INTENTOS` (caso de borde: el `except` forzó el degradado y
-      `_persistir_plan_degradado` no pudo persistir porque el diagnóstico o el
-      tenant ya no existen), acá se reintenta el degradado en vez de
-      redisparar, igual que en la rama `running` de abajo -- así se evita un
-      ciclo `failed -> pending -> failed` indefinido.
-    - `running` sin actualizar hace más de `settings.job_umbral_obsoleto_minutos`:
-      el proceso reinició a medio job y nunca llegó al bloque `except`, así que
-      acá sí hay que incrementar (representa un intento real concluido por crash)
-      antes de decidir si queda margen -- mismo orden que el bloque `except`.
-
-    Devuelve `True` si el llamador debe encolar `ejecutar_generacion_plan` vía
-    `BackgroundTasks` (no se ejecuta acá para no bloquear la respuesta HTTP con
-    una llamada LLM síncrona). Devuelve `False` si ya se agotó `LIMITE_INTENTOS`
-    (el degradado ya se forzó de forma síncrona acá mismo) o si el job no está
-    en un estado que requiera acción.
+    `True` = el llamador debe encolar `ejecutar_generacion_plan` vía
+    `BackgroundTasks`. `False` = ya se resolvió acá mismo, o no hay nada que hacer.
     """
     if job.diagnostico_tramite_id is None:
         return False
 
     if job.estado == "failed":
         if job.intentos >= LIMITE_INTENTOS:
-            # Caso de borde: el `except` (o la rama `running` de abajo) alcanzó
-            # LIMITE_INTENTOS pero `_persistir_plan_degradado` no pudo persistir
-            # (diagnóstico o tenant ya no existen) y dejó el job en `failed` en
-            # vez de `done`. Sin este chequeo, acá se reintentaría sin límite en
-            # un ciclo failed -> pending -> failed indefinido. Mismo patrón que
-            # la rama `running`: se reintenta el degradado, no se redispara
-            # `ejecutar_generacion_plan`.
+            # Ya se alcanzó el límite pero quedó en `failed` (no pudo persistir el
+            # degradado antes) -- reintenta el degradado en vez de redisparar, para
+            # no entrar en un ciclo failed -> pending -> failed indefinido.
             if _persistir_plan_degradado(db, tenant_id, job.diagnostico_tramite_id):
                 job.estado = "done"
             else:
                 job.estado = "failed"
             db.commit()
-            # commit() termina la transacción y con ella el app.tenant_id local (ver
-            # app/db/rls.py) — hay que volver a fijarlo antes de la siguiente consulta.
-            fijar_contexto_tenant(db, tenant_id)
+            fijar_contexto_tenant(db, tenant_id)  # commit() resetea app.tenant_id
             return False
 
         job.estado = "pending"
         db.commit()
-        # mismo motivo que el commit anterior en esta función: hay que refijar el
-        # contexto de tenant tras cada commit (ver comentario de arriba).
         fijar_contexto_tenant(db, tenant_id)
         return True
 
     if job.estado == "pending" and _esta_obsoleto(job.updated_at, settings.job_umbral_obsoleto_minutos):
-        # nunca llegó a arrancar (ej. el proceso murió justo tras crear el job,
-        # antes de que corriera el BackgroundTask) -- se cuenta como un intento
-        # fallido igual que un `running` obsoleto, para no redisparar sin límite.
-        job.intentos += 1
+        job.intentos += 1  # nunca arrancó (proceso murió justo tras crearlo) -- cuenta como intento fallido
         if job.intentos >= LIMITE_INTENTOS:
             if _persistir_plan_degradado(db, tenant_id, job.diagnostico_tramite_id):
                 job.estado = "done"
@@ -498,15 +407,11 @@ def revisar_job_obsoleto(db: Session, tenant_id: UUID, job: Job) -> bool:
             else:
                 job.estado = "failed"
             db.commit()
-            # mismo motivo que el primer commit de esta función: hay que refijar el
-            # contexto de tenant tras cada commit.
             fijar_contexto_tenant(db, tenant_id)
             return False
 
         job.estado = "pending"
         db.commit()
-        # mismo motivo que el primer commit de esta función: hay que refijar el
-        # contexto de tenant tras cada commit.
         fijar_contexto_tenant(db, tenant_id)
         return True
 

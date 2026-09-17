@@ -39,11 +39,8 @@ def _monto(valor: str | None, moneda: str) -> str:
 
 class _PlanPDF(FPDF):
     def _linea(self, texto: str, h: float) -> None:
-        # multi_cell(w=0, ...) calcula el ancho disponible desde la x ACTUAL, y
-        # por defecto no la resetea al margen izquierdo al terminar -- sin
-        # new_x=LMARGIN explícito, la siguiente llamada hereda una x cercana al
-        # margen derecho y fpdf2 lanza FPDFException("Not enough horizontal
-        # space...") por falta de ancho.
+        # new_x=LMARGIN explícito: sin esto multi_cell no resetea la x al margen
+        # y la siguiente llamada revienta por falta de ancho.
         self.multi_cell(0, h, _sanitizar_para_pdf(texto), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def titulo_seccion(self, texto: str) -> None:

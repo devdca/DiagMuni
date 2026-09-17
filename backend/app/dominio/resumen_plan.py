@@ -1,12 +1,7 @@
-"""Síntesis determinista sobre el `contenido` ya generado de un plan -- sin ningún
-LLM, mismo principio que el resto de `engine/` (motor determinista primero).
-
-Todo lo de acá opera sobre datos que ya existen en cada brecha (`componente_recomendado`,
-`paso_organizacional`, `prerrequisitos`) o en el perfil de gobierno ya capturado
-(`respuestas`, fusionado por `_namespace_efectivo` en app/jobs/plan_job.py) -- nunca
-inventa una cifra nueva. Donde un dato no está verificado, el resultado es `None`,
-nunca un valor fabricado.
-"""
+"""Síntesis determinista sobre el `contenido` ya generado de un plan -- sin
+ningún LLM. Opera solo sobre datos que ya existen (cada brecha, o el perfil de
+gobierno ya capturado) -- nunca inventa una cifra. Sin dato verificado, el
+resultado es `None`, nunca un valor fabricado."""
 
 import re
 from decimal import Decimal
@@ -26,9 +21,8 @@ _NOTA_COBERTURA_INVERSION = (
 
 
 def _parsear_monto(cadena: str) -> Decimal | None:
-    """Extrae el monto inicial de un string de costo del catálogo OSS (ej. "114.55/mes
-    (piso mínimo verificado...)" -> 114.55). Cadenas sin un número al inicio (ej.
-    "[NO VERIFICADO]") devuelven `None` -- nunca se asume 0 donde no hay dato."""
+    """Extrae el monto inicial de un string de costo (ej. "114.55/mes..." ->
+    114.55). Sin número al inicio (ej. "[NO VERIFICADO]"): `None`, nunca 0."""
     coincidencia = _PATRON_MONTO.match(cadena)
     if not coincidencia:
         return None
@@ -57,12 +51,9 @@ def _formatear(monto: Decimal | None) -> str | None:
 
 
 def calcular_resumen_inversion(brechas: list[dict], pais: str) -> dict:
-    """Agrega `componente_recomendado` de todas las brechas -- deduplicado por
-    `nombre_componente` (dos brechas con la misma `categoria_catalogo` resuelven al
-    mismo componente, ver app/engine/catalogo_loader.py::componente_recomendado_para,
-    función pura de categoria+país). Licenciamiento + implementación se suman como
-    inversión única; infraestructura como costo recurrente mensual (todas las
-    entradas de infraestructura en el catálogo hoy son mensuales o "no aplica")."""
+    """Agrega `componente_recomendado` de todas las brechas, deduplicado por
+    `nombre_componente`. Licenciamiento + implementación se suman como
+    inversión única; infraestructura como costo recurrente mensual."""
     componentes_unicos: dict[str, dict] = {}
     for brecha in brechas:
         componente = brecha.get("componente_recomendado")
@@ -97,15 +88,11 @@ def calcular_resumen_inversion(brechas: list[dict], pais: str) -> dict:
 
 
 def calcular_resumen_personal(brechas: list[dict], respuestas: dict, pais: str) -> dict:
-    """`acciones_organizacionales` consolida `paso_organizacional` (dato que ya
-    existe por brecha) una sola vez arriba, deduplicado, en el mismo orden en que
-    aparecen las brechas. `costo_referencia_personal_ti` es el salario mensual
-    verificado de app/engine/catalogo/costos_personal.yaml -- una cifra de
-    referencia real (cuánto cuesta 1 puesto), nunca cuántas personas hacen falta
-    (eso no es verificable con una fuente pública, ver app/ia/estimacion_recursos.py).
-    El resto son campos del perfil de gobierno ya capturado (`respuestas`,
-    fusionado vía `_namespace_efectivo`) -- `None` si el gobierno todavía no los
-    llenó, nunca una cifra inventada de personal."""
+    """`acciones_organizacionales` consolida `paso_organizacional` de cada
+    brecha, deduplicado. `costo_referencia_personal_ti` es el salario mensual
+    de referencia (cuánto cuesta 1 puesto, nunca cuántas personas hacen
+    falta). El resto son campos del perfil de gobierno ya capturado -- `None`
+    si aún no se llenaron, nunca una cifra inventada."""
     acciones_organizacionales: list[str] = []
     vistas: set[str] = set()
     for brecha in brechas:
@@ -124,22 +111,17 @@ def calcular_resumen_personal(brechas: list[dict], respuestas: dict, pais: str) 
 
 
 def calcular_orden_sugerido(brechas: list[dict]) -> dict:
-    """Agrupa por si `prerrequisitos` (ya existente por brecha) está vacío o no --
-    no es un grafo de dependencias real (prerrequisitos es texto libre, no
-    referencias resolubles a otra variable), es la lectura honesta de lo que el
-    catálogo ya declara: qué se puede iniciar ya y qué depende de algo más."""
+    """Agrupa por si `prerrequisitos` está vacío o no -- no es un grafo de
+    dependencias real (es texto libre), solo qué se puede iniciar ya."""
     return {
         "sin_prerrequisitos": [b["variable"] for b in brechas if not b.get("prerrequisitos")],
         "con_prerrequisitos": [b["variable"] for b in brechas if b.get("prerrequisitos")],
     }
 
 
-# Fase A: % de `presupuesto_tic_anual` que el costo de UNA acción puede
-# representar antes de considerarse "presupuesto_extraordinario", por bracket
-# de `poblacion_total` (techo inclusive, `None` = sin techo). Default de
-# producto, calibrable sin tocar `calcular_factibilidad`: gobiernos más chicos
-# tienen más tolerancia relativa porque su presupuesto TIC total ya es
-# pequeño en términos absolutos.
+# % de `presupuesto_tic_anual` que el costo de UNA acción puede representar
+# antes de "presupuesto_extraordinario", por bracket de `poblacion_total`
+# (techo inclusive, `None` = sin techo). Calibrable sin tocar la función.
 _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION: tuple[tuple[int | None, Decimal], ...] = (
     (20_000, Decimal("0.15")),
     (100_000, Decimal("0.10")),
@@ -150,8 +132,7 @@ _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION: tuple[tuple[int | None, Decimal], ...] = 
 def _umbral_extraordinario(poblacion_total: object) -> Decimal:
     poblacion = poblacion_total if isinstance(poblacion_total, int) else None
     if poblacion is None:
-        # Sin dato de población: el bracket más chico (más tolerante) evita
-        # marcar "extraordinario" con menos certeza de la que el dato sustenta.
+        # Sin dato: el bracket más tolerante evita marcar "extraordinario" sin certeza.
         return _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION[0][1]
     for techo, umbral in _UMBRAL_PRESUPUESTO_TIC_POR_POBLACION:
         if techo is None or poblacion <= techo:
@@ -161,22 +142,12 @@ def _umbral_extraordinario(poblacion_total: object) -> Decimal:
 
 def calcular_factibilidad(brecha: dict, respuestas: dict) -> str:
     """"config_existente" | "presupuesto_extraordinario" | "nueva_norma" --
-    nunca inventa una cifra: sin dato suficiente para decidir, cae en
-    "config_existente" (el default menos alarmante, consistente con no forzar
-    una alerta que el dato disponible no sustenta).
+    sin dato suficiente, cae en "config_existente" (el default menos alarmante).
 
-    Orden de evaluación:
-    1. `requiere_nueva_norma` (declarado en el YAML de la regla, ver
-       `reglas_loader.AccionPais`) -- si `True`, es "nueva_norma" sin más
-       cálculo: la acción exige una reforma/norma antes de poder ejecutarse
-       (ej. crear una autoridad que hoy no existe en ese gobierno).
-    2. Costo estimado de la acción (licenciamiento + implementación, mismo
-       campo que ya usa `calcular_resumen_inversion`, nunca un costo nuevo)
-       contra `presupuesto_tic_anual`, con el umbral de `_umbral_extraordinario`
-       según `poblacion_total`.
-    3. Sin componente de costo, o sin `presupuesto_tic_anual` capturado:
-       "config_existente" -- no se puede afirmar que sea extraordinario sin
-       ambos datos."""
+    Orden: (1) `requiere_nueva_norma` del YAML manda directo a "nueva_norma";
+    (2) costo estimado contra `presupuesto_tic_anual`, con el umbral de
+    `_umbral_extraordinario` según población; (3) sin componente de costo o
+    sin presupuesto capturado, "config_existente"."""
     if brecha.get("requiere_nueva_norma"):
         return "nueva_norma"
 
@@ -201,9 +172,8 @@ def calcular_factibilidad(brecha: dict, respuestas: dict) -> str:
 
 
 def calcular_progreso_historico(brechas_actuales: list[dict], brechas_anteriores: list[dict]) -> dict:
-    """Diff determinista por `variable` entre dos versiones de plan del mismo
-    trámite -- se computa en lectura (app/api/planes.py), no se persiste, porque
-    depende de dos filas de `plan_modernizacion` a la vez."""
+    """Diff determinista por `variable` entre dos versiones de plan. Se
+    computa en lectura, no se persiste."""
     variables_actuales = {b["variable"] for b in brechas_actuales}
     variables_anteriores = {b["variable"] for b in brechas_anteriores}
     return {

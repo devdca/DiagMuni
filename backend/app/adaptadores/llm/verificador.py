@@ -1,35 +1,19 @@
-"""Verificador de la salida del generador de plan (F9).
+"""Verificador de la salida del generador de plan (F9): audita que la `narrativa`
+sea fiel a los datos estructurados de esa brecha, sin inventar normativa/hechos.
+No decide acciones, solo compara texto contra datos.
 
-Audita, por cada brecha, que la `narrativa` generada por `generador_plan.py` sea
-fiel a los campos estructurados de esa misma brecha en el contenido determinista de
-referencia (`generar_contenido_degradado`) — sin inventar normativa, hechos ni
-pasos. Nunca decide qué acción corresponde a una brecha, eso ya lo decidió
-`engine/`; solo compara texto contra datos, y no importa nada de `engine/`.
+Fail-closed (a diferencia de `generador_plan.py`, que degrada a plantilla): un
+fallo de la llamada/ruta/respuesta cuenta como "NO aprobada".
 
-Sesgo de fallo fail-closed, a propósito distinto del de `generador_plan.py`: ahí un
-fallo del LLM degrada de forma segura a la plantilla (correcta por construcción);
-aquí no se puede asumir que el contenido LLM es correcto solo porque no se pudo
-confirmar que sea incorrecto, así que cualquier fallo de la llamada/ruta/respuesta
-cuenta como "verificación NO aprobada", igual que un "NO" explícito.
+Dos capas en orden estricto (`verificar_contenido`): (1) compuerta determinista
+(`verificador_citas.py`, siempre, sin LLM/costo) -- basta sola para `verificado=true`
+sin ninguna API de pago; (2) veredicto LLM vía `economico`, capa opcional que suma
+cobertura semántica, solo si hay `DEEPSEEK_API_KEY`, nunca requisito.
 
-Dos capas, en este orden estricto (`verificar_contenido`):
-1. **Compuerta determinista** (`verificador_citas.py`, siempre, sin LLM, sin
-   costo): rechaza cualquier cita/artículo/plazo mencionado en la narrativa que no
-   exista en los datos de referencia. Suficiente por sí sola para `verificado=true`
-   en un despliegue sin ninguna API de pago -- el modo `llm` 100% local queda
-   completo sin depender de ningún modelo externo.
-2. **Veredicto LLM vía `economico`** (DeepSeek, "tarea liviana"; nunca `calidad`
-   solo porque ese sea el elegido para redactar), capa opcional adicional que
-   suma cobertura semántica más allá de citas/números -- solo si hay
-   `DEEPSEEK_API_KEY` configurada, nunca como requisito para aprobar.
-
-`local`/Ollama fue retirado de la cadena de veredicto LLM tras verificación real
-(docs/plan-implementacion-e1-bis-capa-ia-local.md sección 9): un modelo pequeño
-(phi3, 3.8B) aprobó de forma reproducible (`temperature=0`) una narrativa con un
-artículo de ley y un plazo inventados -- no es un bug de formato, es que juzgar
-fidelidad factual con un LLM así de chico no es confiable ("suena razonable" no es
-lo mismo que "está en los datos"). La compuerta determinista de la capa 1 cubre
-exactamente esa clase de error sin necesitar ningún modelo, local o de pago."""
+`local`/Ollama se retiró del veredicto (docs/plan-implementacion-e1-bis-capa-ia-local.md
+sección 9): un modelo chico (phi3) aprobó de forma reproducible una narrativa con
+normativa inventada -- juzgar fidelidad factual con un LLM así de chico no es
+confiable. La compuerta determinista cubre esa clase de error sin necesitar modelo."""
 
 import litellm
 
@@ -84,12 +68,9 @@ def _veredicto_llm(
     *,
     override: OverrideLlmTenant | None = None,
 ) -> bool:
-    """Veredicto de UNA brecha vía la ruta `economico` (DeepSeek) -- capa opcional
-    adicional de `verificar_contenido`, nunca la única. Fail-closed: cualquier
-    fallo o respuesta no reconociblemente "SI" cuenta como rechazo — no hay
-    equivalente a la plantilla determinista aquí, porque lo que se evalúa es si se
-    puede confiar en el LLM. `override` (BYOK): credencial propia del tenant, ver
-    app/aplicacion/preferencia_modelo_ia.py::resolver_override."""
+    """Veredicto de UNA brecha vía `economico` -- capa opcional, nunca la única.
+    Fail-closed: cualquier fallo o respuesta que no sea "SI" inequívoco es rechazo.
+    `override` (BYOK): ver app/aplicacion/preferencia_modelo_ia.py::resolver_override."""
     try:
         ruta = obtener_ruta(_RUTA_VERIFICACION_LLM)
         api_key = api_key_de(ruta, override=override)
@@ -101,37 +82,23 @@ def _veredicto_llm(
             ],
             "timeout": ruta.timeout_segundos,
             "api_key": api_key,
-            # Tarea de clasificación binaria (sí/no), no redacción -- a diferencia
-            # de F3 (generador_plan.py, que sí necesita variabilidad de prosa y no
-            # fija estos parámetros). `temperature=0` hace el veredicto reproducible;
-            # `max_tokens=10` acota el costo de cualquier divagación sin arriesgar
-            # truncar "SI"/"SÍ"/"NO".
+            # Clasificación binaria, no redacción: temperature=0 (reproducible),
+            # max_tokens=10 (acota costo sin truncar "SI"/"SÍ"/"NO").
             "temperature": 0,
             "max_tokens": 10,
-            # Sin esto, un modelo en modo de completado crudo puede responder bien
-            # ("SI") pero seguir alucinando un turno nuevo después (confirmado con
-            # `ollama/phi3` en verificación real de G4: 'SI\n\n\n### User:\nE...',
-            # antes de que `local` se retirara de esta capa -- ver docstring del
-            # módulo) -- cortar en el primer salto de línea descarta esa
-            # alucinación sin arriesgar la palabra válida.
+            # Corta en el primer salto de línea -- sin esto un modelo puede acertar
+            # "SI" y seguir alucinando texto después.
             "stop": ["\n"],
-            # deepseek-v4-pro trae "thinking" activado por default (effort "high",
-            # api-docs.deepseek.com/guides/thinking_mode) -- verificado en vivo que sin
-            # esto la respuesta llega vacía o la llamada se alarga varios segundos de
-            # más: el modelo gasta el presupuesto de tokens/tiempo razonando antes de
-            # emitir "SI"/"NO", exactamente lo que este veredicto binario no necesita.
+            # deepseek-v4-pro razona por default; sin desactivarlo la respuesta
+            # llega vacía o tarda de más gastando tokens en pensar antes de "SI"/"NO".
             "extra_body": {"thinking": {"type": "disabled"}},
         }
 
         respuesta = litellm.completion(**completion_kwargs)
         veredicto = respuesta["choices"][0]["message"]["content"]
-        # Normaliza puntuación/comillas/énfasis envolventes ("SI.", '"SÍ"', "**SI**")
-        # antes de exigir igualdad exacta del resto -- pero NUNCA prefix-match:
-        # "SIN EMBARGO..." y "SI BIEN LA NARRATIVA CONTRADICE..." son aperturas
-        # concesivas comunes en español que un prefix-match aprobaría por error.
+        # Normaliza puntuación envolvente, pero nunca prefix-match: aperturas
+        # concesivas como "SIN EMBARGO..." lo aprobarían por error.
         veredicto = (veredicto or "").strip().strip(".,;:!¡\"'*() \t\n").upper()
-        # Solo un "SI" (o "SÍ") inequívoco cuenta como aprobado -- cualquier otra
-        # cosa (vacío, "NO", prosa que no sigue la instrucción, etc.) es rechazo.
         return veredicto in ("SI", "SÍ")
     except Exception:
         return False
@@ -144,18 +111,9 @@ def verificar_contenido(
     *,
     override: OverrideLlmTenant | None = None,
 ) -> bool:
-    """True solo si CADA brecha de `contenido_llm` pasa las dos capas de F9, en
-    este orden estricto (ver docstring del módulo):
-    1. Compuerta determinista (`verificador_citas.py`, siempre) -- basta ella sola
-       para aprobar si no hay ninguna API de pago configurada.
-    2. Veredicto LLM vía `economico`, solo si hay `DEEPSEEK_API_KEY` -- capa
-       adicional, nunca sustituye a la compuerta ni es requisito para aprobar sin
-       ella.
-
-    False ante cualquier discrepancia estructural (cantidad de brechas, variable
-    sin contraparte), cualquier cita/número no encontrado en la referencia, o
-    cualquier veredicto LLM fallido cuando esa capa sí corre. Solo audita — quien
-    invoca decide qué hacer con el resultado."""
+    """True solo si CADA brecha pasa las dos capas de F9 (ver docstring del
+    módulo): compuerta determinista siempre, veredicto LLM solo si hay
+    `DEEPSEEK_API_KEY`. Solo audita -- quien invoca decide qué hacer con el resultado."""
     brechas_llm = contenido_llm.get("brechas", [])
     brechas_deterministas = {b["variable"]: b for b in contenido_determinista.get("brechas", [])}
 

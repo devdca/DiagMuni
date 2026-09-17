@@ -81,9 +81,7 @@ def listar_acciones(db: Annotated[Session, Depends(get_db)]) -> list[AccionSegui
         .join(Tramite, DiagnosticoTramite.tramite_id == Tramite.id)
         .where(
             AccionSeguimiento.plan_modernizacion_id.in_(ids_vigentes),
-            # Un trámite archivado (backend/app/api/tramites.py) sale también de
-            # seguimiento -- mismo criterio que el panel resumen, nunca a medias.
-            Tramite.archivado_en.is_(None),
+            Tramite.archivado_en.is_(None),  # un trámite archivado sale también de seguimiento
         )
     ).all()
     return [_construir_accion_out(accion, tramite_id, tramite_nombre) for accion, tramite_id, tramite_nombre in filas]
@@ -121,14 +119,8 @@ def actualizar_accion(
         )
 
     db.commit()
-    # commit() termina la transacción y con ella el app.tenant_id local (ver
-    # app/db/rls.py) — hay que volver a fijarlo antes de la siguiente consulta.
-    fijar_contexto_tenant(db, token.tenant_id)
-    # `actualizado_en` usa `onupdate=func.now()` (calculado por Postgres); con
-    # `expire_on_commit=False` (backend/app/db/session.py) el atributo Python no se
-    # refresca solo tras el commit -- sin este refresh, la respuesta devolvería el
-    # `actualizado_en` previo a esta edición.
-    db.refresh(accion)
+    fijar_contexto_tenant(db, token.tenant_id)  # commit() resetea app.tenant_id
+    db.refresh(accion)  # onupdate=func.now() no se refresca solo con expire_on_commit=False
 
     return _construir_accion_out(accion, tramite_id, tramite_nombre)
 

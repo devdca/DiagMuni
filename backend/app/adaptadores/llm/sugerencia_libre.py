@@ -1,17 +1,10 @@
-"""Sugerencia libre de plan a partir de la descripción del trámite + el perfil del
-gobierno -- complementaria al catálogo brecha->acción verificado (plantillas.py/
-generador_plan.py), nunca lo reemplaza. A diferencia de ese catálogo, esta sección
-es texto libre generado por LLM SIN pasar por el verificador F9: no hay datos
-estructurados fijos contra qué comparar una idea de texto libre, así que no hay
-manera de garantizar que no invente algo. Por eso se marca explícitamente como no
-verificada en el propio contenido -- nunca se presenta como un hallazgo del
-catálogo, y nunca tiene fallback determinista (sin LLM disponible, simplemente no
-aparece esta sección, a diferencia del resto del plan que sí degrada a plantilla).
+"""Sugerencia libre de plan a partir de la descripción del trámite -- complementa
+al catálogo brecha->acción verificado, nunca lo reemplaza. Texto libre de LLM sin
+verificador F9 (no hay datos estructurados contra qué compararlo), marcado como
+no verificado; sin LLM disponible, la sección simplemente no aparece.
 
-Mismo patrón de delimitador aleatorio que app/ia/asistente_captura.py -- la
-descripción es texto libre escrito por un funcionario, se trata siempre como
-texto a analizar, nunca como instrucciones para el modelo.
-"""
+Mismo delimitador aleatorio que `asistente_captura.py` -- la descripción es texto
+a analizar, nunca instrucciones para el modelo."""
 
 import secrets
 

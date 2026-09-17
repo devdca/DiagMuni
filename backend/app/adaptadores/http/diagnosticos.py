@@ -26,21 +26,9 @@ from app.schemas.diagnostico import (
 
 router = APIRouter(prefix="/api/tramites", tags=["diagnostico"])
 
-# Cooldown propio de este endpoint -- la generación de plan es la única operación
-# con costo real de LLM (auditoría de seguridad H-11); el chequeo de job vigente
-# de abajo solo evita duplicados concurrentes, esto acota además cuántas
-# generaciones nuevas se pueden disparar una vez que la anterior ya terminó.
-#
-# Dos llaves a propósito, porque una sola no cubre los dos casos:
-#
-# - Por (usuario, trámite): acota la regeneración del plan de un mismo trámite,
-#   que es donde está el costo repetido. Llavear solo por usuario rompe el flujo
-#   real del producto -- un funcionario captura el catálogo de trámites de su
-#   municipio (decenas) de una sentada y toparía el límite al sexto trámite,
-#   aunque cada envío sea legítimo y de un trámite distinto.
-# - Por usuario, con un techo muy por encima de cualquier captura manual: acota
-#   el total que un script o una cuenta comprometida puede disparar recorriendo
-#   muchos trámites, que la llave por trámite sola no limita.
+# Cooldown de envíos (hallazgo H-11): por trámite, para acotar regeneraciones
+# repetidas del mismo plan; por usuario, con techo alto, para acotar un script o
+# cuenta comprometida recorriendo muchos trámites.
 INTENTOS_MAXIMOS_POR_TRAMITE = 5
 INTENTOS_MAXIMOS_POR_USUARIO = 60
 VENTANA_SEGUNDOS = 300.0
@@ -50,19 +38,10 @@ _limitador_usuario = LimitadorVentanaDeslizante(INTENTOS_MAXIMOS_POR_USUARIO, VE
 
 
 def _validar_mecanismo_identidad(respuestas: dict) -> None:
-    """`mecanismo_identidad` es opcional -- un funcionario a media captura puede no
-    haber llegado todavía a esa pregunta -- pero si la clave está presente, su
-    valor debe ser uno de los 4 catalogados (docs/ux-brief.md línea 71: nunca se
-    guarda un "otro" sin resolver ni ningún otro texto libre). Se valida acá y no
-    con un validador de Pydantic en el schema para poder responder con el mismo
-    formato de `detail` (string plano) que ya usa el resto de esta API para los
-    404, en vez de la lista de objetos que arma Pydantic para sus propios errores
-    de validación.
-
-    Se llama tanto desde guardar_diagnostico como desde enviar_diagnostico: la
-    regla dice "nunca se guarde", y "Guardar y continuar después" persiste
-    `respuestas` en la base igual que el envío final, no es un borrador en
-    memoria del cliente."""
+    """Opcional, pero si viene debe ser una de las 4 opciones catalogadas -- nunca
+    se guarda un "otro" sin resolver (docs/ux-brief.md línea 71). Validado a mano,
+    no con Pydantic, para responder con el mismo `detail` en texto plano que el
+    resto de la API."""
     valor = respuestas.get("mecanismo_identidad")
     if valor is not None and valor not in MECANISMOS_IDENTIDAD_VALIDOS:
         opciones = ", ".join(sorted(MECANISMOS_IDENTIDAD_VALIDOS))
@@ -114,9 +93,7 @@ def guardar_diagnostico(
     if tramite.estado != "en_progreso":
         tramite.estado = "en_progreso"
     db.commit()
-    # commit() termina la transacción y con ella el app.tenant_id local (ver
-    # app/db/rls.py) -- hay que volver a fijarlo antes de la siguiente consulta con
-    # RLS en esta misma sesión.
+    # commit() resetea app.tenant_id (ver app/db/rls.py) -- refijar para la sesión.
     fijar_contexto_tenant(db, token.tenant_id)
     return diagnostico
 
@@ -148,23 +125,17 @@ def enviar_diagnostico(
 
     diagnostico = _obtener_o_crear_diagnostico(db, token.tenant_id, tramite_id)
 
-    # Ya hay una generación en curso para este trámite: si el job vigente quedó
-    # obsoleto (el proceso murió a medio camino) se redispara ese mismo job en
-    # vez de crear uno nuevo. Si sigue vivo se rechaza con 409, que es lo único
-    # honesto de las tres opciones: guardar aquí las respuestas nuevas dejaría
-    # al plan en generación describiendo un diagnóstico que ya cambió, y
-    # descartarlas devolviendo 200 le haría creer al funcionario que se
-    # guardaron. Con el 409 el cliente conserva su captura y reintenta cuando
-    # el plan termine.
+    # Si ya hay un job vigente y obsoleto (proceso murió a medio camino) se
+    # redispara; si sigue vivo se rechaza con 409 -- guardar o descartar aquí
+    # dejaría el plan describiendo un diagnóstico ya cambiado, o mentiría con un
+    # 200 sin guardar. El cliente conserva su captura y reintenta después.
     job_vigente = obtener_job_vigente(db, diagnostico.id)
     job_a_redisparar = None
     if job_vigente is not None and job_vigente.estado in ("pending", "running"):
         if revisar_job_obsoleto(db, token.tenant_id, job_vigente):
             job_a_redisparar = job_vigente
         elif job_vigente.estado in ("pending", "running"):
-            # `revisar_job_obsoleto` devuelve False también cuando cerró el job
-            # al agotar LIMITE_INTENTOS (lo deja en done/failed) -- en ese caso
-            # no queda nada en curso y el envío sigue su camino normal.
+            # False también cuando el job cerró por agotar LIMITE_INTENTOS.
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
@@ -173,16 +144,12 @@ def enviar_diagnostico(
                 ),
             )
 
-    # las variables que este tipo de trámite no pregunta se completan como
-    # "satisfechas" solo para el cálculo del índice -- lo persistido en
-    # `diagnostico.respuestas` sigue siendo únicamente lo que el funcionario
-    # realmente contestó.
+    # Variables no aplicables se completan como "satisfechas" solo para el índice;
+    # lo persistido en `diagnostico.respuestas` sigue siendo lo que el funcionario contestó.
     respuestas_efectivas = completar_respuestas_no_aplicables(tramite.tipo, payload.respuestas)
 
-    # Capturado ANTES de sobreescribir completado_en -- distingue el primer envío
-    # ("diagnostico_enviado") de una corrección posterior ("diagnostico_corregido",
-    # docs/app-flow.md "Casos especiales": reabrir y modificar respuestas vuelve a
-    # generar plan) para la línea de tiempo de la pantalla "Historial".
+    # Capturado antes de sobreescribir completado_en -- distingue primer envío de corrección
+    # (docs/app-flow.md) para la línea de tiempo de "Historial".
     es_correccion = diagnostico.completado_en is not None
 
     diagnostico.respuestas = payload.respuestas
@@ -210,19 +177,15 @@ def enviar_diagnostico(
         ),
         metadatos={"indice_madurez": diagnostico.indice_madurez, "version_motor": diagnostico.version_motor},
     )
-    # Punto real para la gráfica de tendencia del Panel de control (migración
-    # 0015) -- mismo commit que el resto de este envío, nunca uno sin el otro.
+    # Punto de la gráfica de tendencia (migración 0015) -- mismo commit que el envío.
     registrar_snapshot_indice_global(db, tenant_id=token.tenant_id)
 
     db.commit()
-    # mismo motivo que el commit de guardar_diagnostico -- refijar antes de la
-    # siguiente consulta con RLS en esta misma sesión.
-    fijar_contexto_tenant(db, token.tenant_id)
+    fijar_contexto_tenant(db, token.tenant_id)  # commit() resetea app.tenant_id
 
     background_tasks.add_task(ejecutar_generacion_plan, job.id, token.tenant_id, diagnostico.id)
 
-    # Log de auditoría (docs/plan-implementacion.md Fase G2) -- después del commit,
-    # con los mismos valores ya persistidos, nunca antes de confirmar la transacción.
+    # Auditoría (Fase G2) después del commit, con los valores ya persistidos.
     registrar_diagnostico_enviado(
         tenant_id=token.tenant_id,
         usuario_id=token.usuario_id,
@@ -243,11 +206,8 @@ def simular_diagnostico(
     token: Annotated[TokenData, Depends(get_current_token)],
     db: Annotated[Session, Depends(get_db)],
 ) -> SimulacionOut:
-    """"Qué pasa si" -- corre el motor determinista (F2) sobre `respuestas` tal
-    como están en el formulario en este momento, SIN guardar el diagnóstico ni
-    tocar `job`/`tramite.estado`. Deja ver el impacto de una respuesta antes de
-    "Guardar" o "Enviar" (mismo cálculo síncrono y puro que `enviar_diagnostico`,
-    reutilizado, nunca reimplementado aparte)."""
+    """"Qué pasa si" -- corre el motor determinista sobre `respuestas` sin guardar
+    nada ni tocar `job`/`tramite.estado`. Mismo cálculo que `enviar_diagnostico`."""
     _validar_mecanismo_identidad(payload.respuestas)
     tramite = db.get(Tramite, tramite_id)
     if tramite is None:

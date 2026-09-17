@@ -1,11 +1,7 @@
-"""Estimación aproximada de personal y presupuesto para ejecutar el plan --
-complementaria a `resumen_inversion`/`resumen_personal` (app/engine/resumen_plan.py),
-nunca los reemplaza. A diferencia de esos dos, cuántas personas contratar o un
-presupuesto total no tiene una fuente pública verificable (a diferencia del costo
-de una licencia de software o un salario de referencia) -- por eso esto es texto
-libre de LLM, sin verificador F9, marcado explícitamente como no verificado, mismo
-criterio y mismo patrón que app/ia/sugerencia_libre.py.
-"""
+"""Estimación aproximada de personal y presupuesto -- complementaria a
+`resumen_plan.py`, nunca lo reemplaza. Sin fuente pública verificable, así que es
+texto libre de LLM sin verificador F9, marcado explícitamente como no verificado
+(mismo patrón que `sugerencia_libre.py`)."""
 
 import secrets
 

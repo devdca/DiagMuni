@@ -1,17 +1,7 @@
-"""Alta y gestión de usuarios de un gobierno -- capa de aplicación (casos de uso),
-compartida por dos adaptadores que nunca duplican esta lógica (docs/TRD.md,
-"Alta de un gobierno nuevo": "bootstrap_tenant.py concentra todo el código de
-creación/gestión de usuarios del proyecto... sin una segunda copia en ningún
-otro archivo" -- ahora esa concentración vive aquí, no en la CLI):
-
-- `app/bootstrap_tenant.py`: la CLI de alta inicial, opera por `clave` de tenant
-  porque corre sin una sesión HTTP autenticada todavía.
-- `app/adaptadores/http/admin_usuarios.py`: el panel de administración, opera por
-  `tenant_id` ya resuelto por el JWT de un `admin_gobierno` autenticado.
-
-Ambos llaman a las funciones de este módulo; ninguno reconstruye `Usuario` por su
-cuenta.
-"""
+"""Alta y gestión de usuarios de un gobierno -- capa de aplicación compartida por
+`bootstrap_tenant.py` (CLI, opera por `clave`, sin sesión HTTP) y
+`admin_usuarios.py` (panel, opera por `tenant_id` ya resuelto por JWT). Ninguno
+reconstruye `Usuario` por su cuenta."""
 
 import re
 from datetime import UTC, datetime
@@ -27,12 +17,9 @@ from app.models.usuario import ROLES_VALIDOS
 
 EMAIL_VALIDO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 CLAVE_VALIDA = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-# Clave geoestadística INEGI: 2 dígitos de entidad + 3 de municipio (ej. "09004").
-CLAVE_GEOESTADISTICA_VALIDA = re.compile(r"^\d{5}$")
+CLAVE_GEOESTADISTICA_VALIDA = re.compile(r"^\d{5}$")  # INEGI: 2 dígitos entidad + 3 municipio
 PAISES_SOPORTADOS = ("mx", "uy")
-# Ortogonal a PAISES_SOPORTADOS (migración 0018, Fase A de la expansión a los
-# tres órdenes de gobierno) -- "municipal" es el default histórico del producto.
-NIVELES_GOBIERNO_SOPORTADOS = ("municipal", "estatal", "federal")
+NIVELES_GOBIERNO_SOPORTADOS = ("municipal", "estatal", "federal")  # ortogonal a país
 
 
 def normalizar_clave(clave: str) -> str:
@@ -49,10 +36,6 @@ def _crear_fila_usuario(
     db.add(usuario)
     db.flush()
     return usuario, password
-
-
-# --- Adaptador CLI (app/bootstrap_tenant.py): opera por `clave`, sin sesión ------
-# --- HTTP previa (alta del primer gobierno, antes de que exista ningún JWT). -----
 
 
 def crear_gobierno(
@@ -172,10 +155,6 @@ def resetear_password(db: Session, *, clave: str, email: str) -> str | None:
     usuario.password_hash = hash_password(password)
     db.flush()
     return password
-
-
-# --- Adaptador HTTP (app/adaptadores/http/admin_usuarios.py, .../perfil_usuario.py):
-# --- operan por `tenant_id` ya resuelto y autenticado por un JWT válido. -----------
 
 
 def _usuario_del_tenant(db: Session, *, tenant_id: UUID, usuario_id: UUID) -> Usuario | None:

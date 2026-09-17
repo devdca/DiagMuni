@@ -1,11 +1,8 @@
 import { apiFetch } from "./httpClient";
 import type { EstadoSemaforo } from "./semaforo";
 
-// Forma exacta de backend/app/schemas/accion_seguimiento.py::AccionSeguimientoOut
-// (extendido con tramite_id/tramite_nombre -- ver backend/app/api/seguimiento.py,
-// _construir_accion_out): la tabla del panel de seguimiento mezcla acciones de
-// varios trámites y necesita saber a cuál pertenece cada fila para navegar a
-// /tramites/:tramiteId/plan al hacer clic.
+// Incluye tramite_id/tramite_nombre: la tabla mezcla acciones de varios trámites
+// y necesita saber a cuál pertenece cada fila para navegar al hacer clic.
 export interface AccionSeguimientoResponse {
   id: string;
   plan_modernizacion_id: string;
@@ -18,11 +15,7 @@ export interface AccionSeguimientoResponse {
   tramite_nombre: string;
 }
 
-// Los 3 campos editables inline (docs/app-flow.md, "el cambio de estado del
-// semáforo es una acción simple en la misma tabla") -- siempre uno a la vez,
-// por eso todos son opcionales acá; `descripcion`/`plan_modernizacion_id`/
-// `tenant_id` nunca se envían (backend/app/schemas/accion_seguimiento.py::
-// AccionSeguimientoActualizar no los acepta).
+// Los 3 campos editables inline, siempre uno a la vez -- todos opcionales.
 export interface ActualizarAccionSeguimientoPayload {
   responsable?: string;
   fecha_objetivo?: string;
@@ -43,7 +36,6 @@ export function actualizarAccionSeguimiento(
   });
 }
 
-// Notas colaborativas (backend/app/schemas/nota_seguimiento.py, migración 0014).
 export interface NotaSeguimientoResponse {
   id: string;
   accion_seguimiento_id: string;

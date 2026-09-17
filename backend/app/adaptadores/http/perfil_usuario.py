@@ -24,8 +24,7 @@ def obtener_mi_perfil(
 ) -> UsuarioResponse:
     usuario = db.get(Usuario, token.usuario_id)
     if usuario is None:
-        # No debería ocurrir: get_current_token ya resolvió este mismo usuario_id
-        # desde la base de datos hace un instante (app/adaptadores/http/deps.py).
+        # No debería ocurrir: get_current_token ya resolvió este usuario_id hace un instante.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
     return UsuarioResponse.model_validate(usuario)
 

@@ -1,19 +1,12 @@
-"""Cálculo del índice de madurez (F2), puro y determinista — docs/PRD.md define los
-5 niveles: 0 presencial en papel, 1 informativo, 2 transaccional parcial,
-3 transaccional completo, 4 proactivo e interoperable.
+"""Cálculo del índice de madurez (F2), puro y determinista — 5 niveles: 0
+presencial en papel, 1 informativo, 2 transaccional parcial, 3 transaccional
+completo, 4 proactivo e interoperable.
 
-El nivel se deriva de `indice_madurez.yaml`, nunca de lógica Python fija: este
-módulo solo carga y evalúa esa config en tiempo de ejecución, mismo principio que
-`reglas_loader.py`/`catalogo_loader.py` para los catálogos de F3/F4.
+El nivel se deriva de `indice_madurez.yaml`, nunca de lógica Python fija.
 
-Regla de versionado (docs/TRD.md): cambiar una regla normativa que afecta el
-resultado entrada→salida (ej. qué combinación de variables produce cada nivel)
-exige subir VERSION_MOTOR; un diagnóstico ya persistido nunca se recalcula con
-una versión distinta a la que lo produjo (docs/backend-schema.md, campo
-version_motor). Un cambio que preserva ese comportamiento (ej. mover la lógica
-de Python a config, sin alterar qué nivel resulta de cada combinación) no
-constituye una regla normativa nueva y no requiere subir VERSION_MOTOR.
-"""
+Regla de versionado: cambiar una regla normativa que afecta el resultado
+entrada→salida exige subir VERSION_MOTOR; un diagnóstico ya persistido nunca
+se recalcula con una versión distinta a la que lo produjo."""
 
 from dataclasses import dataclass
 from functools import lru_cache
@@ -41,10 +34,8 @@ class ReglaIndice:
 
 
 def _condicion_se_cumple(condicion: CondicionIndice, respuestas: dict) -> bool:
-    """Evalúa "campo operador valor" sin eval() — misma filosofía que
-    criterio_se_cumple en reglas_loader.py, extendida con un valor por defecto
-    propio de cada campo (los booleanos ausentes cuentan como false; los campos de
-    texto como mecanismo_identidad ausentes cuentan como su propio valor neutro)."""
+    """Evalúa "campo operador valor" sin eval(), con un valor por defecto propio
+    de cada campo (los booleanos ausentes cuentan como false)."""
     valor_obtenido = respuestas.get(condicion.campo, condicion.valor_por_defecto)
     if isinstance(condicion.valor, bool):
         valor_obtenido = bool(valor_obtenido)
@@ -56,21 +47,16 @@ def _condicion_se_cumple(condicion: CondicionIndice, respuestas: dict) -> bool:
 
 
 def _nivel_aplica(regla: ReglaIndice, respuestas: dict) -> bool:
-    """Todas las condiciones de la regla deben cumplirse (Y lógico) para que el
-    nivel aplique — las combinaciones que requerirían "O" se enumeran como reglas
-    separadas en el YAML en vez de introducir un operador "O" acá."""
+    """Todas las condiciones deben cumplirse (Y lógico) -- las combinaciones "O"
+    se enumeran como reglas separadas en el YAML."""
     return all(_condicion_se_cumple(condicion, respuestas) for condicion in regla.condiciones)
 
 
 @lru_cache(maxsize=1)
 def _cargar_reglas_indice_madurez() -> tuple[ReglaIndice, ...]:
-    """Reglas ordenadas tal como aparecen en el YAML: de la más específica (nivel
-    más alto) a la más genérica (nivel más bajo) — gana la primera que aplica.
-
-    El campo `version` de indice_madurez.yaml es metadato informativo (mismo
-    patrón que `version` en engine/reglas/*.yaml vía reglas_loader.py): no se
-    valida programáticamente contra VERSION_MOTOR -- quien sube una regla
-    normativa real sube VERSION_MOTOR a mano, no este campo."""
+    """Reglas ordenadas tal como aparecen en el YAML: de la más específica a la
+    más genérica -- gana la primera que aplica. `version` del YAML es solo
+    informativo, no se valida contra VERSION_MOTOR."""
     with INDICE_MADUREZ_YAML.open(encoding="utf-8") as f:
         data = yaml.safe_load(f)
     reglas = []
@@ -81,21 +67,16 @@ def _cargar_reglas_indice_madurez() -> tuple[ReglaIndice, ...]:
 
 
 def calcular_indice_madurez(respuestas: dict) -> int:
-    """Deriva el índice evaluando `indice_madurez.yaml` en orden hasta encontrar la
-    primera regla cuyas condiciones se cumplen todas (ver "por qué importa" en cada
-    YAML de engine/reglas/, que liga cada variable a un nivel):
+    """Deriva el índice evaluando `indice_madurez.yaml` en orden:
 
-    - documentos_digitalizados en false bloquea todo (nivel 0) — es prerrequisito
-      de cualquier transaccionalidad (documentos_papel_digital.yaml).
-    - motor_pagos y firma_electronica_habilitada bloquean, cada una, el paso a
-      nivel 3 (transaccional completo) — con solo una de las dos, queda en
-      "transaccional parcial" (nivel 2), no en 0/1.
-    - interoperabilidad y mecanismo_identidad (distinto de "ninguno") son requisito
-      de nivel 4 (proactivo e interoperable), solo alcanzable habiendo llegado a 3.
+    - `documentos_digitalizados` en false bloquea todo (nivel 0).
+    - `motor_pagos`/`firma_electronica_habilitada` bloquean, cada una, el paso
+      a nivel 3 -- con solo una, queda en nivel 2.
+    - `interoperabilidad` y `mecanismo_identidad` (≠ "ninguno") son requisito
+      de nivel 4.
 
-    proteccion_datos_incompleta NO participa aquí: es transversal (datos_personales.yaml),
-    no gatilla un nivel específico del índice.
-    """
+    `proteccion_datos_incompleta` no participa aquí: es transversal, no gatilla
+    un nivel específico."""
     for regla in _cargar_reglas_indice_madurez():
         if _nivel_aplica(regla, respuestas):
             return regla.nivel
@@ -103,15 +84,9 @@ def calcular_indice_madurez(respuestas: dict) -> int:
 
 
 def calcular_indice_global(indices: list[int | None]) -> float | None:
-    """Índice global del panel resumen (docs/PRD.md línea 32, docs/app-flow.md
-    línea 54 -- ninguno de los dos fija la fórmula, decidida acá): promedio de
-    los trámites que ya tienen diagnóstico completo (`indice_madurez` no nulo).
-    Los trámites sin diagnosticar (`None`) no cuentan en el promedio ni lo
-    penalizan -- nunca se les asume un 0.
-
-    Devuelve `None` si la lista está vacía o si nadie ha sido diagnosticado
-    todavía (ningún trámite catalogado tiene aún un índice que promediar) --
-    nunca lanza una excepción por ese caso."""
+    """Promedio de los trámites ya diagnosticados (`indice_madurez` no nulo).
+    Los sin diagnosticar (`None`) no cuentan ni se penalizan -- nunca se les
+    asume un 0. `None` si nadie ha sido diagnosticado todavía."""
     diagnosticados = [indice for indice in indices if indice is not None]
     if not diagnosticados:
         return None

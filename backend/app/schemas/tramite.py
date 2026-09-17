@@ -7,12 +7,7 @@ from app.dominio.tipos_tramite_loader import cargar_tipos_tramite
 
 
 class TramiteCreate(BaseModel):
-    # QA (ronda 2, hallazgo #6): sin tope, la API aceptaba un nombre de 940
-    # caracteres que rompía visualmente la tabla del panel -- sin riesgo de
-    # seguridad (React ya escapa el texto), pero sin ningún límite razonable
-    # tampoco. 150 es la fuente de verdad real; el frontend (PanelResumen.tsx)
-    # pone el mismo tope solo para avisar al escribir, no al enviar.
-    nombre: str = Field(min_length=1, max_length=150)
+    nombre: str = Field(min_length=1, max_length=150)  # fuente de verdad del límite; el frontend solo avisa al escribir
     descripcion: str = ""
     tipo: str = "generico"
 
@@ -32,10 +27,7 @@ class TramiteOut(BaseModel):
     tipo: str
     created_at: datetime
     updated_at: datetime
-    # Tomados de DiagnosticoTramite (sin relación ORM declarada entre Tramite y
-    # DiagnosticoTramite -- ver app/api/tramites.py) -- ausentes (None) mientras
-    # el trámite no tenga un diagnóstico completo.
-    indice_madurez: int | None = None
+    indice_madurez: int | None = None  # de DiagnosticoTramite; None sin diagnóstico completo
     completado_en: datetime | None = None
     archivado_en: datetime | None = None
 
@@ -56,10 +48,8 @@ class TipoTramiteOut(BaseModel):
 
 
 class PanelResumenOut(BaseModel):
-    """Respuesta de GET /api/tramites: la lista de trámites ya extendida arriba,
-    más el agregado del panel resumen (docs/ux-brief.md, "2. Panel resumen") --
-    el promedio SIEMPRE se calcula con app.dominio.madurez.calcular_indice_global,
-    nunca reimplementado acá ni en el frontend."""
+    """Respuesta de GET /api/tramites. El promedio siempre viene de
+    `app.dominio.madurez.calcular_indice_global`, nunca reimplementado acá."""
 
     tramites: list[TramiteOut]
     indice_global: float | None
@@ -67,10 +57,9 @@ class PanelResumenOut(BaseModel):
 
 
 class PuntoIndiceGlobalOut(BaseModel):
-    """Un punto de la gráfica de tendencia del Panel de control (migración
-    0015) -- dato real guardado por `enviar_diagnostico`, nunca simulado.
-    `nivel_N_conteo` (migración 0016): distribución real de trámites activos
-    por nivel de madurez en ese mismo instante, para la gráfica apilada."""
+    """Un punto de la gráfica de tendencia -- dato real guardado por
+    `enviar_diagnostico`, nunca simulado. `nivel_N_conteo`: distribución de
+    trámites activos por nivel de madurez en ese instante."""
 
     indice_global: float
     nivel_0_conteo: int

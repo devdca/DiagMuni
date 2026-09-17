@@ -1,7 +1,6 @@
 import { apiFetch } from "./httpClient";
 
-// Espejo de backend/app/schemas/historial.py::EventoHistorialOut (migración
-// 0012) -- bitácora persistida por trámite, pestaña "Historial" del plan.
+// Bitácora persistida por trámite, pestaña "Historial" del plan.
 export interface EventoHistorialResponse {
   id: string;
   tipo: string;

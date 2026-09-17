@@ -101,8 +101,6 @@ def actualizar_proveedor(
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gobierno no encontrado")
     db.commit()
-    # commit() resetea app.tenant_id (app/db/rls.py) -- _armar_resumen consulta
-    # tablas con RLS (plan_modernizacion, job), hay que refijar el contexto antes
-    # de esas consultas (mismo criterio que archivar_tramite en tramites.py).
+    # commit() resetea app.tenant_id -- _armar_resumen consulta tablas con RLS, refijar antes.
     fijar_contexto_tenant(db, token.tenant_id)
     return _armar_resumen(db, tenant)

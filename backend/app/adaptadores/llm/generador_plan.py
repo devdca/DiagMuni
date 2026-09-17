@@ -85,8 +85,7 @@ def _intentar_narrativa_via_ruta(
         completion_kwargs["api_base"] = api_base
 
     respuesta = litellm.completion(**completion_kwargs)
-    # `respuesta` es un `ModelResponse` de LiteLLM; soporta acceso tipo dict
-    # (y también en los mocks de test_generador_plan.py, que usan dicts planos).
+    # `respuesta` (ModelResponse de LiteLLM) soporta acceso tipo dict.
     narrativa = respuesta["choices"][0]["message"]["content"]
     narrativa = (narrativa or "").strip()
     if not narrativa:
@@ -153,8 +152,7 @@ def generar_contenido_llm(
         if rutas_disponibles:
             narrativa = _narrativa_llm(accion, contexto_gobierno, override=override)
         else:
-            # Sin ruta de generación disponible: ni siquiera se intenta la llamada.
-            # `esta_disponible` existe para evitar una llamada que fallaría.
+            # Sin ruta disponible, ni se intenta la llamada.
             narrativa = _narrativa_plantilla(accion)
 
         brechas.append(

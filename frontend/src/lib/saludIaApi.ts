@@ -1,8 +1,6 @@
 import { apiFetch } from "./httpClient";
 
-// Espejo de backend/app/schemas/salud_ia.py -- panel de administración, pestaña
-// "Salud del sistema" (solo admin_gobierno). Todo derivado de columnas que ya
-// existen (plan_modernizacion, job, tenant), sin tabla ni métrica nueva.
+// Panel de administración, pestaña "Salud del sistema" (solo admin_gobierno).
 export interface PlanRecienteResponse {
   tramite_id: string;
   tramite_nombre: string;
@@ -12,9 +10,7 @@ export interface PlanRecienteResponse {
   generado_en: string;
 }
 
-// BYOK (bring your own key, ver app/core/cifrado.py): cada gobierno trae y paga
-// su propia credencial de IA -- en un despliegue real el operador no deja
-// ninguna key propia configurada.
+// BYOK: cada gobierno trae y paga su propia credencial de IA.
 export type ProveedorLlm = "anthropic" | "deepseek" | "local";
 
 export interface ResumenSaludIaResponse {

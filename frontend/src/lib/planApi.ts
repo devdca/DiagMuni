@@ -1,9 +1,7 @@
 import { ApiError, apiFetch } from "./httpClient";
 import { obtenerToken } from "./session";
 
-// Usado solo para el polling de "generando plan" (docs/app-flow.md línea 55) --
-// GET /api/tramites/{id}/plan (backend/app/api/planes.py::obtener_plan_vigente)
-// devuelve 404 mientras el plan no existe todavía, eso es esperado y no un error.
+// Polling de "generando plan" -- 404 mientras no existe todavía, no es un error.
 export async function planListo(tramiteId: string): Promise<boolean> {
   try {
     await apiFetch(`/api/tramites/${tramiteId}/plan`);
@@ -14,10 +12,8 @@ export async function planListo(tramiteId: string): Promise<boolean> {
   }
 }
 
-// Forma exacta confirmada leyendo backend/app/engine/catalogo_loader.py::componente_recomendado_para
-// (líneas 92-128) -- cada campo de costo es un string (puede ser literalmente
-// "[NO VERIFICADO]", ver backend/app/engine/catalogo/costos_oss.yaml), nunca un
-// número: no se formatea como moneda acá, la pantalla decide cómo mostrarlo.
+// Cada costo es un string (puede ser literalmente "[NO VERIFICADO]"), nunca un
+// número -- no se formatea como moneda acá, la pantalla decide cómo mostrarlo.
 export interface CostoComponente {
   moneda_local: string;
   usd: string;
@@ -38,11 +34,8 @@ export interface ComponenteRecomendado {
   fecha_verificacion: string;
 }
 
-// `componente_recomendado` siempre está presente en cada brecha, en ambos modos
-// (`degradado` y `llm` llaman igual a componente_recomendado_para(), ver
-// backend/app/engine/plantillas.py y backend/app/ia/generador_plan.py) -- `null`
-// solo cuando `categoria_catalogo` no tiene componente OSS en el catálogo (la
-// mayoría de las brechas normativas/organizacionales agregadas en Fase 1).
+// `componente_recomendado` es `null` solo cuando esa categoría no tiene
+// componente OSS en el catálogo (brechas normativas/organizacionales, sobre todo).
 export interface Brecha {
   variable: string;
   narrativa: string;
@@ -56,9 +49,7 @@ export interface Brecha {
   componente_recomendado: ComponenteRecomendado | null;
 }
 
-// backend/app/engine/resumen_plan.py::calcular_resumen_inversion -- agregación
-// determinista de `componente_recomendado` de todas las brechas, deduplicada por
-// componente. `null` en un monto significa "sin dato verificado", no cero.
+// `null` en un monto significa "sin dato verificado", no cero.
 export interface MontoDual {
   moneda_local: string | null;
   usd: string | null;
@@ -74,8 +65,7 @@ export interface ResumenInversion {
   nota_cobertura: string;
 }
 
-// backend/app/engine/catalogo/costos_personal.yaml -- salario_mensual_promedio
-// puede ser literalmente "[NO VERIFICADO]" (caso Uruguay hoy).
+// `salario_mensual_promedio` puede ser literalmente "[NO VERIFICADO]".
 export interface CostoReferenciaPersonal {
   puesto_referencia: string | null;
   salario_mensual_promedio: string;
@@ -84,7 +74,6 @@ export interface CostoReferenciaPersonal {
   fecha_consulta: string;
 }
 
-// backend/app/engine/resumen_plan.py::calcular_resumen_personal
 export interface ResumenPersonal {
   acciones_organizacionales: string[];
   personal_ti_actual: number | null;
@@ -93,35 +82,28 @@ export interface ResumenPersonal {
   costo_referencia_personal_ti: CostoReferenciaPersonal | null;
 }
 
-// backend/app/engine/resumen_plan.py::calcular_orden_sugerido -- agrupación por
-// si la brecha tiene prerrequisitos pendientes o no, no un grafo de dependencias
-// real (prerrequisitos es texto libre, ver el módulo backend).
+// Agrupación por si la brecha tiene prerrequisitos pendientes, no un grafo real.
 export interface OrdenSugerido {
   sin_prerrequisitos: string[];
   con_prerrequisitos: string[];
 }
 
-// backend/app/engine/resumen_plan.py::calcular_progreso_historico -- diff contra
-// la versión anterior del mismo diagnóstico, calculado en lectura (no vive en
-// `contenido`). `null` en `PlanOut.progreso_historico` cuando es la primera versión.
+// Diff contra la versión anterior, calculado en lectura -- `null` en la primera versión.
 export interface ProgresoHistorico {
   brechas_resueltas: string[];
   brechas_nuevas: string[];
   brechas_persistentes: string[];
 }
 
-// Complementaria a `brechas` (backend/app/ia/sugerencia_libre.py) -- generada a
-// partir de la descripción libre del trámite + el perfil del gobierno, NUNCA pasa
-// por el verificador F9 (a diferencia de `brechas`). `null` si el trámite no tiene
-// descripción o no hay ninguna ruta de LLM disponible -- sin fallback determinista.
+// Complementaria a `brechas` -- NUNCA pasa por el verificador (a diferencia de
+// `brechas`). `null` sin descripción del trámite o sin ruta de LLM disponible.
 export interface SugerenciaLibre {
   texto: string;
   advertencia: string;
 }
 
-// backend/app/ia/estimacion_recursos.py -- misma naturaleza que SugerenciaLibre
-// (texto libre de IA, no verificado), pero sobre personal/presupuesto en vez del
-// enfoque del trámite. `null` sin brechas o sin ruta de LLM disponible.
+// Misma naturaleza que SugerenciaLibre (texto de IA sin verificar), sobre
+// personal/presupuesto. `null` sin brechas o sin ruta de LLM disponible.
 export interface EstimacionRecursos {
   texto: string;
   advertencia: string;
@@ -153,9 +135,8 @@ export async function obtenerPlan(tramiteId: string): Promise<PlanOut> {
   return apiFetch<PlanOut>(`/api/tramites/${tramiteId}/plan`);
 }
 
-// Comparador de versiones (backend/app/adaptadores/http/planes.py::listar_versiones_plan
-// / obtener_version_plan) -- a diferencia de PlanOut (siempre la vigente), estas
-// dos rutas dejan traer cualquier versión histórica, nunca se borran.
+// Comparador de versiones -- a diferencia de PlanOut (siempre la vigente), esto
+// trae cualquier versión histórica; nunca se borran.
 export interface VersionPlanResumen {
   version: number;
   modo: "llm" | "degradado";
@@ -164,8 +145,7 @@ export interface VersionPlanResumen {
   brechas_totales: number;
 }
 
-// Sin `indice_madurez`: `diagnostico_tramite` solo guarda el índice ACTUAL, no
-// uno por versión de plan (ver backend/app/schemas/plan.py::PlanVersionDetalleOut).
+// Sin `indice_madurez`: el diagnóstico solo guarda el índice actual, no uno por versión.
 export interface PlanVersionDetalle {
   version: number;
   modo: "llm" | "degradado";
@@ -182,9 +162,8 @@ export function obtenerVersionPlan(tramiteId: string, version: number): Promise<
   return apiFetch<PlanVersionDetalle>(`/api/tramites/${tramiteId}/plan/versiones/${version}`);
 }
 
-// No puede usar apiFetch (asume JSON) -- descarga el PDF como blob y dispara la
-// descarga con un <a> temporal, que sí lleva el Authorization: Bearer (a
-// diferencia de un <a href> plano apuntando directo al backend).
+// No usa apiFetch (asume JSON) -- descarga el PDF como blob con Authorization,
+// a diferencia de un <a href> plano que no llevaría el header.
 export async function descargarPlanPdf(tramiteId: string): Promise<void> {
   const token = obtenerToken();
   const respuesta = await fetch(`/api/tramites/${tramiteId}/plan/pdf`, {

@@ -1,14 +1,11 @@
 import { apiFetch } from "./httpClient";
 
-// Forma exacta de GET/PUT /api/gobierno/contexto (backend/app/schemas/
-// gobierno_contexto.py) -- las 7 variables de contexto y capacidad institucional
-// (entregables/fase-2/variables-contexto-institucional.md), capturadas una sola
-// vez por gobierno (tenant), nunca por trámite.
+// Contexto y capacidad institucional -- capturado una sola vez por gobierno
+// (tenant), nunca por trámite.
 export type Conectividad = "estable" | "intermitente" | "deficiente" | "sin_conexion";
 
 export type InfraestructuraFirmaElectronica = "propia" | "proveedor_externo" | "gobierno_estatal";
 
-// Migración 0009 -- 8 enums nuevos, un type por cada uno.
 export type PortalTramitesTipo = "portal_unico" | "paginas_independientes" | "ninguno";
 export type SiNoSoloAlgunos = "si" | "no" | "solo_algunos";
 export type MecanismoIdentidadEstandar =
@@ -67,18 +64,14 @@ export interface ContextoInstitucionalResponse {
   porcentaje_poblacion_acceso_internet_no_se_tiene_dato: boolean;
   accesibilidad_sistemas_discapacidad: SiNoParcialmente | null;
   catalogo_tramites_propio_existe: boolean | null;
-  // Migración 0019 -- de dónde salió `poblacion_total`: "inegi_api" (botón
-  // "Sincronizar con INEGI") o "manual" (lo escribió el funcionario). Nunca se
-  // envía en el payload de PUT -- el backend la deriva solo.
+  // De dónde salió `poblacion_total` -- el backend la deriva solo, nunca se envía.
   poblacion_total_fuente: "inegi_api" | "manual" | null;
   actualizado_en: string | null;
 }
 
-// Upsert parcial -- cada campo es opcional, un PUT puede tocar uno solo sin
-// reenviar los demás (backend/app/api/gobierno_contexto.py::guardar_contexto).
-// `presupuesto_tic_anual` viaja como `number` en el request (Pydantic acepta
-// número o string para un campo `Decimal`) aunque la respuesta lo devuelva como
-// `string` (representación exacta de un `Decimal`, sin redondeo de punto flotante).
+// Upsert parcial -- cada campo es opcional, un PUT puede tocar uno solo.
+// `presupuesto_tic_anual` viaja como `number` aunque la respuesta lo devuelva
+// como `string` (representación exacta de un `Decimal`, sin redondeo).
 export interface ContextoInstitucionalPayload {
   poblacion_total?: number;
   personal_total_gobierno?: number;
@@ -124,8 +117,7 @@ export interface ContextoInstitucionalPayload {
   catalogo_tramites_propio_existe?: boolean;
 }
 
-// Nunca 404 -- si el tenant todavía no guardó ningún campo, el backend sintetiza
-// el shape completo con los 8 campos de negocio en null.
+// Nunca 404 -- si el tenant no guardó nada, el backend sintetiza el shape en null.
 export function obtenerContextoInstitucional(): Promise<ContextoInstitucionalResponse> {
   return apiFetch<ContextoInstitucionalResponse>("/api/gobierno/contexto");
 }

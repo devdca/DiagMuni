@@ -11,11 +11,8 @@ from app.db.base import Base
 
 
 class ContextoInstitucional(Base):
-    """Perfil de contexto y capacidad institucional del gobierno, 1:1 con tenant
-    (entregables/fase-2/variables-contexto-institucional.md, sección 4). RLS por
-    tenant_id igual que el resto de tablas de negocio -- ver
-    backend/alembic/versions/0003_contexto_institucional.py. Todas las columnas de
-    negocio son nullable y editables en cualquier momento, sin excepción."""
+    """Perfil de contexto y capacidad institucional del gobierno, 1:1 con tenant.
+    Todas las columnas de negocio son nullable y editables en cualquier momento."""
 
     __tablename__ = "contexto_institucional"
 
@@ -31,39 +28,25 @@ class ContextoInstitucional(Base):
         Enum("estable", "intermitente", "deficiente", "sin_conexion", name="conectividad_enum"), nullable=True
     )
     normativa_local_emitida: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # Única de las 7 variables de contexto/capacidad institucional original con
-    # criterio_deteccion real en engine/reglas/ (ver
-    # backend/app/engine/reglas/autoridad_gobernanza_digital.yaml).
     autoridad_gobernanza_digital: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # 5 variables agregadas (migración 0006) -- mismo patrón, cada una con su
-    # propio criterio_deteccion real en engine/reglas/.
     agenda_simplificacion_publicada: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     portal_datos_abiertos_existe: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     linea_atencion_ciudadana_centralizada: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     capacitacion_personal_tic_anual: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     protocolo_ciberseguridad_existe: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # 4 variables agregadas (migración 0007) -- puramente informativas, no
-    # generan brecha, solo alimentan el contexto de la capa de IA (ver
-    # app/ia/contexto_gobierno.py).
     presupuesto_total_anual: Mapped[Decimal | None] = mapped_column(Numeric(16, 2), nullable=True)
     numero_tramites_totales: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ingresos_propios_porcentaje: Mapped[int | None] = mapped_column(Integer, nullable=True)
     numero_oficinas_atencion: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # 4 variables agregadas (migración 0008) -- 2 con criterio_deteccion real en
-    # engine/reglas/ (enlace_notificado_formalmente, convenio_colaboracion_estado)
-    # y 2 puramente informativas.
     enlace_notificado_formalmente: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     convenio_colaboracion_estado: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     personal_area_ti: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # Migración 0010: renombrado de infraestructura_fea (colisionaba con "fea").
     infraestructura_firma_electronica: Mapped[str | None] = mapped_column(
         Enum("propia", "proveedor_externo", "gobierno_estatal", name="infraestructura_firma_electronica_enum"),
         nullable=True,
     )
-    # 19 variables agregadas (migración 0009) -- madurez digital transversal,
-    # interoperabilidad, ciberseguridad, capital humano de TI, medición,
-    # financiamiento y accesibilidad. Todas puramente informativas (ver
-    # app/ia/contexto_gobierno.py) -- ninguna tiene criterio_deteccion propio.
+    # De aquí en adelante: variables puramente informativas (alimentan el
+    # contexto de la capa de IA), sin criterio_deteccion propio en engine/reglas/.
     porcentaje_tramites_en_linea: Mapped[int | None] = mapped_column(Integer, nullable=True)
     porcentaje_tramites_en_linea_no_se_mide: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     portal_tramites_tipo: Mapped[str | None] = mapped_column(
@@ -113,11 +96,8 @@ class ContextoInstitucional(Base):
         Enum("si", "no", "parcialmente", name="accesibilidad_sistemas_discapacidad_enum"), nullable=True
     )
     catalogo_tramites_propio_existe: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # Migración 0019 -- de dónde salió el `poblacion_total` actual: "inegi_api"
-    # (lo escribió app/aplicacion/sincronizacion_inegi.py) o "manual" (lo
-    # escribió el funcionario por PUT). NULL = campo todavía vacío. Nunca se
-    # sobreescribe en silencio: un PUT con `poblacion_total` en el payload
-    # siempre lo deja en "manual", pise o no un valor previo de INEGI.
+    # "inegi_api" o "manual" -- un PUT con poblacion_total siempre lo deja en
+    # "manual", nunca se sobreescribe en silencio.
     poblacion_total_fuente: Mapped[str | None] = mapped_column(String, nullable=True)
     actualizado_en: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -1,8 +1,7 @@
 import { apiFetch } from "./httpClient";
 
-// Espejo de backend/app/schemas/usuario.py -- RBAC (migración 0011). Dos rutas:
-// /api/usuarios/me (autoservicio, cualquier rol) y /api/admin/usuarios (gestión
-// de otros usuarios, solo admin_gobierno).
+// RBAC: /api/usuarios/me es autoservicio (cualquier rol); /api/admin/usuarios
+// gestiona a otros, solo admin_gobierno.
 export type RolUsuario = "funcionario" | "admin_gobierno";
 
 export interface UsuarioResponse {

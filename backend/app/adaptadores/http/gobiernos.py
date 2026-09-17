@@ -8,9 +8,7 @@ from app.schemas.gobierno import GobiernoOut
 
 router = APIRouter(prefix="/api/gobiernos", tags=["gobiernos"])
 
-# Mitiga enumeración de `clave` por fuerza bruta (entregables/fase-2/
-# identificacion-gobierno-login.md, sección 3). Ver app/core/rate_limit.py para
-# el mecanismo (compartido con /api/auth/login).
+# Mitiga enumeración de `clave` por fuerza bruta -- rate_limit.py, compartido con /api/auth/login.
 INTENTOS_MAXIMOS_POR_VENTANA = 10
 VENTANA_SEGUNDOS = 60.0
 
@@ -29,8 +27,7 @@ def resolver_gobierno(clave: str, request: Request) -> GobiernoOut:
         )
 
     clave_normalizada = clave.strip().lower()
-    # `tenant` no tiene RLS (tabla raíz de aislamiento, docs/backend-schema.md) --
-    # una sesión sin app.tenant_id fijado puede leerla sin problema.
+    # `tenant` no tiene RLS -- se lee sin app.tenant_id fijado.
     db = SessionLocal()
     try:
         tenant = db.execute(select(Tenant).where(Tenant.clave == clave_normalizada)).scalar_one_or_none()
