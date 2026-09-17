@@ -92,7 +92,9 @@ def test_regresion_token_con_usuario_inventado_se_rechaza(gobierno_y_funcionario
     generaba un TokenData igual de válido a ojos del resto de la aplicación."""
     tenant_id, _usuario_real = gobierno_y_funcionario
     usuario_inventado = uuid4()
-    token_forjado = create_access_token(usuario_inventado, tenant_id, "funcionario", "Tenant de prueba auth", "uy")
+    token_forjado = create_access_token(
+        usuario_inventado, tenant_id, "funcionario", "Tenant de prueba auth", "uy", "municipal"
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         get_current_token(_credenciales(token_forjado))
@@ -107,7 +109,7 @@ def test_regresion_token_con_tenant_id_de_otro_gobierno_se_rechaza(gobierno_y_fu
     tenant_id_real, usuario_id = gobierno_y_funcionario
     tenant_id_ajeno = uuid4()
     token_con_tenant_equivocado = create_access_token(
-        usuario_id, tenant_id_ajeno, "funcionario", "Otro gobierno", "mx"
+        usuario_id, tenant_id_ajeno, "funcionario", "Otro gobierno", "mx", "municipal"
     )
 
     with pytest.raises(HTTPException) as exc_info:

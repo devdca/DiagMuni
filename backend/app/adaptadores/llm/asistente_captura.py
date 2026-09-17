@@ -1,30 +1,16 @@
-"""Asistente de captura F1 (ruta `economico`/DeepSeek — misma clase de tarea que F9:
-etiqueta corta de una lista fija, no prosa). Diseño de referencia:
+"""Asistente de captura F1 (ruta `economico`, etiqueta corta, no prosa). Diseño:
 `entregables/fase-2/asistente-captura-f1.md`.
 
-Dos funciones de clasificación sobre la "aclaración" de texto libre que el
-funcionario puede escribir junto a cada pregunta del cuestionario:
+(A) `clasificar_consistencia_booleana`: sugiere si la aclaración contradice una
+variable booleana ya marcada -- solo el frontend confirma el cambio real.
+(B) `clasificar_mecanismo_identidad`: clasifica "Otro, especifique" en una
+categoría o `no_clasificable`. `llave_mx`/`id_uruguay` con doble barrera por país.
 
-(A) `clasificar_consistencia_booleana`: clasifica si la aclaración contradice el
-valor que el funcionario ya marcó en una de las 5 variables booleanas del catálogo.
-Solo sugiere — la confirmación humana en el frontend es lo único que cambia la
-variable.
-
-(B) `clasificar_mecanismo_identidad`: clasifica el texto de "Otro, especifique" en
-una de las 4 categorías canónicas o en `no_clasificable`. `llave_mx`/`id_uruguay`
-se restringen por país con doble barrera: el prompt nunca ofrece la categoría del
-país contrario, y si el LLM la devuelve igual, la validación la invalida.
-
-Ninguna de las dos escribe en `engine/` ni persiste nada por sí sola — solo
-devuelven una etiqueta.
-
-Sesgo de fallo, opuesto al de `verificador.py`: aquí "no sugerir nada", nunca
-"rechazar". Cualquier fallo (ruta no disponible, timeout, red, respuesta no
-reconocible) cae en el resultado fail-safe (`no_concluyente`/`no_clasificable`) —
-es lo mismo que pasaría si esta clasificación no existiera, nunca bloquea nada.
-"""
+Ninguna persiste nada. Sesgo de fallo opuesto a `verificador.py`: aquí cualquier
+fallo cae en fail-safe (`no_concluyente`/`no_clasificable`), nunca bloquea."""
 
 import secrets
+from dataclasses import dataclass
 
 import litellm
 
@@ -33,6 +19,15 @@ from app.adaptadores.llm.config import OverrideLlmTenant, api_key_de, esta_dispo
 TIMEOUT_SEGUNDOS = 15
 
 _RUTA_LLM = "economico"
+
+
+@dataclass
+class ResultadoClasificacion:
+    """`ruta_llm` es la ruta que respondió de verdad, `None` en cualquier fail-safe --
+    queda registrado para la bitácora de correcciones."""
+
+    categoria: str
+    ruta_llm: str | None
 
 
 def _delimitar_texto_no_confiable() -> tuple[str, str]:
@@ -98,15 +93,15 @@ def _armar_prompt_consistencia(texto_aclaracion: str, valor_marcado: bool) -> st
 
 def clasificar_consistencia_booleana(
     texto_aclaracion: str, valor_marcado: bool, *, override: OverrideLlmTenant | None = None
-) -> str:
+) -> ResultadoClasificacion:
     """Clasifica si `texto_aclaracion` contradice `valor_marcado`, el booleano que
     el funcionario ya marcó en una de las 5 variables booleanas del catálogo.
     Fail-safe hacia `no_concluyente`: ruta no disponible, cualquier excepción, o
-    respuesta no reconocible caen todas ahí. Nunca deja escapar una excepción.
-    `override` (BYOK): credencial propia del tenant, ver
+    respuesta no reconocible caen todas ahí (con `ruta_llm=None`). Nunca deja
+    escapar una excepción. `override` (BYOK): credencial propia del tenant, ver
     app/aplicacion/preferencia_modelo_ia.py::resolver_override."""
     if not esta_disponible(_RUTA_LLM, override=override):
-        return NO_CONCLUYENTE
+        return ResultadoClasificacion(NO_CONCLUYENTE, None)
 
     try:
         ruta = obtener_ruta(_RUTA_LLM)
@@ -121,19 +116,15 @@ def clasificar_consistencia_booleana(
                 }
             ],
             timeout=TIMEOUT_SEGUNDOS,
-            # deepseek-v4-pro razona por default (effort "high") antes de responder --
-            # ver la nota igual de extensa en verificador.py. Aquí importa todavía más:
-            # sin esto, el razonamiento puede por sí solo exceder TIMEOUT_SEGUNDOS (15s).
-            extra_body={"thinking": {"type": "disabled"}},
+            extra_body={"thinking": {"type": "disabled"}},  # sin esto puede exceder TIMEOUT_SEGUNDOS
         )
         categoria = respuesta["choices"][0]["message"]["content"]
         categoria = (categoria or "").strip().lower()
         if categoria in _CATEGORIAS_CONSISTENCIA:
-            return categoria
-        # Respuesta no reconocible -- mismo fail-safe que cualquier otro fallo.
-        return NO_CONCLUYENTE
+            return ResultadoClasificacion(categoria, _RUTA_LLM)
+        return ResultadoClasificacion(NO_CONCLUYENTE, None)
     except Exception:
-        return NO_CONCLUYENTE
+        return ResultadoClasificacion(NO_CONCLUYENTE, None)
 
 
 # --- (B) Clasificación de mecanismo_identidad ("Otro, especifique") --------------
@@ -213,18 +204,18 @@ def _armar_prompt_mecanismo_identidad(texto_aclaracion: str, pais: str) -> str:
 
 def clasificar_mecanismo_identidad(
     texto_aclaracion: str, pais: str, *, override: OverrideLlmTenant | None = None
-) -> str:
+) -> ResultadoClasificacion:
     """Clasifica el texto de "Otro, especifique" en `llave_mx`, `id_uruguay`,
     `propio`, `ninguno`, o `no_clasificable`. `pais` es `"mx"` o `"uy"`.
 
     Doble barrera por país: el prompt nunca ofrece la categoría del país contrario,
     y si el LLM la devuelve igual, la validación de abajo la invalida — nunca es
     posible devolver `llave_mx` para `pais="uy"` ni `id_uruguay` para `pais="mx"`.
-    Fail-safe hacia `no_clasificable` en cualquier fallo. Nunca deja escapar una
-    excepción. `override` (BYOK): credencial propia del tenant, ver
-    app/aplicacion/preferencia_modelo_ia.py::resolver_override."""
+    Fail-safe hacia `no_clasificable` en cualquier fallo (con `ruta_llm=None`).
+    Nunca deja escapar una excepción. `override` (BYOK): credencial propia del
+    tenant, ver app/aplicacion/preferencia_modelo_ia.py::resolver_override."""
     if not esta_disponible(_RUTA_LLM, override=override):
-        return NO_CLASIFICABLE
+        return ResultadoClasificacion(NO_CLASIFICABLE, None)
 
     candidatas = _categorias_candidatas(pais)
 
@@ -241,16 +232,13 @@ def clasificar_mecanismo_identidad(
                 }
             ],
             timeout=TIMEOUT_SEGUNDOS,
-            # Ver la misma nota en clasificar_consistencia_booleana de este archivo.
             extra_body={"thinking": {"type": "disabled"}},
         )
         categoria = respuesta["choices"][0]["message"]["content"]
         categoria = (categoria or "").strip().lower()
         if categoria in candidatas:
-            return categoria
-        # No reconocible, o reconocible pero no candidata para este país (ej. el
-        # LLM devolvió `id_uruguay` para un tenant mexicano) -- segunda barrera de
-        # la restricción por país, mismo fail-safe que cualquier otro fallo.
-        return NO_CLASIFICABLE
+            return ResultadoClasificacion(categoria, _RUTA_LLM)
+        # No reconocible o del país contrario (segunda barrera) -- mismo fail-safe.
+        return ResultadoClasificacion(NO_CLASIFICABLE, None)
     except Exception:
-        return NO_CLASIFICABLE
+        return ResultadoClasificacion(NO_CLASIFICABLE, None)

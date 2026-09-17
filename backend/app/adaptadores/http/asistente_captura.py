@@ -11,12 +11,8 @@ from app.schemas.asistente_captura import ClasificacionOut, ConsistenciaBooleana
 
 router = APIRouter(prefix="/api/asistente-captura", tags=["asistente-captura"])
 
-# Llamada síncrona de vida corta (mismo perfil de latencia que app/ia/verificador.py,
-# TIMEOUT_SEGUNDOS = 15) -- no requiere una entrada nueva en el enum job.tipo
-# (docs/backend-schema.md), ver entregables/fase-2/asistente-captura-f1.md sección 3.
-# Ninguno de los dos endpoints persiste nada: solo devuelven la categoría sugerida,
-# la confirmación humana en el frontend es lo único que produce un valor guardable
-# (guardado real siempre vía PUT/POST de app/api/diagnosticos.py, sin tocar).
+# Llamada síncrona de vida corta -- ninguno de los dos endpoints persiste nada,
+# solo devuelven la categoría sugerida; el frontend confirma antes de guardar.
 
 
 @router.post("/consistencia-booleana", response_model=ClasificacionOut)
@@ -28,10 +24,10 @@ def clasificar_consistencia(
     """Clasifica si la aclaración de texto libre contradice el valor que el
     funcionario ya marcó en una de las 5 variables booleanas del catálogo."""
     tenant = db.get(Tenant, token.tenant_id)
-    categoria = clasificar_consistencia_booleana(
+    resultado = clasificar_consistencia_booleana(
         payload.texto_aclaracion, payload.valor_marcado, override=resolver_override(tenant)
     )
-    return ClasificacionOut(categoria=categoria)
+    return ClasificacionOut(categoria=resultado.categoria, ruta_llm=resultado.ruta_llm)
 
 
 @router.post("/mecanismo-identidad", response_model=ClasificacionOut)
@@ -48,7 +44,7 @@ def clasificar_identidad(
     tenant = db.get(Tenant, token.tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gobierno no encontrado")
-    categoria = clasificar_mecanismo_identidad(
+    resultado = clasificar_mecanismo_identidad(
         payload.texto_aclaracion, tenant.pais, override=resolver_override(tenant)
     )
-    return ClasificacionOut(categoria=categoria)
+    return ClasificacionOut(categoria=resultado.categoria, ruta_llm=resultado.ruta_llm)
