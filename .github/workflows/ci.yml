@@ -234,6 +234,13 @@ jobs:
       - name: Build imagen nginx (incluye build de frontend)
         run: docker build -f nginx/Dockerfile -t diagmuni-nginx:ci .
 
+  # Preview de cada PR sobre Cloudflare Workers con estáticos (frontend/wrangler.jsonc
+  # + frontend/worker/index.ts). Antes usaba `cloudflare/pages-action`, que Cloudflare
+  # retiró: su repositorio ya no existe y GitHub resuelve las actions al arrancar el
+  # job, así que el `if:` de abajo ni siquiera llegaba a evaluarse y el job fallaba
+  # entero. Cloudflare recomienda Workers para proyectos nuevos desde que sirve
+  # estáticos de forma nativa. Sigue siendo solo preview de desarrollo, nunca destino
+  # de producción (docs/stack-tecnologico.md).
   preview:
     needs: [backend, frontend]
     if: github.event_name == 'pull_request'
@@ -251,14 +258,27 @@ jobs:
         run: |
           npm install
           npm run build
-      # 6. deploy de preview a Cloudflare Pages — solo en PRs, nunca en main (docs/stack-tecnologico.md).
-      # Se salta limpio (no falla el build) mientras los secrets de Cloudflare no estén
-      # configurados en el repo -- todavía no hay proyecto de Cloudflare Pages creado.
-      - name: Deploy preview a Cloudflare Pages
+      # `--preview-alias pr-<n>` da una URL estable por PR: el mismo enlace sigue
+      # apuntando al último commit de la rama, en vez de cambiar en cada push.
+      # PREVIEW_BACKEND_URL es una variable del repo (Settings -> Variables), no un
+      # secret: es una URL pública, y si no está definida el worker responde 503 en
+      # /api y el preview queda como revisión visual.
+      - name: Armar el comando de subida
+        id: comando
+        env:
+          NUMERO_PR: ${{ github.event.number }}
+          BACKEND_PREVIEW: ${{ vars.PREVIEW_BACKEND_URL }}
+        run: |
+          comando="versions upload --preview-alias pr-${NUMERO_PR}"
+          if [ -n "${BACKEND_PREVIEW}" ]; then
+            comando="${comando} --var PREVIEW_BACKEND_URL:${BACKEND_PREVIEW}"
+          fi
+          echo "valor=${comando}" >> "$GITHUB_OUTPUT"
+      - name: Subir la versión de preview a Cloudflare Workers
         if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
-        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
+        uses: cloudflare/wrangler-action@fd068e64608ca96138f55b21ecc6bcc928b3915b # v4.1.2
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: diagmuni
-          directory: frontend/dist
+          workingDirectory: frontend
+          command: ${{ steps.comando.outputs.valor }}

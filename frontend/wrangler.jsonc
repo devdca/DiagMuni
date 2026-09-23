@@ -1,0 +1,22 @@
+{
+  // Preview de PR sobre Cloudflare Workers con estáticos. Reemplaza al job que
+  // usaba `cloudflare/pages-action`, retirada por Cloudflare (su repositorio ya
+  // no existe, así que el job fallaba al resolver la action antes de correr
+  // ningún paso). Cloudflare recomienda Workers para proyectos nuevos desde que
+  // Workers sirve estáticos de forma nativa; Pages no está deprecado pero ya no
+  // recibe trabajo de producto.
+  "name": "diagmuni-preview",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-23",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // La SPA rutea del lado del cliente (react-router): cualquier ruta que no
+    // sea un archivo debe devolver index.html, igual que el `try_files $uri
+    // /index.html` de nginx en producción.
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
