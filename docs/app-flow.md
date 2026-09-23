@@ -13,8 +13,10 @@ Cuarto de los 6 documentos de blueprint de producto. Cubre todas las páginas de
 | `/tramites/:tramiteId/plan` | Plan de modernización (F3 + F9) | Requiere sesión, requiere diagnóstico completo |
 | `/seguimiento` | Panel de seguimiento (F6) | Requiere sesión |
 | `/gobierno/perfil` | Perfil del gobierno (variables de contexto y capacidad institucional) | Requiere sesión |
+| `/perfil` | Mi perfil (autoservicio: nombre propio, cambio de contraseña) | Requiere sesión, cualquier rol |
+| `/admin/usuarios` | Administración de usuarios (alta, rol, activo/inactivo, reseteo de contraseña) | Requiere sesión y rol `admin_gobierno` (RBAC, migración 0011) — `funcionario` es redirigido a `/` (`RutaAdmin`, `frontend/src/components/RutaAdmin.tsx`); la barrera real es el backend (`requerir_admin`, `app/adaptadores/http/deps.py`), esto es solo UX |
 
-Nav superior fija en todas las pantallas con sesión: nombre del gobierno local (tenant, texto plano — nunca un selector visible, ver `docs/ux-brief.md` pantalla 1), enlaces "Inicio", "Perfil del gobierno" y "Seguimiento", botón "Cerrar sesión". Sin sidebar — 6 rutas no lo justifican.
+Nav superior fija en todas las pantallas con sesión: nombre del gobierno local (tenant, texto plano — nunca un selector visible, ver `docs/ux-brief.md` pantalla 1), enlaces "Inicio", "Perfil del gobierno", "Seguimiento", "Mi perfil" y — solo si el rol es `admin_gobierno` — "Administración", botón "Cerrar sesión". Sin sidebar — 8 rutas siguen sin justificarla.
 
 ## Diagrama de navegación
 

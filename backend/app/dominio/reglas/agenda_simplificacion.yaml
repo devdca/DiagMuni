@@ -1,0 +1,23 @@
+# entregables/fase-2/variables-contexto-institucional.md (variable agregada) --
+# transversal, igual que autoridad_gobernanza_digital: no gatilla un nivel del
+# índice de madurez de ningún trámite, es a nivel de todo el gobierno.
+version: "1.0"
+variable: agenda_simplificacion_publicada
+criterio_deteccion: "agenda_simplificacion_publicada == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar la Agenda de Simplificación y Digitalización semestral que exige la LNETB para todo sujeto obligado"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de planeación institucional, no de adopción de software"
+    paso_organizacional: "Asignar a la Autoridad Local de Simplificación y Digitalización (o al Enlace) la elaboración y publicación semestral de la Agenda"
+    prerrequisitos: []
+    por_que_importa: "Transversal a todos los trámites del gobierno -- la LNETB la exige explícitamente dos veces al año para que la ciudadanía conozca de forma transparente los avances en reducción de trámites"
+    fuente_normativa: "LNETB, obligación de la Agenda de Simplificación y Digitalización semestral (verificado contra el texto de la ley, sin número de artículo específico confirmado -- revisar antes de citarlo formalmente)"
+    categoria_catalogo: "agenda_simplificacion_lnetb"
+  uy:
+    paso_administrativo: "Publicar un plan o agenda de transformación digital de la intendencia, siguiendo el mismo criterio de transparencia semestral que su equivalente mexicano"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de planeación institucional, no de adopción de software"
+    paso_organizacional: "Designar a la contraparte técnica del convenio con Agesic (ver autoridad_gobernanza_digital) como responsable de esta agenda"
+    prerrequisitos: []
+    por_que_importa: "Sin un equivalente uruguayo verificado a la Agenda LNETB -- se recomienda por buena práctica de transparencia, no por obligación legal confirmada. Revisar contra normativa de Agesic antes de citar como obligatorio"
+    fuente_normativa: "Sin obligación legal uruguaya específica verificada -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "agenda_simplificacion_lnetb"

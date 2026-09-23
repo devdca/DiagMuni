@@ -1,0 +1,20 @@
+version: "1.0"
+variable: requisitos_publicados_claramente
+criterio_deteccion: "requisitos_publicados_claramente == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar de forma clara y completa en línea la lista de requisitos para iniciar este trámite"
+    paso_tecnico: "Sección de requisitos en el portal del trámite, sin necesidad de acudir a preguntar"
+    paso_organizacional: "Mantener actualizada la lista de requisitos cuando cambien"
+    prerrequisitos: []
+    por_que_importa: "Distinto de que el expediente ya esté digitalizado: un trámite puede tener el expediente digital y aun así no publicar bien qué necesita el ciudadano para empezar"
+    fuente_normativa: "LGTAIP (transparencia proactiva de la información de interés público)"
+    categoria_catalogo: "requisitos_publicados"
+  uy:
+    paso_administrativo: "Publicar de forma clara y completa en línea la lista de requisitos para iniciar este trámite"
+    paso_tecnico: "Sección de requisitos en el portal del trámite, sin necesidad de acudir a preguntar"
+    paso_organizacional: "Mantener actualizada la lista de requisitos cuando cambien"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx -- transparencia proactiva"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra la Ley de Acceso a la Información Pública (Ley 18.381)"
+    categoria_catalogo: "requisitos_publicados"

@@ -7,7 +7,8 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
-from app.api import deps
+from app import main
+from app.adaptadores.http import deps
 from app.core.security import create_access_token
 from app.main import app, pool_agotado
 
@@ -20,6 +21,19 @@ def test_pool_agotado_responde_503_con_retry_after():
     assert response.headers["retry-after"] == "5"
 
 
+def test_pool_agotado_reporta_a_sentry_explicitamente(monkeypatch):
+    """`SQLAlchemyTimeoutError` no trae `.status_code` -- no lo captura ninguna
+    integración automática de Sentry por código HTTP (app/core/observabilidad.py),
+    así que el handler debe llamar a `capture_exception` él mismo."""
+    llamadas = []
+    monkeypatch.setattr(main.sentry_sdk, "capture_exception", llamadas.append)
+
+    excepcion = SQLAlchemyTimeoutError()
+    pool_agotado(None, excepcion)
+
+    assert llamadas == [excepcion]
+
+
 def test_timeout_de_pool_durante_una_peticion_real_responde_503(monkeypatch):
     def _pool_agotado(_tenant_id):
         raise SQLAlchemyTimeoutError("QueuePool limit of size 5 overflow 10 reached")
@@ -27,7 +41,12 @@ def test_timeout_de_pool_durante_una_peticion_real_responde_503(monkeypatch):
     monkeypatch.setattr(deps, "abrir_sesion_tenant", _pool_agotado)
 
     token = create_access_token(
-        usuario_id=uuid4(), tenant_id=uuid4(), rol="funcionario", nombre_gobierno="Prueba", pais="mx"
+        usuario_id=uuid4(),
+        tenant_id=uuid4(),
+        rol="funcionario",
+        nombre_gobierno="Prueba",
+        pais="mx",
+        nivel_gobierno="municipal",
     )
     response = client.get(
         f"/api/tramites/{uuid4()}/diagnostico", headers={"Authorization": f"Bearer {token}"}

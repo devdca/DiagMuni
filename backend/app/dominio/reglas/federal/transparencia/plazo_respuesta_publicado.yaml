@@ -1,0 +1,17 @@
+# Fase A -- piloto federal, tipo_tramite="transparencia". Verificado leyendo
+# el texto oficial completo de la LGTAIP. Distinto a propósito del plazo de
+# sat_rfc (LFPA, 3 meses) -- este trámite tiene su propio plazo específico,
+# más corto, que no debe confundirse con el supletorio de la LFPA. Solo
+# México, sin rama `uy`.
+version: "1.0"
+variable: plazo_respuesta_publicado
+criterio_deteccion: "plazo_respuesta_publicado == false"
+acciones:
+  mx:
+    paso_administrativo: "Definir y publicar el plazo de 20 días hábiles (prorrogable por 10 más, de forma motivada) para responder solicitudes de acceso a la información"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una definición administrativa que ya debe reflejarse en la Plataforma Nacional de Transparencia"
+    paso_organizacional: "Capacitar al personal en el seguimiento del plazo de 20 días y en motivar formalmente cualquier prórroga"
+    prerrequisitos: []
+    por_que_importa: "El plazo de este trámite es específico de la LGTAIP (20 días + prórroga de 10) -- no es el supletorio de 3 meses de la LFPA que aplica a otros trámites federales"
+    fuente_normativa: "LGTAIP art. 134 (20 días hábiles, prorrogable por 10 días más de forma motivada)"
+    categoria_catalogo: "plazo_respuesta"

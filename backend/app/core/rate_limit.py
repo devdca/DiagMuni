@@ -1,13 +1,7 @@
-"""Ventana deslizante en memoria de proceso, sin dependencia nueva ni
-persistencia -- suficiente para el volumen de un piloto (pocos gobiernos,
-tráfico bajo). Se reinicia si el proceso reinicia -- aceptable para limitar
-intentos por IP, a diferencia del contador de `job` (app/jobs/plan_job.py), que
-sí necesita sobrevivir un reinicio.
-
-Compartido entre `/api/gobiernos` y `/api/auth/login` (antes vivía solo en
-`api/gobiernos.py`; ver hallazgo de Strix vuln-0001, "Missing brute-force
-protection on /api/auth/login") para que el mismo mecanismo no quede duplicado
-en dos routers y pueda desincronizarse en silencio si cambia."""
+"""Ventana deslizante en memoria de proceso, sin dependencia nueva -- suficiente
+para el volumen de un piloto. Se reinicia con el proceso (a diferencia de
+`job`, que sí debe sobrevivir un reinicio). Compartida entre `/api/gobiernos` y
+`/api/auth/login` (hallazgo Strix vuln-0001) para no duplicar el mecanismo."""
 
 import threading
 import time
@@ -24,9 +18,8 @@ class LimitadorVentanaDeslizante:
         self._lock = threading.Lock()
 
     def permitir_intento(self, clave: str, ahora: float | None = None) -> bool:
-        """True si `clave` todavía tiene cupo dentro de la ventana deslizante --
-        registra el intento actual si lo permite. `ahora` es inyectable para
-        poder testear sin depender del reloj real."""
+        """True si `clave` tiene cupo y registra el intento. `ahora` es
+        inyectable para testear sin el reloj real."""
         ahora = ahora if ahora is not None else time.monotonic()
         with self._lock:
             intentos = self._intentos_por_clave[clave]
@@ -40,8 +33,7 @@ class LimitadorVentanaDeslizante:
 
 
 def ip_cliente(request: Request) -> str:
-    # nginx (nginx/nginx.conf) fija X-Real-IP en producción; sin proxy por delante
-    # (desarrollo local) cae al remitente directo de la conexión TCP.
+    # nginx fija X-Real-IP en producción; sin proxy (dev local) cae al remitente TCP directo.
     if request.client is None:
         return "desconocido"
     return request.headers.get("x-real-ip", request.client.host)

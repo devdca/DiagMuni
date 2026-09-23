@@ -17,6 +17,7 @@ Postgres real:
 """
 
 import importlib.util
+import os
 import socket
 from pathlib import Path
 from urllib.parse import urlparse
@@ -248,6 +249,29 @@ def _alembic_config():
 @pytest.mark.skipif(
     not _postgres_real_disponible(),
     reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+@pytest.mark.skipif(
+    os.environ.get("DIAGMUNI_TESTS_DESTRUCTIVOS") != "1",
+    reason=(
+        "Este test hace un downgrade real hasta 0002 y vuelve a subir a head -- "
+        "en el dev setup local, `docker compose up db` es la MISMA base que corre la "
+        "app para pruebas manuales/demos, así que ese downgrade vacía (DROP TABLE de "
+        "verdad) toda tabla creada después de 0003 -- evento_historial, notificacion, "
+        "nota_seguimiento, historial_indice_global, las columnas de RBAC/credenciales "
+        "de tenant... el `finally` de abajo restaura el ESQUEMA (vuelve a `head`), "
+        "pero ninguna fila que hubiera en esas tablas antes del downgrade vuelve. "
+        "Pasó de verdad más de una vez en una sola sesión de trabajo (historial de "
+        "índice de madurez borrado a media demo). Desde que CI sí levanta Postgres "
+        "como servicio (.github/workflows/ci.yml, Fase 1 del plan de producción "
+        "integrada) el primer skipif de arriba ya no basta solo -- pero ahí la base "
+        "es efímera (se crea y se destruye con el job, sin datos reales que perder), "
+        "así que este segundo guard no es por seguridad en CI: es explícitamente para "
+        "que un `pytest` local de rutina, contra la base de desarrollo con datos "
+        "reales, no lo dispare sin querer. Para correrlo "
+        "a propósito (ej. tras tocar el downgrade de una migración real):"
+        "\n  DIAGMUNI_TESTS_DESTRUCTIVOS=1 pytest tests/test_migration_0003_contexto_institucional.py"
+        "\nContra una base de datos que puedas permitirte vaciar por completo, no la de desarrollo."
+    ),
 )
 def test_upgrade_y_downgrade_contra_postgres_real() -> None:
     """`downgrade(cfg, "0002")` retrocede desde la revisión ACTUAL, no solo revierte

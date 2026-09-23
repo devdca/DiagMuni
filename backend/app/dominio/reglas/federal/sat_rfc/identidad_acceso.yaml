@@ -1,0 +1,18 @@
+# Fase A -- piloto federal, tipo_tramite="sat_rfc". IMPORTANTE (verificado
+# directamente): el mecanismo real es RFC + e.firma/Contraseña del SAT, que es
+# un sistema DISTINTO de Llave MX -- no hay integración confirmada entre
+# ambos. No asumir llave.gob.mx aquí; la opción de UI para este trámite debe
+# ofrecer "e.firma/Contraseña SAT" como mecanismo propio. Solo México, sin
+# rama `uy`.
+version: "1.0"
+variable: mecanismo_identidad
+criterio_deteccion: 'mecanismo_identidad == "ninguno"'
+acciones:
+  mx:
+    paso_administrativo: "Habilitar el acceso mediante RFC + e.firma o Contraseña del SAT -- mecanismo propio del SAT, no Llave MX"
+    paso_tecnico: "Integración con el sistema de identidad del SAT (e.firma/Contraseña), no con un proveedor de identidad federada genérico"
+    paso_organizacional: "Informar al ciudadano que este trámite usa el mecanismo de identidad propio del SAT, distinto del resto de trámites federales"
+    prerrequisitos: []
+    por_que_importa: "Sin un mecanismo de identidad, el trámite no puede completarse en línea con la certeza jurídica que exige un acto fiscal"
+    fuente_normativa: "Código Fiscal de la Federación (e.firma/Contraseña como mecanismo de identidad del SAT, distinto de Llave MX -- verificado, sin integración confirmada entre ambos sistemas)"
+    categoria_catalogo: "identidad_federada"

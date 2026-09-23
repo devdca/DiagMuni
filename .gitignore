@@ -15,6 +15,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv*/
 venv/
 *.egg-info/
 .pytest_cache/
@@ -44,7 +45,21 @@ frontend/blob-report/
 .vscode/
 .idea/
 
+# Override local de docker compose (ej. exponer el puerto de Postgres al host
+# para correr pytest local contra Postgres real) -- conveniencia de cada
+# máquina de desarrollo, nunca parte de la configuración de referencia.
+docker-compose.override.yml
+
 # Resultados de pruebas de seguridad (Strix) — reportes de vulnerabilidades reales,
 # nunca al repo público hasta que las críticas/altas estén corregidas y confirmadas.
 /strix_runs/
 strix_run.log
+
+# Mockups de diseño (artboards HTML sueltos, fuera del build de frontend/) --
+# material de trabajo visual, no producto: no se sirven, no se testean y no
+# tienen licencia de terceros verificada.
+/scratch-canvas/
+
+# Salidas crudas de escáneres de seguridad, mismo criterio que /strix_runs/
+# arriba: se leen, se corrigen y se citan en docs/, nunca se versiona el volcado.
+reporte-bandit.txt

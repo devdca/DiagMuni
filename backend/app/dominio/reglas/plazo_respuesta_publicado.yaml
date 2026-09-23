@@ -1,0 +1,20 @@
+version: "1.0"
+variable: plazo_respuesta_publicado
+criterio_deteccion: "plazo_respuesta_publicado == false"
+acciones:
+  mx:
+    paso_administrativo: "Definir y publicar el plazo máximo de respuesta de este trámite (o el supletorio de 3 meses de la LFPA si no hay uno específico)"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una definición administrativa que después se refleja en el portal del trámite"
+    paso_organizacional: "Capacitar al personal en el plazo definido y en el seguimiento de vencimientos"
+    prerrequisitos: []
+    por_que_importa: "Sin un plazo publicado, el ciudadano no tiene certeza de cuándo esperar respuesta, y el propio gobierno no tiene un criterio claro para medir su desempeño"
+    fuente_normativa: "Ley Federal de Procedimiento Administrativo, art. 17 (plazo supletorio de 3 meses cuando no hay uno específico -- verificado contra texto oficial vigente, última reforma DOF 14-11-2025; antes eran 4 meses, ya reformado)"
+    categoria_catalogo: "plazo_respuesta"
+  uy:
+    paso_administrativo: "Definir y publicar el plazo máximo de respuesta de este trámite"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Capacitar al personal en el plazo definido y en el seguimiento de vencimientos"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra el Decreto de Procedimiento Administrativo aplicable"
+    categoria_catalogo: "plazo_respuesta"

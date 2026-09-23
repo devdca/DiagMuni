@@ -1,0 +1,20 @@
+version: "1.0"
+variable: mecanismo_quejas_digital
+criterio_deteccion: "mecanismo_quejas_digital == false"
+acciones:
+  mx:
+    paso_administrativo: "Implementar un mecanismo digital de quejas o incidencias específico para este trámite"
+    paso_tecnico: "Formulario o canal digital de quejas, con seguimiento de folio -- categoría, no marca"
+    paso_organizacional: "Designar responsable de dar seguimiento y respuesta a las quejas recibidas"
+    prerrequisitos: []
+    por_que_importa: "Sin un canal específico, las quejas de este trámite se diluyen en canales genéricos del gobierno, sin trazabilidad de qué las originó"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "mecanismo_quejas"
+  uy:
+    paso_administrativo: "Implementar un mecanismo digital de quejas o incidencias específico para este trámite"
+    paso_tecnico: "Formulario o canal digital de quejas, con seguimiento de folio -- categoría, no marca"
+    paso_organizacional: "Designar responsable de dar seguimiento y respuesta a las quejas recibidas"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "mecanismo_quejas"

@@ -19,8 +19,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from app.api.deps import TokenData
-from app.api.seguimiento import _construir_accion_out, _ids_planes_vigentes, actualizar_accion
+from app.adaptadores.http.deps import TokenData
+from app.adaptadores.http.seguimiento import _construir_accion_out, _ids_planes_vigentes, actualizar_accion
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.models import AccionSeguimiento, DiagnosticoTramite, PlanModernizacion, Tenant, Tramite

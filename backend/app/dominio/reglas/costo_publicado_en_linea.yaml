@@ -1,0 +1,20 @@
+version: "1.0"
+variable: costo_publicado_en_linea
+criterio_deteccion: "costo_publicado_en_linea == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar de forma clara y accesible en línea el costo de este trámite, si aplica"
+    paso_tecnico: "Sección de costos en el portal del trámite, con el monto vigente y su fundamento (ley de ingresos/derechos aplicable)"
+    paso_organizacional: "Mantener actualizado el monto publicado cuando cambie la ley de ingresos correspondiente"
+    prerrequisitos: []
+    por_que_importa: "Es una obligación de transparencia proactiva -- el ciudadano debe poder saber cuánto le va a costar el trámite sin tener que acudir a preguntar"
+    fuente_normativa: "LGTAIP (transparencia proactiva de la información de interés público)"
+    categoria_catalogo: "costo_publicado"
+  uy:
+    paso_administrativo: "Publicar de forma clara y accesible en línea el costo de este trámite, si aplica"
+    paso_tecnico: "Sección de costos en el portal del trámite, con el monto vigente"
+    paso_organizacional: "Mantener actualizado el monto publicado"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx -- transparencia proactiva"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra la Ley de Acceso a la Información Pública (Ley 18.381)"
+    categoria_catalogo: "costo_publicado"

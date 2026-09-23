@@ -9,6 +9,26 @@ Tercero de los 6 documentos de blueprint de producto. Cubre apariencia y experie
 2. **Tono institucional, no de producto de consumo.** DiagMuni es una herramienta de gobierno, del Laboratorio de Innovación Pública del INAP — sobrio, confiable, sin animaciones decorativas, sin lenguaje de marketing ("¡genial!", "¡tu plan está listo!"). Serio pero no burocrático: claro y directo.
 3. **Debe funcionar igual en un municipio de 3 funcionarios de mostrador que en una intendencia con área TIC** — sin asumir hardware moderno ni gran ancho de banda; sin asumir alfabetización digital alta.
 4. **La marca visual del Laboratorio INAP está pendiente** (no se ha definido logo/colores institucionales en este proyecto) — mientras tanto, se usa la paleta neutral validada de esta sección; sustituir cuando exista identidad de marca oficial, sin tocar la estructura de componentes.
+5. **Sobrio no es plano.** La primera versión de la paleta (gris/crema con azul marino apagado) se descartó tras revisión de diseño por leerse genérica y sin pulir — sobrio e institucional (principio 2) no significa bajo contraste ni un solo acento débil. Una segunda versión ("Índigo confiado") corrigió eso, pero puso el mismo índigo en navegación, botones, foco Y en la rampa del índice de madurez a la vez — se leía "todo azul", sin jerarquía entre lo accionable y el dato. La paleta vigente ("Tinta neutra", sección "Paleta") separa ambos roles: la acción/navegación es tinta casi-negra (casi-blanca en oscuro) y el azul de la rampa del índice, ya validado, queda como el único color con significado propio de toda la interfaz — sigue habiendo separación real entre superficies, bordes visibles y contraste intencional, solo que ya no compiten dos sistemas de color por la misma atención.
+
+### Revisión de diseño — ronda 1 (dentro del brief, ningún principio relajado)
+
+Antes de la ronda 2 de abajo hubo una primera pasada de jerarquía visual, explorada también como mockups antes de tocar código, que no requirió permiso para romper ninguna regla porque no rompe ninguna: sin animación, sin imagen, sin color nuevo. Se documenta aquí solo para que el historial de qué cambió en cada pantalla quede completo (mismo espíritu que el resto de esta sección), no porque haya tensión con ningún principio.
+
+- **`PageHeader.tsx` / `IconChip.tsx`:** un rótulo pequeño ("kicker") sobre el título y un ícono de línea propio por sección, en tinta neutra — nunca el azul de la rampa de madurez ni el navy del navbar (principio 5). En uso en Panel resumen (título de página) y Plan de modernización (título de tarjeta, versión más chica del mismo componente).
+- **`GraficaTendenciaIndice.tsx`:** cuando hay menos de 2 diagnósticos, el texto "sin datos suficientes" ahora lleva junto un motivo de línea institucional estático (`aria-hidden`, tinta neutra) — nunca reemplaza el texto, solo lo acompaña, mismo criterio que el resto de la interfaz de "color/ícono nunca solo".
+- **`Plan.tsx` — `ResumenPlanRail`:** panel lateral fijo (`lg:sticky`) con el resumen del propio plan — total de brechas, brechas con componente identificado, inversión única y costo recurrente estimados. No es un dato nuevo: son los mismos valores de `resumen_inversion` que ya muestra `TarjetaPresupuesto` en la pestaña "Resumen ejecutivo", solo visibles sin cambiar de pestaña. El mockup original de esta pieza asumía prioridad y costo por brecha individual; se ajustó a lo que el backend (`backend/app/engine/resumen_plan.py`) sí calcula, en vez de inventar esos campos.
+
+### Revisión de diseño — ronda 2 (autorizada por Ricardo, 15 de septiembre de 2026)
+
+Feedback de producto tras ver la primera implementación: "se ve muy sencilla, necesito que se vea más bonita, moderna, atractiva". Se exploraron 3 direcciones como mockups (canvas de diseño, no código) antes de tocar nada — una editorial (solo tipografía), una de tarjetas con más profundidad/sombra, y una con una franja de color e ilustración. Ricardo autorizó explícitamente relajar puntos concretos de los principios 2 y 5 (pantalla 1) si el resultado se veía bien, con una condición: documentarlo aquí, igual que ya se documenta el historial de las 2 paletas descartadas arriba. Después afinó el criterio de éxito a algo específico, no "lo que sea que se vea más lleno": **minimalista, profesional, "gobierno digital"** — la referencia que dio fue GOV.UK / e-Estonia / servicios digitales nórdicos — serio pero no frío, simple pero no plano, con calidez pero sin caer en lo decorativo o maximalista.
+
+Lo que cambió, puntual a la franja del índice global en el Panel resumen (`frontend/src/components/HeroIndiceGlobal.tsx`):
+
+- **Principio 2 ("sin animaciones decorativas"):** excepción puntual, no un cambio general. La cifra del índice y su mini-gráfica de tendencia entran con una transición de una sola vez al cargar el dato real (nunca en loop, respeta `prefers-reduced-motion` sin excepción — ver `.hero-indice-cifra` / `.hero-spark-linea` en `frontend/src/index.css`). Es una entrada de contenido, no un adorno; el resto de la interfaz sigue sin ninguna animación de este tipo.
+- **Pantalla 1 ("única pantalla con imagen"):** el Panel resumen suma una franja con fondo oscuro fijo (`--hero-bg`, mismo criterio de "color de identidad propia, no theme-aware" que ya usa el navbar) y una marca de línea propia (`IlustracionAyuntamiento.tsx`) — deliberadamente **no** es una fotografía ni una escena decorativa: es el mismo lenguaje de ícono de trazo que ya usa el resto de la app, escalado a tamaño de marca. El login sigue siendo la única pantalla con fotografía de fondo; esta es una excepción distinta y más acotada.
+- **Un solo acento de color, nunca arcoíris:** el único color nuevo en la franja es el dorado que ya existía en el navbar (línea del link activo, anillo del avatar) — no se inventó un tono nuevo, se le dio un segundo uso deliberado y mínimo (la bandera del ícono). La cifra del índice sigue pintándose con la rampa ordinal ya validada (variante `varTextoSobreOscuro` en `madurez.ts`/`index.css`, mismos 5 hex del modo oscuro, pensada para una superficie que siempre es oscura) — sigue siendo el único color con significado propio de la interfaz.
+- **Lo que no cambió:** ninguna otra pantalla lleva franja hero, imagen ni animación de esta ronda — Cuestionario, Seguimiento y Perfil del gobierno no tuvieron ningún cambio (ni siquiera los de ronda 1); Plan sí tiene los cambios de ronda 1 (ícono de sección, panel lateral), pero esos no rompen ningún principio, son un pase distinto y anterior (ver arriba). Esto no es un rediseño general, es una pieza acotada del Panel resumen. Si se decide extender el mismo lenguaje (franja/animación/acento dorado) a otras pantallas, actualizar esta sección con esa decisión también.
 
 ## Tipografía
 
@@ -16,42 +36,49 @@ Fuente del sistema únicamente: `system-ui, -apple-system, "Segoe UI", sans-seri
 
 ## Paleta — validada, no elegida a ojo
 
-Paleta neutral de referencia (swap por marca INAP cuando exista, revalidar con `validate_palette.js` si cambia):
+"Tinta neutra": gris verdadero, sin sesgo de color (principio "elegir el neutro, no heredarlo" — antes tenía sesgo azul, que terminaba filtrándose a todo), con la acción/navegación en tinta casi-negra (casi-blanca en oscuro) sobre tarjetas blancas con separación real del fondo. El único color con significado propio en toda la interfaz es el azul de la rampa del índice de madurez (sección siguiente) — deliberadamente no se reutiliza en ningún otro lugar. Revalidar con `frontend/scripts/validate_palette.js` si cambia. Fuente de verdad: `frontend/src/index.css` — esta tabla la documenta, no al revés; si un valor futuro cambia, el commit que lo cambia también actualiza esta tabla.
 
 | Rol | Claro | Oscuro |
 |---|---|---|
-| Superficie de página | `#f9f9f7` | `#0d0d0d` |
-| Superficie de tarjeta/panel | `#fcfcfb` | `#1a1a19` |
-| Texto primario | `#0b0b0b` | `#ffffff` |
-| Texto secundario | `#52514e` | `#c3c2b7` |
-| Texto atenuado (ayudas, placeholders) | `#898781` | `#898781` |
-| Línea divisoria | `#e1e0d9` | `#2c2c2a` |
+| Superficie de página | `#f1f1ef` | `#121212` |
+| Superficie de tarjeta/panel | `#ffffff` | `#1c1c1a` |
+| Texto primario | `#161614` | `#f5f4f0` |
+| Texto secundario | `#504f4a` | `#c7c5be` |
+| Texto atenuado (ayudas, placeholders) | `#4a4945` | `#8f8d86` |
+| Línea divisoria | `#75746d` | `#727169` |
+| Acción primaria (fondo / texto) | `#202020` / `#f7f7f5` | `#f2f1ec` / `#121212` |
+| Acción secundaria (fondo / texto) | `#e6e5e0` / `#161614` | `#242320` / `#f5f4f0` |
+| Destructivo (fondo / texto) | `#ad2a24` / `#fff5f4` | `#e8635c` / `#280604` |
+
+Nota histórica: la primera versión de esta tabla (crema/beige con azul marino, `#f4f3ee`/`#243447`) generaba AA real pero se abandonó por lectura genérica; la segunda ("Índigo confiado", `#eceef5`/`#2b3a9e`) resolvió eso pero puso el mismo índigo en acción, navegación y rampa del índice a la vez — ver principio 5 arriba. Ninguna de las dos era un problema de contraste; ambos cambios fueron de jerarquía y significado del color, no de accesibilidad.
+
+Junto con esta paleta se retiraron los gradientes decorativos de fondo, el glassmorphism generalizado en tarjetas/nav y el `translateY` de hover que tenía la versión anterior — no comunicaban estado y contradecían el principio 2 ("sin animaciones decorativas"). La única superficie que conserva un tratamiento glass es el login (pantalla 1, deliberado y opaco, no transparente — ver esa sección).
 
 ### Índice de madurez (0-4) — rampa ordinal, un solo hue, nunca semáforo de colores dispares
 
-El índice **no** se pinta con colores categóricos distintos por nivel (rojo→verde) — es una magnitud ordenada, no un estado bueno/malo por sí sola (un nivel 1 no es "un error", es un punto de partida). Usa la rampa secuencial azul, 5 pasos discretos:
+El índice **no** se pinta con colores categóricos distintos por nivel (rojo→verde) — es una magnitud ordenada, no un estado bueno/malo por sí sola (un nivel 1 no es "un error", es un punto de partida). Usa la rampa secuencial índigo, 5 pasos discretos, con **dos variantes por nivel** (`frontend/src/lib/madurez.ts`) — nunca la misma para los dos usos:
 
-| Nivel | Descripción | Paso | Hex (claro) |
-|---|---|---|---|
-| 0 | Presencial en papel | 250 | `#86b6ef` |
-| 1 | Informativo | 350 | `#5598e7` |
-| 2 | Transaccional parcial | 450 | `#2a78d6` |
-| 3 | Transaccional completo | 550 | `#1c5cab` |
-| 4 | Proactivo e interoperable | 650 | `#104281` |
+| Nivel | Descripción | Decorativo (`hexClaro`, piso 2:1, solo swatch/punto `aria-hidden`) | Texto/borde (`varTexto`, AA 4.5:1, claro) | Texto/borde (`varTexto`, AA 4.5:1, oscuro) |
+|---|---|---|---|---|
+| 0 | Presencial en papel | `#9ea8e5` | `#2d3ea9` | `#cad0f6` |
+| 1 | Informativo | `#8f9be3` | `#253393` | `#b1baf1` |
+| 2 | Transaccional parcial | `#6674d6` | `#1c297d` | `#98a3eb` |
+| 3 | Transaccional completo | `#4152c4` | `#141e61` | `#808de5` |
+| 4 | Proactivo e interoperable | `#28349e` | `#0b1341` | `#7583e1` |
 
-El paso más claro (nivel 0) respeta el piso de contraste 2:1 para uso ordinal — nunca ir más claro que el paso 250. Modo oscuro usa la misma progresión de 5 pasos, revalidada contra la superficie oscura antes de implementar (`node scripts/validate_palette.js ... --mode dark --ordinal`). Cada nivel siempre lleva **número + etiqueta de texto** ("2 — Transaccional parcial"), nunca solo el color — el color refuerza, no reemplaza, la lectura.
+`hexClaro` **nunca** se usa como color de texto ni de borde — solo alcanza un piso de 2:1, insuficiente para AA. Cuando el nivel se pinta como texto o borde (cifra grande del índice, borde/texto del `Badge` de índice), siempre se usa `varTexto`, que ya es la variable CSS theme-aware (`--madurez-nivel-N-texto` en `frontend/src/index.css`, con valores propios bajo `.dark` — reutilizar el hex claro en modo oscuro rompía AA en varios niveles). Revalidar ambas variantes con `node scripts/validate_palette.js --ordinal` (agregar `--mode dark` o `--mode light` para uno solo) cada vez que se toquen estos hex. Cada nivel siempre lleva **número + etiqueta de texto** ("2 — Transaccional parcial"), nunca solo el color — el color refuerza, no reemplaza, la lectura.
 
 ### Semáforo de seguimiento (F6) — paleta de estado, fija, nunca reutilizada como color de serie
 
-Solo 3 estados para mantener el panel "simple" (mandato de producto) — se reserva el 4º rol de la paleta de estado por si un futuro rediseño necesita distinguir "atrasado" de "bloqueado":
+Solo 3 estados para mantener el panel "simple" (mandato de producto) — se reserva el 4º rol de la paleta de estado por si un futuro rediseño necesita distinguir "atrasado" de "bloqueado". Theme-aware por variable CSS (`frontend/src/lib/semaforo.ts`), no hex directo:
 
-| Estado | Rol | Hex |
-|---|---|---|
-| Completado | good | `#0ca30c` |
-| En progreso / a tiempo | warning | `#fab219` |
-| Atrasado o bloqueado | critical | `#d03b3b` |
+| Estado | Rol | Hex claro | Hex oscuro |
+|---|---|---|---|
+| Completado | good | `#0d770d` | `#4dcb4d` |
+| En progreso / a tiempo | warning | `#fab219` | `#fab219` |
+| Atrasado o bloqueado | critical | `#d03b3b` | `#d03b3b` |
 
-Regla dura: todo estado del semáforo lleva **ícono + etiqueta de texto**, nunca solo el punto de color — "warning" y "critical" caen bajo el piso de contraste 3:1 en superficie clara por diseño de la paleta, así que el color solo no basta para transmitir el estado.
+Regla dura: todo estado del semáforo lleva **ícono + etiqueta de texto**, nunca solo el punto de color. "Completado" cumple AA 4.5:1 en ambos modos (por eso tiene un valor propio por modo); "en progreso" y "atrasado" quedan como excepción documentada — mismo hex en los dos modos, caen bajo el piso de contraste por diseño de la paleta, así que el color solo no basta para transmitir el estado.
 
 ## Componentes (shadcn/ui — Radix + Tailwind)
 
@@ -62,8 +89,12 @@ Reutilizar los componentes ya incluidos en shadcn/ui sin construir variantes pro
 ### 1. Selección de gobierno (tenant) e ingreso
 Pantalla mínima: campo "Clave del gobierno" (texto corto y legible, nunca un identificador técnico) que el funcionario escribe para identificar a su gobierno local; al resolverse contra el backend, se muestra el nombre del gobierno como confirmación antes de revelar los campos de correo y contraseña (o un selector si el funcionario tiene acceso a más de un gobierno — poco común en el MVP). Sin branding de terceros, sin distractores. Mensaje de error en lenguaje llano tanto si la clave no corresponde a ningún gobierno como si la contraseña no coincide ("La contraseña no coincide", nunca un código de error técnico). Mecanismo completo de identificación (columna `tenant.clave`, endpoint público de resolución, y cómo se conecta con `POST /api/auth/login`) en `entregables/fase-2/identificacion-gobierno-login.md`.
 
+Única pantalla de toda la app con fotografía de fondo (`frontend/public/branding/login-fondo.png`, imagen propia) — momento de bienvenida antes de entrar, no una superficie de trabajo; el resto de las pantallas se queda en superficie plana (sección "Paleta"), con una excepción puntual y distinta en el Panel resumen (ver "Revisión de diseño — ronda 2" arriba: una marca de línea propia, no una fotografía). La imagen lleva un velo neutro oscuro (no azul, para no reintroducir "todo azul" en la puerta de entrada) y la tarjeta de login es glassmorphism **deliberadamente opaco, no transparente** (`--card` al ~92% + blur) — se lee como vidrio sobre la foto sin depender de lo que haya detrás para mantener el contraste AA ya validado de `--card`.
+
 ### 2. Panel resumen
-Tarjeta superior con el índice de madurez global (cifra grande + etiqueta, paleta ordinal de arriba) y fecha de último diagnóstico. Debajo, tabla de trámites catalogados con su índice individual (`Badge`) y acceso a "continuar diagnóstico" o "ver plan". Sin gráficas de tendencia en el MVP — un solo número por trámite, no series de tiempo (no hay historia suficiente en un piloto).
+Franja "hero" superior con el índice de madurez global (cifra grande + etiqueta, paleta ordinal de arriba, entrada animada de una sola vez) y fecha de último diagnóstico — ver "Revisión de diseño — ronda 2" arriba para el porqué de esta pieza. Debajo, una gráfica de tendencia apilada: cuántos trámites activos hay en cada nivel de la rampa (0-4) en el tiempo, área por nivel con los mismos 5 colores ya validados de esa rampa (`frontend/src/lib/madurez.ts`) — nunca colores nuevos ni series inventadas para "verse más llena". Debajo, tabla de trámites catalogados con su índice individual (`Badge`) y acceso a "continuar diagnóstico" o "ver plan".
+
+La tendencia es dato real, no una serie de tiempo regular ni una animación: cada punto (el promedio global Y la distribución por nivel) se recalcula en el instante exacto de un envío o corrección de diagnóstico (`backend/app/aplicacion/historial_indice_global.py`, migración 0015 ampliada por la 0017 — tabla append-only, RLS por tenant igual que `evento_historial`). Con menos de 2 puntos se muestra un texto en vez de dibujar algo que parezca dato sin serlo. `GET /api/tramites/indice-global/historial`, refrescado cada 30s (`refetchInterval`, no un stream) para que dos funcionarios viendo el panel al mismo tiempo vean el punto nuevo sin recargar. Construida con ECharts (línea/área apilada, tooltip real, exportar como imagen) en vez de SVG a mano.
 
 Columna adicional de gestión: "Eliminar" (solo visible si el trámite todavía no tiene un diagnóstico enviado, confirmación nativa antes de borrar) y "Archivar" (siempre disponible, reversible, sin confirmación adicional — no borra nada, solo saca al trámite de esta tabla y del índice global). Un enlace "Ver archivados"/"Ver activos" alterna a la lista de trámites archivados, con "Desarchivar" como única acción disponible ahí. Un trámite archivado nunca aparece mezclado con los activos.
 

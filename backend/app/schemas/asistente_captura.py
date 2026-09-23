@@ -19,3 +19,4 @@ class MecanismoIdentidadRequest(BaseModel):
 
 class ClasificacionOut(BaseModel):
     categoria: str
+    ruta_llm: str | None = None

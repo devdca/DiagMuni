@@ -1,0 +1,15 @@
+# Fase A -- piloto estatal (LNETB). Verificado leyendo el texto oficial completo
+# (ver autoridad_gobernanza_digital.yaml de esta misma carpeta para la fuente
+# exacta). Solo México, sin rama `uy`.
+version: "1.0"
+variable: registrado_portal_ciudadano_unico
+criterio_deteccion: "registrado_portal_ciudadano_unico == false"
+acciones:
+  mx:
+    paso_administrativo: "Registrar el trámite en el Portal Ciudadano Único de Trámites y Servicios de la entidad federativa"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es un registro administrativo"
+    paso_organizacional: "Asignar al Enlace de Simplificación y Digitalización estatal la actualización periódica de este registro"
+    prerrequisitos: []
+    por_que_importa: "Sin este registro, el trámite no es visible para el ciudadano en el punto de consulta único que la LNETB exige a nivel estatal"
+    fuente_normativa: "LNETB art. 54 (15 fracciones sobre qué debe registrarse en el Portal Ciudadano Único: nombre, modalidad, disponibilidad en línea, fundamento jurídico, requisitos, plazo y afirmativa/negativa ficta, monto de derechos, entre otras) -- marco general, aplicable a las 32 entidades por igual"
+    categoria_catalogo: "registro_portal_unico"

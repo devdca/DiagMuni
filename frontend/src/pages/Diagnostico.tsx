@@ -1,42 +1,61 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { CampoBooleanoRadio } from "@/components/ui/campo-booleano-radio";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { clasificarConsistenciaBooleana, clasificarMecanismoIdentidad } from "@/lib/asistenteCapturaApi";
+import { registrarCorreccionIa } from "@/lib/correccionIaApi";
+import { useAutoguardadoCampo } from "@/hooks/useAutoguardadoCampo";
 import {
   enviarDiagnostico,
   guardarDiagnostico,
   obtenerDiagnostico,
+  simularDiagnostico,
   type RespuestasDiagnostico,
+  type SimulacionResponse,
 } from "@/lib/diagnosticoApi";
 import { ApiError } from "@/lib/httpClient";
+import { obtenerNivelMadurez } from "@/lib/madurez";
 import { cn } from "@/lib/utils";
 import { planListo } from "@/lib/planApi";
-import { obtenerPais } from "@/lib/session";
-import { obtenerTramite } from "@/lib/tramitesApi";
+import { obtenerNivelGobierno, obtenerPais } from "@/lib/session";
+import { obtenerTiposTramite, obtenerTramite } from "@/lib/tramitesApi";
 
-// Cuestionario de captura (F1 producto), docs/ux-brief.md sección "3. Cuestionario
-// de captura (F1)": un Card por cada una de las 6 variables reales del catálogo
-// (docs/backend-schema.md), sin ramificación condicional real -- no existe hoy
-// ninguna dependencia documentada entre estas 6 variables (docs/ux-brief.md línea
-// 68 es solo un ejemplo ilustrativo, no una regla implementada).
+// Cuestionario F1 (docs/ux-brief.md): `preguntasEfectivas` excluye las que no
+// aplican al tipo de trámite; `mecanismo_identidad` siempre se muestra.
 
 type IdBooleano =
   | "documentos_digitalizados"
   | "motor_pagos"
   | "firma_electronica_habilitada"
   | "interoperabilidad"
-  | "proteccion_datos_incompleta";
+  | "proteccion_datos_incompleta"
+  | "tramite_completo_en_linea"
+  | "registrado_portal_ciudadano_unico"
+  | "notificaciones_automaticas"
+  | "disponible_movil"
+  | "plazo_respuesta_publicado"
+  | "silencio_administrativo_definido"
+  | "mecanismo_quejas_digital"
+  | "fundamento_juridico_vigente"
+  | "costo_publicado_en_linea"
+  | "revisado_ultimos_12_meses"
+  | "personal_capacitado_tramite_digital"
+  | "medicion_tiempo_satisfaccion"
+  | "version_accesible"
+  | "atencion_lengua_indigena"
+  | "requisitos_publicados_claramente";
 
 interface PreguntaBooleana {
   id: IdBooleano;
   pregunta: string;
   ayuda: string;
+  seccion: string;
 }
 
 const PREGUNTAS_BOOLEANAS: PreguntaBooleana[] = [
@@ -45,30 +64,135 @@ const PREGUNTAS_BOOLEANAS: PreguntaBooleana[] = [
     pregunta: "¿Los documentos que se necesitan para este trámite ya están digitalizados?",
     ayuda:
       "Responda \"Sí\" solo si el expediente completo del trámite ya existe en formato digital, no solo escaneado como respaldo. Si el expediente sigue siendo en papel, es el primer paso a resolver antes de cualquier otro avance.",
+    seccion: "Digitalización",
   },
   {
     id: "motor_pagos",
     pregunta: "¿El ciudadano puede pagar este trámite en línea?",
     ayuda:
       "Se refiere a una forma de pago electrónico real para este trámite (tarjeta, transferencia, etc.). Si solo se acepta depósito bancario sin conciliación automática, aclárelo abajo.",
+    seccion: "Digitalización",
   },
   {
     id: "firma_electronica_habilitada",
     pregunta: "¿Este trámite acepta firma electrónica en vez de firma en papel?",
     ayuda:
       "Aplica si el ciudadano o el funcionario pueden firmar los documentos del trámite de forma electrónica, con validez legal.",
+    seccion: "Digitalización",
   },
   {
     id: "interoperabilidad",
     pregunta: "¿Este trámite comparte información automáticamente con otros registros de gobierno?",
     ayuda:
       "Por ejemplo, si al capturar un dato el sistema lo verifica automáticamente contra otro registro, sin pedirle al ciudadano el mismo documento otra vez.",
+    seccion: "Digitalización",
+  },
+  {
+    id: "tramite_completo_en_linea",
+    pregunta:
+      "¿Este trámite se puede iniciar y concluir completamente en línea, incluyendo la entrega del resultado?",
+    ayuda:
+      "Distinto de que solo el expediente esté digitalizado: aquí importa que el ciudadano no tenga que acudir en persona en ningún paso, ni siquiera para recoger el resultado final.",
+    seccion: "Digitalización",
+  },
+  {
+    id: "registrado_portal_ciudadano_unico",
+    pregunta: "¿Este trámite está registrado en el Portal Ciudadano Único de Trámites y Servicios?",
+    ayuda:
+      "Es el punto de consulta centralizado donde el ciudadano puede encontrar cualquier trámite de gobierno, sin importar el orden de gobierno que lo ofrezca.",
+    seccion: "Digitalización",
+  },
+  {
+    id: "notificaciones_automaticas",
+    pregunta: "¿El ciudadano recibe notificaciones automáticas sobre el avance de este trámite?",
+    ayuda:
+      "Por ejemplo, un aviso por correo, SMS o app cuando el trámite cambia de estatus, sin que el ciudadano tenga que llamar o acudir a preguntar.",
+    seccion: "Digitalización",
+  },
+  {
+    id: "disponible_movil",
+    pregunta: "¿Este trámite se puede iniciar y completar desde un dispositivo móvil?",
+    ayuda: "No solo que la página se vea bien en el celular, sino que el flujo completo se pueda hacer desde ahí.",
+    seccion: "Digitalización",
+  },
+  {
+    id: "plazo_respuesta_publicado",
+    pregunta: "¿Está definido y publicado el plazo máximo de respuesta de este trámite?",
+    ayuda:
+      "Si no hay un plazo específico en la ley que lo rige, aplica el plazo supletorio de 4 meses de la Ley Federal de Procedimiento Administrativo.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "silencio_administrativo_definido",
+    pregunta:
+      "¿Está definido y publicado el sentido del silencio administrativo (positivo o negativo) si el gobierno no responde a tiempo?",
+    ayuda: "Determina qué debe esperar el ciudadano si el plazo de respuesta vence sin que el gobierno se pronuncie.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "mecanismo_quejas_digital",
+    pregunta: "¿Existe un mecanismo digital de quejas o incidencias específico para este trámite?",
+    ayuda:
+      "Un canal donde el ciudadano pueda reportar un problema con este trámite en particular y darle seguimiento con un folio.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "fundamento_juridico_vigente",
+    pregunta: "¿Se identificó y confirmó la vigencia del fundamento jurídico que rige este trámite?",
+    ayuda: "Un trámite sin fundamento jurídico claro, o con uno derogado, puede ser impugnable.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "costo_publicado_en_linea",
+    pregunta: "¿El costo de este trámite (si aplica) está publicado de forma clara y accesible en línea?",
+    ayuda: "El ciudadano debe poder saber cuánto le va a costar sin tener que acudir a preguntar.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "requisitos_publicados_claramente",
+    pregunta: "¿Los requisitos para iniciar este trámite están publicados de forma clara y completa en línea?",
+    ayuda:
+      "Distinto de que el expediente ya esté digitalizado: aquí importa que el ciudadano pueda saber qué necesita antes de empezar, sin tener que acudir a preguntar.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "revisado_ultimos_12_meses",
+    pregunta: "¿Este trámite fue revisado o simplificado en los últimos 12 meses?",
+    ayuda:
+      "Por ejemplo, eliminando requisitos innecesarios. La Agenda de Simplificación y Digitalización exige revisión y publicación de avances cada semestre.",
+    seccion: "Cumplimiento y transparencia",
   },
   {
     id: "proteccion_datos_incompleta",
     pregunta: "¿Falta completar alguna medida de protección de datos personales para este trámite?",
     ayuda:
       "Por ejemplo, si todavía no se publica un aviso de privacidad, o si los datos capturados no están debidamente resguardados.",
+    seccion: "Cumplimiento y transparencia",
+  },
+  {
+    id: "version_accesible",
+    pregunta: "¿La versión digital de este trámite es accesible para personas con discapacidad?",
+    ayuda: "Por ejemplo, compatible con lector de pantalla, buen contraste y navegación por teclado.",
+    seccion: "Accesibilidad e inclusión",
+  },
+  {
+    id: "atencion_lengua_indigena",
+    pregunta:
+      "¿Se ofrece atención en alguna lengua indígena o mediante intérprete para este trámite, cuando aplica en la región?",
+    ayuda: "Las lenguas indígenas son válidas para cualquier trámite de carácter público en México.",
+    seccion: "Accesibilidad e inclusión",
+  },
+  {
+    id: "personal_capacitado_tramite_digital",
+    pregunta: "¿El personal que opera este trámite está capacitado en su versión digital?",
+    ayuda: "Ningún componente digital de este trámite rinde si el personal que lo opera no sabe usarlo.",
+    seccion: "Capacidad y desempeño",
+  },
+  {
+    id: "medicion_tiempo_satisfaccion",
+    pregunta: "¿Se mide el tiempo real de resolución y/o la satisfacción ciudadana de este trámite?",
+    ayuda: "Sin medición no hay forma de saber si el trámite realmente mejoró tras aplicar este plan.",
+    seccion: "Capacidad y desempeño",
   },
 ];
 
@@ -77,39 +201,53 @@ const OPCION_OTRO = "otro";
 const ETIQUETA_MECANISMO: Record<string, string> = {
   llave_mx: "Llave MX",
   id_uruguay: "ID Uruguay",
+  // Fase A: mecanismos verificados por nivel de gobierno, distintos de Llave MX.
+  e_firma_sat: "e.firma / Contraseña del SAT",
+  propio_estatal_interoperable: "Mecanismo propio de la entidad federativa (interoperable con Llave MX)",
   propio: "Un mecanismo propio de este gobierno",
   ninguno: "Ninguno",
 };
 
-function opcionesMecanismo(pais: string | null): { valor: string; etiqueta: string }[] {
+function opcionesMecanismo(pais: string | null, nivel: string | null): { valor: string; etiqueta: string }[] {
   const opciones: { valor: string; etiqueta: string }[] = [];
   if (pais === "mx") opciones.push({ valor: "llave_mx", etiqueta: ETIQUETA_MECANISMO.llave_mx });
   if (pais === "uy") opciones.push({ valor: "id_uruguay", etiqueta: ETIQUETA_MECANISMO.id_uruguay });
+  // e.firma del SAT es un sistema distinto de Llave MX, sin integración confirmada.
+  if (nivel === "federal") {
+    opciones.push({ valor: "e_firma_sat", etiqueta: ETIQUETA_MECANISMO.e_firma_sat });
+  }
+  if (nivel === "estatal") {
+    opciones.push({
+      valor: "propio_estatal_interoperable",
+      etiqueta: ETIQUETA_MECANISMO.propio_estatal_interoperable,
+    });
+  }
   opciones.push({ valor: "propio", etiqueta: ETIQUETA_MECANISMO.propio });
   opciones.push({ valor: "ninguno", etiqueta: ETIQUETA_MECANISMO.ninguno });
   opciones.push({ valor: OPCION_OTRO, etiqueta: "Otro, especifique" });
   return opciones;
 }
 
+// `interoperabilidad` cambia de redacción por nivel de gobierno; municipal usa
+// el texto original de PREGUNTAS_BOOLEANAS.
+function textoInteroperabilidad(nivel: string | null): string | null {
+  if (nivel === "federal") {
+    return "¿Este trámite comparte información automáticamente entre dependencias de la misma administración pública federal?";
+  }
+  return null;
+}
+
 type ValoresBooleanos = Record<IdBooleano, boolean | null>;
 type Aclaraciones = Record<string, string>;
 type SugerenciasBooleanas = Record<IdBooleano, string | null>;
 
-const VALORES_INICIALES: ValoresBooleanos = {
-  documentos_digitalizados: null,
-  motor_pagos: null,
-  firma_electronica_habilitada: null,
-  interoperabilidad: null,
-  proteccion_datos_incompleta: null,
-};
+const VALORES_INICIALES: ValoresBooleanos = Object.fromEntries(
+  PREGUNTAS_BOOLEANAS.map((p) => [p.id, null]),
+) as ValoresBooleanos;
 
-const SUGERENCIAS_INICIALES: SugerenciasBooleanas = {
-  documentos_digitalizados: null,
-  motor_pagos: null,
-  firma_electronica_habilitada: null,
-  interoperabilidad: null,
-  proteccion_datos_incompleta: null,
-};
+const SUGERENCIAS_INICIALES: SugerenciasBooleanas = Object.fromEntries(
+  PREGUNTAS_BOOLEANAS.map((p) => [p.id, null]),
+) as SugerenciasBooleanas;
 
 // --- Card de aclaración opcional (compartida por las 6 preguntas) ------------------
 
@@ -196,27 +334,7 @@ function CardBooleana({
         <CardTitle className="text-base font-medium">{definicion.pregunta}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <RadioGroup
-          value={valor === null ? undefined : valor ? "si" : "no"}
-          onValueChange={(v) => onCambiarValor(v === "si")}
-          className="grid grid-cols-2 gap-3 sm:w-64"
-        >
-          {(["si", "no"] as const).map((opcion) => (
-            <label
-              key={opcion}
-              htmlFor={`${definicion.id}-${opcion}`}
-              className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2",
-                (valor === true && opcion === "si") || (valor === false && opcion === "no")
-                  ? "border-primary"
-                  : "border-border",
-              )}
-            >
-              <RadioGroupItem value={opcion} id={`${definicion.id}-${opcion}`} />
-              <span className="text-sm">{opcion === "si" ? "Sí" : "No"}</span>
-            </label>
-          ))}
-        </RadioGroup>
+        <CampoBooleanoRadio valor={valor} onCambiar={onCambiarValor} idPrefix={definicion.id} />
 
         <p className="text-xs text-atenuado">{definicion.ayuda}</p>
 
@@ -251,14 +369,133 @@ function CardBooleana({
   );
 }
 
+// --- Card de una variable adicional (propia del tipo de trámite) -------------------
+// Sin aclaración ni sugerencia asistida por IA -- son preguntas nuevas del tipo
+// de trámite, no del catálogo de 6 variables que ya tiene ese flujo.
+
+function CardVariableAdicional({
+  pregunta,
+  ayuda,
+  valor,
+  onCambiarValor,
+}: {
+  pregunta: string;
+  ayuda: string;
+  valor: boolean | null;
+  onCambiarValor: (valor: boolean) => void;
+}) {
+  const id = `adicional-${pregunta}`;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-medium">{pregunta}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <CampoBooleanoRadio valor={valor} onCambiar={onCambiarValor} idPrefix={id} />
+        <p className="text-xs text-atenuado">{ayuda}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Contexto adicional (opcional, no genera brecha) --------------------------------
+// No afecta el índice de madurez, solo alimenta la estimación de recursos -- por
+// eso es opcional y no bloquea "Enviar diagnóstico".
+
+const OPCIONES_VOLUMEN_DEMANDA: { valor: string; etiqueta: string }[] = [
+  { valor: "menos_100", etiqueta: "Menos de 100 al año" },
+  { valor: "100_1000", etiqueta: "Entre 100 y 1,000 al año" },
+  { valor: "1000_10000", etiqueta: "Entre 1,000 y 10,000 al año" },
+  { valor: "mas_10000", etiqueta: "Más de 10,000 al año" },
+  { valor: "no_se_mide", etiqueta: "No se mide" },
+];
+
+function CardVolumenDemanda({ valor, onCambiar }: { valor: string | null; onCambiar: (valor: string) => void }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-medium">
+          ¿Aproximadamente cuántas solicitudes de este trámite se reciben al año?
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <RadioGroup value={valor ?? undefined} onValueChange={onCambiar} className="grid gap-3 sm:max-w-md">
+          {OPCIONES_VOLUMEN_DEMANDA.map((opcion) => (
+            <label
+              key={opcion.valor}
+              htmlFor={`volumen-${opcion.valor}`}
+              className={cn(
+                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2",
+                valor === opcion.valor ? "border-primary" : "border-border",
+              )}
+            >
+              <RadioGroupItem value={opcion.valor} id={`volumen-${opcion.valor}`} />
+              <span className="text-sm">{opcion.etiqueta}</span>
+            </label>
+          ))}
+        </RadioGroup>
+        <p className="text-xs text-atenuado">
+          Ayuda a priorizar la inversión -- un trámite con mucha demanda no debería recibir el mismo nivel de
+          inversión que uno con muy poca. Opcional.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CardTramiteConcurrente({
+  valor,
+  detalle,
+  onCambiarValor,
+  onCambiarDetalle,
+}: {
+  valor: boolean | null;
+  detalle: string;
+  onCambiarValor: (valor: boolean) => void;
+  onCambiarDetalle: (texto: string) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-medium">
+          ¿Este trámite requiere la intervención de otra dependencia o de otro orden de gobierno para poder
+          concluirse?
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <CampoBooleanoRadio valor={valor} onCambiar={onCambiarValor} idPrefix="concurrente" />
+        <p className="text-xs text-atenuado">
+          Distinto de si comparte información automáticamente con otros registros: aquí importa si el trámite
+          depende de que otra dependencia u orden de gobierno intervenga para poder concluirse. Opcional.
+        </p>
+        {valor === true && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="concurrente-detalle" className="text-xs font-medium text-muted-foreground">
+              ¿Cuál dependencia u orden de gobierno?
+            </label>
+            <Textarea
+              id="concurrente-detalle"
+              value={detalle}
+              onChange={(e) => onCambiarDetalle(e.target.value)}
+              rows={2}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- Card de mecanismo_identidad -----------------------------------------------------
 
 function CardMecanismoIdentidad({
   pais,
+  nivel,
   seleccion,
   aclaracion,
   sugerencia,
   clasificando,
+  errorClasificacion,
   onCambiarSeleccion,
   onCambiarAclaracion,
   onSalirAclaracion,
@@ -266,17 +503,19 @@ function CardMecanismoIdentidad({
   onDescartarSugerencia,
 }: {
   pais: string | null;
+  nivel: string | null;
   seleccion: string | null;
   aclaracion: string;
   sugerencia: string | null;
   clasificando: boolean;
+  errorClasificacion: boolean;
   onCambiarSeleccion: (valor: string) => void;
   onCambiarAclaracion: (texto: string) => void;
   onSalirAclaracion: () => void;
   onConfirmarSugerencia: () => void;
   onDescartarSugerencia: () => void;
 }) {
-  const opciones = opcionesMecanismo(pais);
+  const opciones = opcionesMecanismo(pais, nivel);
   const esOtro = seleccion === OPCION_OTRO;
 
   return (
@@ -338,9 +577,131 @@ function CardMecanismoIdentidad({
             </div>
           </div>
         )}
+
+        {/* "Otro" nunca es un valor final (regla de producto, no bug) -- por
+            eso se ofrecen dos botones de salida (propio/ninguno) en vez de
+            adivinar uno solo. */}
+        {esOtro && !sugerencia && !clasificando && errorClasificacion && (
+          <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm">
+            <p>
+              No pudimos determinar automáticamente a qué opción corresponde su descripción. Elija la que más se
+              parezca de la lista de arriba, o use una de las sugerencias de abajo.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => onCambiarSeleccion("ninguno")}>
+                Marcar como "{ETIQUETA_MECANISMO.ninguno}"
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => onCambiarSeleccion("propio")}>
+                Marcar como "{ETIQUETA_MECANISMO.propio}"
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
+}
+
+// --- Panel de proyección en vivo ("qué pasa si") ------------------------------------
+// Corre el motor determinista sobre las respuestas actuales sin guardar nada --
+// deja ver el impacto antes de "Guardar" o "Enviar".
+
+function PanelProyeccion({ simulacion, cargando }: { simulacion: SimulacionResponse | null; cargando: boolean }) {
+  if (simulacion === null) return null;
+
+  const actual = simulacion.indice_actual;
+  const proyectado = simulacion.indice_proyectado;
+  const nivelProyectado = obtenerNivelMadurez(proyectado);
+  const cambia = actual !== null && actual !== proyectado;
+
+  return (
+    <Card className="lg:sticky lg:top-24 lg:self-start">
+      <CardHeader>
+        <CardTitle className="text-base">Proyección en vivo</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center gap-4">
+          {actual !== null && (
+            <>
+              <div className="text-center">
+                <div className="text-[0.65rem] tracking-wide text-atenuado uppercase">Actual</div>
+                <div className="text-2xl font-semibold text-atenuado tabular-nums">{actual}</div>
+              </div>
+              <span aria-hidden className="text-atenuado">
+                →
+              </span>
+            </>
+          )}
+          <div className="text-center">
+            <div className="text-[0.65rem] tracking-wide text-atenuado uppercase">
+              {actual !== null ? "Con estas respuestas" : "Si envías así"}
+            </div>
+            <div className="text-3xl font-semibold tabular-nums" style={{ color: nivelProyectado.varTexto }}>
+              {proyectado}
+            </div>
+          </div>
+        </div>
+        <p className="text-sm" style={{ color: nivelProyectado.varTexto }}>
+          {nivelProyectado.etiqueta}
+        </p>
+        {cambia && (
+          <p className="text-xs text-atenuado">
+            {proyectado > (actual ?? 0)
+              ? "Estas respuestas suben el índice respecto al diagnóstico ya guardado."
+              : "Estas respuestas bajan el índice respecto al diagnóstico ya guardado."}
+          </p>
+        )}
+        <p className="border-t border-border pt-2 text-xs text-atenuado">
+          {cargando
+            ? "Calculando..."
+            : "Cálculo instantáneo del motor determinista sobre tus respuestas actuales -- no se guarda nada hasta enviar."}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 409/429 traen un `detail` en lenguaje llano y accionable; el genérico "intenta
+// de nuevo" es mal consejo para un 429 (reintentar de inmediato vuelve a fallar).
+export function mensajeDeError(error: unknown): string {
+  if (error instanceof ApiError && (error.status === 409 || error.status === 429)) {
+    return error.message;
+  }
+  return "No se pudo completar la operación. Intenta de nuevo.";
+}
+
+// --- Autoguardado incremental --------------------------------------------------------
+// El PUT reemplaza `respuestas` por completo (sin merge parcial), así que
+// siempre se manda la foto completa, nunca solo el campo que cambió -- si no,
+// se borrarían las demás respuestas ya guardadas. `respuestasJson` es un string
+// para que el hook compare por valor, no por referencia.
+export function AutoguardadoDiagnostico({
+  tramiteId,
+  respuestasJson,
+}: {
+  tramiteId: string;
+  respuestasJson: string;
+}) {
+  const estado = useAutoguardadoCampo(
+    respuestasJson,
+    (json) => guardarDiagnostico(tramiteId, JSON.parse(json) as RespuestasDiagnostico),
+    1500,
+  );
+
+  if (estado === "guardando") {
+    return <p className="text-xs text-atenuado">Guardando avance automáticamente…</p>;
+  }
+  if (estado === "guardado") {
+    return <p className="text-xs text-atenuado">Avance guardado automáticamente.</p>;
+  }
+  if (estado === "error") {
+    return (
+      <p className="text-xs text-destructive">
+        No se pudo autoguardar el avance. Use &quot;Guardar y continuar después&quot;.
+      </p>
+    );
+  }
+  return null;
 }
 
 // --- Pantalla principal --------------------------------------------------------------
@@ -349,24 +710,46 @@ export function Diagnostico() {
   const { tramiteId } = useParams<{ tramiteId: string }>();
   const navigate = useNavigate();
   const pais = obtenerPais();
+  const nivel = obtenerNivelGobierno();
 
   const [valores, setValores] = useState<ValoresBooleanos>(VALORES_INICIALES);
   const [aclaraciones, setAclaraciones] = useState<Aclaraciones>({});
   const [sugerencias, setSugerencias] = useState<SugerenciasBooleanas>(SUGERENCIAS_INICIALES);
-  const [clasificandoBooleana, setClasificandoBooleana] = useState<Record<IdBooleano, boolean>>({
-    documentos_digitalizados: false,
-    motor_pagos: false,
-    firma_electronica_habilitada: false,
-    interoperabilidad: false,
-    proteccion_datos_incompleta: false,
-  });
+  // ruta_llm de la última clasificación por pregunta, para la corrección en
+  // onDescartarSugerencia.
+  const [rutasLlmBooleanas, setRutasLlmBooleanas] = useState<SugerenciasBooleanas>(SUGERENCIAS_INICIALES);
+  const [clasificandoBooleana, setClasificandoBooleana] = useState<Record<IdBooleano, boolean>>(
+    Object.fromEntries(PREGUNTAS_BOOLEANAS.map((p) => [p.id, false])) as Record<IdBooleano, boolean>,
+  );
+
+  const [valoresAdicionales, setValoresAdicionales] = useState<Record<string, boolean | null>>({});
+
+  const [volumenDemanda, setVolumenDemanda] = useState<string | null>(null);
+  const [tramiteConcurrente, setTramiteConcurrente] = useState<boolean | null>(null);
+  const [tramiteConcurrenteDetalle, setTramiteConcurrenteDetalle] = useState("");
 
   const [mecanismoSeleccion, setMecanismoSeleccion] = useState<string | null>(null);
   const [mecanismoAclaracion, setMecanismoAclaracion] = useState("");
   const [mecanismoSugerencia, setMecanismoSugerencia] = useState<string | null>(null);
   const [clasificandoMecanismo, setClasificandoMecanismo] = useState(false);
+  const [mecanismoErrorClasificacion, setMecanismoErrorClasificacion] = useState(false);
+  // Corrección pendiente: se arma al descartar la sugerencia (aún no se sabe la
+  // respuesta correcta) y se registra al elegir un mecanismo real.
+  const [correccionPendienteMecanismo, setCorreccionPendienteMecanismo] = useState<{
+    entrada: string;
+    salida: string;
+    rutaLlm: string | null;
+  } | null>(null);
+  const [mecanismoRutaLlm, setMecanismoRutaLlm] = useState<string | null>(null);
 
   const [esperandoPlan, setEsperandoPlan] = useState(false);
+
+  const [simulacion, setSimulacion] = useState<SimulacionResponse | null>(null);
+  const [simulando, setSimulando] = useState(false);
+
+  // Evita que la hidratación inicial (abajo) se vea como un cambio y dispare
+  // un autoguardado de datos que el funcionario nunca tocó.
+  const [formularioListo, setFormularioListo] = useState(false);
 
   const inicializadoRef = useRef(false);
 
@@ -376,55 +759,82 @@ export function Diagnostico() {
     enabled: !!tramiteId,
   });
 
-  // Fuente de verdad del estado real del trámite -- distingue un job de plan
-  // efectivamente en curso (estado "generando_plan") de un diagnóstico que
-  // simplemente fue enviado en algún momento del pasado (docs/app-flow.md:
-  // reabrir y modificar respuestas debe regresar el trámite a "en_progreso").
+  // Distingue un job de plan en curso de un diagnóstico ya enviado antes.
   const tramiteQuery = useQuery({
     queryKey: ["tramite", tramiteId],
     queryFn: () => obtenerTramite(tramiteId!),
     enabled: !!tramiteId,
   });
 
+  // Mientras no se sepa el tipo de trámite, no se excluye nada.
+  const tiposQuery = useQuery({ queryKey: ["tipos-tramite"], queryFn: obtenerTiposTramite });
+  const tipoTramiteActual = tiposQuery.data?.find((t) => t.nombre === tramiteQuery.data?.tipo);
+  const variablesExcluidas = new Set(tipoTramiteActual?.variables_excluidas ?? []);
+  const preguntasEfectivas = PREGUNTAS_BOOLEANAS.filter((p) => !variablesExcluidas.has(p.id));
+  const seccionesOrdenadas = [...new Set(preguntasEfectivas.map((p) => p.seccion))];
+  const preguntasPorSeccion = seccionesOrdenadas.map((seccion) => ({
+    seccion,
+    preguntas: preguntasEfectivas.filter((p) => p.seccion === seccion),
+  }));
+  // useMemo sobre los datos crudos, no sobre `tipoTramiteActual` (objeto nuevo
+  // en cada render), para una referencia estable en deps de useEffect.
+  const variablesAdicionales = useMemo(
+    () => tiposQuery.data?.find((t) => t.nombre === tramiteQuery.data?.tipo)?.variables_adicionales ?? [],
+    [tiposQuery.data, tramiteQuery.data?.tipo],
+  );
+
   useEffect(() => {
     const datos = diagnosticoQuery.data;
-    if (!datos || inicializadoRef.current) return;
-    inicializadoRef.current = true;
+    if (datos && !inicializadoRef.current) {
+      inicializadoRef.current = true;
 
-    const respuestas = datos.respuestas ?? {};
-    setValores((prev) => {
-      const siguiente = { ...prev };
-      for (const pregunta of PREGUNTAS_BOOLEANAS) {
-        const valor = respuestas[pregunta.id];
-        if (typeof valor === "boolean") siguiente[pregunta.id] = valor;
+      const respuestas = datos.respuestas ?? {};
+      setValores((prev) => {
+        const siguiente = { ...prev };
+        for (const pregunta of PREGUNTAS_BOOLEANAS) {
+          const valor = respuestas[pregunta.id];
+          if (typeof valor === "boolean") siguiente[pregunta.id] = valor;
+        }
+        return siguiente;
+      });
+      if (typeof respuestas.volumen_demanda_anual === "string") {
+        setVolumenDemanda(respuestas.volumen_demanda_anual);
       }
-      return siguiente;
-    });
-    if (typeof respuestas.mecanismo_identidad === "string") {
-      setMecanismoSeleccion(respuestas.mecanismo_identidad);
-    }
-    if (respuestas.aclaraciones && typeof respuestas.aclaraciones === "object") {
-      const { mecanismo_identidad: aclaracionMecanismoCargada, ...aclaracionesBooleanas } = respuestas.aclaraciones;
-      if (typeof aclaracionMecanismoCargada === "string") {
-        setMecanismoAclaracion(aclaracionMecanismoCargada);
+      if (typeof respuestas.tramite_concurrente === "boolean") {
+        setTramiteConcurrente(respuestas.tramite_concurrente);
       }
-      setAclaraciones((prev) => ({ ...prev, ...aclaracionesBooleanas }));
+      if (typeof respuestas.tramite_concurrente_detalle === "string") {
+        setTramiteConcurrenteDetalle(respuestas.tramite_concurrente_detalle);
+      }
+      if (typeof respuestas.mecanismo_identidad === "string") {
+        setMecanismoSeleccion(respuestas.mecanismo_identidad);
+      }
+      if (respuestas.aclaraciones && typeof respuestas.aclaraciones === "object") {
+        const { mecanismo_identidad: aclaracionMecanismoCargada, ...aclaracionesBooleanas } = respuestas.aclaraciones;
+        if (typeof aclaracionMecanismoCargada === "string") {
+          setMecanismoAclaracion(aclaracionMecanismoCargada);
+        }
+        setAclaraciones((prev) => ({ ...prev, ...aclaracionesBooleanas }));
+      }
+      for (const va of variablesAdicionales) {
+        const valor = respuestas[va.variable];
+        if (typeof valor === "boolean") {
+          setValoresAdicionales((prev) => ({ ...prev, [va.variable]: valor }));
+        }
+      }
     }
-  }, [diagnosticoQuery.data]);
+    // isSuccess cubre tanto "había diagnóstico" como "trámite nuevo, sin nada que hidratar".
+    if (diagnosticoQuery.isSuccess) setFormularioListo(true);
+  }, [diagnosticoQuery.data, diagnosticoQuery.isSuccess, variablesAdicionales]);
 
-  // Solo un job de plan efectivamente en curso al momento de cargar la
-  // pantalla debe mostrar la espera; "completado_en" por sí solo no lo indica
-  // porque nunca se limpia una vez fijado. Efecto independiente de la precarga
-  // de respuestas para no atar su temporización a la de esta consulta.
   useEffect(() => {
     if (tramiteQuery.data?.estado === "generando_plan") {
       setEsperandoPlan(true);
     }
   }, [tramiteQuery.data]);
 
-  // Polling de "generando plan" (docs/app-flow.md línea 55): el índice F2 ya se
-  // calculó de forma síncrona al enviar; el job de plan puede tardar. Nunca
-  // bloquea el resto de la navegación -- el funcionario puede volver al panel.
+  // Polling de "generando plan" -- nunca bloquea la navegación, el funcionario
+  // puede volver al panel mientras tanto.
   useEffect(() => {
     if (!esperandoPlan || !tramiteId) return;
     let cancelado = false;
@@ -436,8 +846,7 @@ export function Diagnostico() {
           await navigate(`/tramites/${tramiteId}/plan`);
         }
       } catch {
-        // Fallo de red transitorio -- se reintenta en el siguiente tick, nunca
-        // muestra un error de por sí (el funcionario puede irse y volver).
+        // Fallo transitorio -- se reintenta en el siguiente tick.
       }
     }
 
@@ -449,12 +858,54 @@ export function Diagnostico() {
     };
   }, [esperandoPlan, tramiteId, navigate]);
 
+  // Simulador "qué pasa si": debounced 500ms, solo sobre las variables que
+  // realmente alimentan el índice de madurez.
+  useEffect(() => {
+    if (!tramiteId || esperandoPlan) return;
+    let cancelado = false;
+
+    const id = setTimeout(() => {
+      setSimulando(true);
+      simularDiagnostico(tramiteId, construirRespuestas())
+        .then((resultado) => {
+          if (!cancelado) setSimulacion(resultado);
+        })
+        .catch(() => {
+          // El panel simplemente no actualiza, nunca bloquea el formulario.
+        })
+        .finally(() => {
+          if (!cancelado) setSimulando(false);
+        });
+    }, 500);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    tramiteId,
+    esperandoPlan,
+    valores.documentos_digitalizados,
+    valores.motor_pagos,
+    valores.firma_electronica_habilitada,
+    valores.interoperabilidad,
+    mecanismoSeleccion,
+  ]);
+
   function construirRespuestas(): RespuestasDiagnostico {
     const respuestas: RespuestasDiagnostico = {};
-    for (const pregunta of PREGUNTAS_BOOLEANAS) {
+    for (const pregunta of preguntasEfectivas) {
       const valor = valores[pregunta.id];
       if (valor !== null) respuestas[pregunta.id] = valor;
     }
+    for (const va of variablesAdicionales) {
+      const valor = valoresAdicionales[va.variable] ?? null;
+      if (valor !== null) respuestas[va.variable] = valor;
+    }
+    if (volumenDemanda) respuestas.volumen_demanda_anual = volumenDemanda;
+    if (tramiteConcurrente !== null) respuestas.tramite_concurrente = tramiteConcurrente;
+    if (tramiteConcurrenteDetalle.trim()) respuestas.tramite_concurrente_detalle = tramiteConcurrenteDetalle.trim();
     if (mecanismoSeleccion && mecanismoSeleccion !== OPCION_OTRO) {
       respuestas.mecanismo_identidad = mecanismoSeleccion;
     }
@@ -467,17 +918,6 @@ export function Diagnostico() {
       respuestas.aclaraciones = aclaracionesNoVacias;
     }
     return respuestas;
-  }
-
-  // 409 (el plan de este trámite todavía se está generando) y 429 (cooldown del
-  // endpoint de envío) traen un `detail` en lenguaje llano y accionable, distinto
-  // para cada caso -- el genérico "intenta de nuevo" es además mal consejo para
-  // un 429, donde reintentar de inmediato vuelve a fallar.
-  function mensajeDeError(error: unknown): string {
-    if (error instanceof ApiError && (error.status === 409 || error.status === 429)) {
-      return error.message;
-    }
-    return "No se pudo completar la operación. Intenta de nuevo.";
   }
 
   const guardarMutacion = useMutation({
@@ -497,14 +937,15 @@ export function Diagnostico() {
 
     setClasificandoBooleana((prev) => ({ ...prev, [id]: true }));
     try {
-      const { categoria } = await clasificarConsistenciaBooleana(texto, valorActual);
+      const { categoria, ruta_llm } = await clasificarConsistenciaBooleana(texto, valorActual);
       const esSugerenciaDeContradiccion =
         categoria === "posible_contradiccion_hacia_si" || categoria === "posible_contradiccion_hacia_no";
       setSugerencias((prev) => ({ ...prev, [id]: esSugerenciaDeContradiccion ? categoria : null }));
+      setRutasLlmBooleanas((prev) => ({ ...prev, [id]: esSugerenciaDeContradiccion ? (ruta_llm ?? null) : null }));
     } catch {
-      // Fail-safe: sin sugerencia visible, la aclaración ya quedó guardada como
-      // texto de apoyo -- mismo comportamiento que si la clasificación no existiera.
+      // Respaldo: sin sugerencia visible, como si la clasificación no existiera.
       setSugerencias((prev) => ({ ...prev, [id]: null }));
+      setRutasLlmBooleanas((prev) => ({ ...prev, [id]: null }));
     } finally {
       setClasificandoBooleana((prev) => ({ ...prev, [id]: false }));
     }
@@ -514,22 +955,35 @@ export function Diagnostico() {
     if (mecanismoSeleccion !== OPCION_OTRO || !mecanismoAclaracion.trim()) return;
 
     setClasificandoMecanismo(true);
+    setMecanismoErrorClasificacion(false);
     try {
-      const { categoria } = await clasificarMecanismoIdentidad(mecanismoAclaracion);
-      setMecanismoSugerencia(categoria in ETIQUETA_MECANISMO ? categoria : null);
+      const { categoria, ruta_llm } = await clasificarMecanismoIdentidad(mecanismoAclaracion);
+      const reconocida = categoria in ETIQUETA_MECANISMO;
+      setMecanismoSugerencia(reconocida ? categoria : null);
+      setMecanismoRutaLlm(reconocida ? (ruta_llm ?? null) : null);
+      if (!reconocida) setMecanismoErrorClasificacion(true);
     } catch {
+      // Sin esto, el usuario no sabría por qué el botón de enviar sigue deshabilitado.
       setMecanismoSugerencia(null);
+      setMecanismoRutaLlm(null);
+      setMecanismoErrorClasificacion(true);
     } finally {
       setClasificandoMecanismo(false);
     }
   }
 
-  const todasBooleanasRespondidas = PREGUNTAS_BOOLEANAS.every((p) => valores[p.id] !== null);
+  const todasBooleanasRespondidas = preguntasEfectivas.every((p) => valores[p.id] !== null);
+  const todasAdicionalesRespondidas = variablesAdicionales.every(
+    (va) => (valoresAdicionales[va.variable] ?? null) !== null,
+  );
   const mecanismoResuelto = mecanismoSeleccion !== null && mecanismoSeleccion !== OPCION_OTRO;
-  const listoParaEnviar = todasBooleanasRespondidas && mecanismoResuelto;
+  const listoParaEnviar = todasBooleanasRespondidas && todasAdicionalesRespondidas && mecanismoResuelto;
 
-  const totalPreguntas = PREGUNTAS_BOOLEANAS.length + 1;
-  const respondidas = PREGUNTAS_BOOLEANAS.filter((p) => valores[p.id] !== null).length + (mecanismoResuelto ? 1 : 0);
+  const totalPreguntas = preguntasEfectivas.length + variablesAdicionales.length + 1;
+  const respondidas =
+    preguntasEfectivas.filter((p) => valores[p.id] !== null).length +
+    variablesAdicionales.filter((va) => (valoresAdicionales[va.variable] ?? null) !== null).length +
+    (mecanismoResuelto ? 1 : 0);
   const avance = Math.round((respondidas / totalPreguntas) * 100);
 
   if (!tramiteId) return null;
@@ -564,54 +1018,138 @@ export function Diagnostico() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_300px]">
+      <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Cuestionario de diagnóstico</h2>
         <Progress value={avance} />
         <p className="text-xs text-atenuado">
           {respondidas} de {totalPreguntas} preguntas respondidas
         </p>
+        {formularioListo && (
+          <AutoguardadoDiagnostico tramiteId={tramiteId} respuestasJson={JSON.stringify(construirRespuestas())} />
+        )}
       </div>
 
-      {PREGUNTAS_BOOLEANAS.map((definicion) => (
-        <CardBooleana
-          key={definicion.id}
-          definicion={definicion}
-          valor={valores[definicion.id]}
-          aclaracion={aclaraciones[definicion.id] ?? ""}
-          sugerencia={sugerencias[definicion.id]}
-          clasificando={clasificandoBooleana[definicion.id]}
-          onCambiarValor={(valor) => setValores((prev) => ({ ...prev, [definicion.id]: valor }))}
-          onCambiarAclaracion={(texto) => setAclaraciones((prev) => ({ ...prev, [definicion.id]: texto }))}
-          onSalirAclaracion={() => void alSalirAclaracionBooleana(definicion.id)}
-          onConfirmarSugerencia={() => {
-            const sugerencia = sugerencias[definicion.id];
-            if (sugerencia) {
-              setValores((prev) => ({ ...prev, [definicion.id]: sugerencia === "posible_contradiccion_hacia_si" }));
-            }
-            setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
-          }}
-          onDescartarSugerencia={() => setSugerencias((prev) => ({ ...prev, [definicion.id]: null }))}
+      {preguntasPorSeccion.map(({ seccion, preguntas }) => (
+        <div key={seccion} className="flex flex-col gap-4">
+          <h3 className="text-sm font-semibold text-muted-foreground">{seccion}</h3>
+          {preguntas.map((definicion) => (
+            <CardBooleana
+              key={definicion.id}
+              definicion={
+                definicion.id === "interoperabilidad" && textoInteroperabilidad(nivel)
+                  ? { ...definicion, pregunta: textoInteroperabilidad(nivel) as string }
+                  : definicion
+              }
+              valor={valores[definicion.id]}
+              aclaracion={aclaraciones[definicion.id] ?? ""}
+              sugerencia={sugerencias[definicion.id]}
+              clasificando={clasificandoBooleana[definicion.id]}
+              onCambiarValor={(valor) => setValores((prev) => ({ ...prev, [definicion.id]: valor }))}
+              onCambiarAclaracion={(texto) => setAclaraciones((prev) => ({ ...prev, [definicion.id]: texto }))}
+              onSalirAclaracion={() => void alSalirAclaracionBooleana(definicion.id)}
+              onConfirmarSugerencia={() => {
+                const sugerencia = sugerencias[definicion.id];
+                if (sugerencia) {
+                  setValores((prev) => ({
+                    ...prev,
+                    [definicion.id]: sugerencia === "posible_contradiccion_hacia_si",
+                  }));
+                }
+                setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
+              }}
+              onDescartarSugerencia={() => {
+                // El valor "correcto" ya se conoce aquí (el que ya tenía marcado),
+                // a diferencia de mecanismo_identidad -- se registra de inmediato.
+                const sugerencia = sugerencias[definicion.id];
+                if (sugerencia) {
+                  registrarCorreccionIa({
+                    pieza: "consistencia_booleana",
+                    entrada_llm: aclaraciones[definicion.id] ?? "",
+                    salida_llm: sugerencia,
+                    correccion: "consistente",
+                    tramite_id: tramiteId,
+                    ruta_llm: rutasLlmBooleanas[definicion.id] ?? undefined,
+                  }).catch(() => {});
+                }
+                setSugerencias((prev) => ({ ...prev, [definicion.id]: null }));
+                setRutasLlmBooleanas((prev) => ({ ...prev, [definicion.id]: null }));
+              }}
+            />
+          ))}
+        </div>
+      ))}
+
+      {variablesAdicionales.map((va) => (
+        <CardVariableAdicional
+          key={va.variable}
+          pregunta={va.pregunta}
+          ayuda={va.ayuda}
+          valor={valoresAdicionales[va.variable] ?? null}
+          onCambiarValor={(valor) => setValoresAdicionales((prev) => ({ ...prev, [va.variable]: valor }))}
         />
       ))}
 
+      <div className="flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-muted-foreground">Contexto adicional (opcional)</h3>
+        <CardVolumenDemanda valor={volumenDemanda} onCambiar={setVolumenDemanda} />
+        <CardTramiteConcurrente
+          valor={tramiteConcurrente}
+          detalle={tramiteConcurrenteDetalle}
+          onCambiarValor={setTramiteConcurrente}
+          onCambiarDetalle={setTramiteConcurrenteDetalle}
+        />
+      </div>
+
       <CardMecanismoIdentidad
         pais={pais}
+        nivel={nivel}
         seleccion={mecanismoSeleccion}
         aclaracion={mecanismoAclaracion}
         sugerencia={mecanismoSugerencia}
         clasificando={clasificandoMecanismo}
+        errorClasificacion={mecanismoErrorClasificacion}
         onCambiarSeleccion={(valor) => {
           setMecanismoSeleccion(valor);
           setMecanismoSugerencia(null);
+          setMecanismoErrorClasificacion(false);
+          if (correccionPendienteMecanismo && valor !== OPCION_OTRO) {
+            registrarCorreccionIa({
+              pieza: "mecanismo_identidad",
+              entrada_llm: correccionPendienteMecanismo.entrada,
+              salida_llm: correccionPendienteMecanismo.salida,
+              correccion: valor,
+              tramite_id: tramiteId,
+              ruta_llm: correccionPendienteMecanismo.rutaLlm ?? undefined,
+            }).catch(() => {
+              // Telemetría de apoyo -- un fallo acá nunca interrumpe la captura.
+            });
+            setCorreccionPendienteMecanismo(null);
+          }
         }}
-        onCambiarAclaracion={setMecanismoAclaracion}
+        onCambiarAclaracion={(texto) => {
+          setMecanismoAclaracion(texto);
+          setMecanismoErrorClasificacion(false);
+        }}
         onSalirAclaracion={() => void alSalirAclaracionMecanismo()}
         onConfirmarSugerencia={() => {
           if (mecanismoSugerencia) setMecanismoSeleccion(mecanismoSugerencia);
           setMecanismoSugerencia(null);
+          setMecanismoRutaLlm(null);
+          setCorreccionPendienteMecanismo(null);
         }}
-        onDescartarSugerencia={() => setMecanismoSugerencia(null)}
+        onDescartarSugerencia={() => {
+          if (mecanismoSugerencia) {
+            setCorreccionPendienteMecanismo({
+              entrada: mecanismoAclaracion,
+              salida: mecanismoSugerencia,
+              rutaLlm: mecanismoRutaLlm,
+            });
+          }
+          setMecanismoSugerencia(null);
+          setMecanismoRutaLlm(null);
+        }}
       />
 
       {(guardarMutacion.isError || enviarMutacion.isError) && (
@@ -627,11 +1165,20 @@ export function Diagnostico() {
         <Button
           onClick={() => enviarMutacion.mutate()}
           disabled={!listoParaEnviar || enviarMutacion.isPending}
-          title={!listoParaEnviar ? "Responda todas las preguntas antes de enviar" : undefined}
+          title={
+            !listoParaEnviar
+              ? mecanismoSeleccion === OPCION_OTRO
+                ? "Confirme una sugerencia o seleccione un mecanismo de la lista antes de enviar"
+                : "Responda todas las preguntas antes de enviar"
+              : undefined
+          }
         >
           {enviarMutacion.isPending ? "Enviando..." : "Enviar diagnóstico"}
         </Button>
       </div>
+      </div>
+
+      <PanelProyeccion simulacion={simulacion} cargando={simulando} />
     </div>
   );
 }

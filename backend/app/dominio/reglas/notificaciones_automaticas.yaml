@@ -1,0 +1,20 @@
+version: "1.0"
+variable: notificaciones_automaticas
+criterio_deteccion: "notificaciones_automaticas == false"
+acciones:
+  mx:
+    paso_administrativo: "Implementar notificaciones automáticas al ciudadano (correo, SMS o app) sobre el avance del trámite"
+    paso_tecnico: "Sistema de notificaciones automáticas conectado al estado real del trámite -- categoría, no marca"
+    paso_organizacional: "Definir en qué momentos del flujo se dispara cada notificación"
+    prerrequisitos: []
+    por_que_importa: "Sin esto, el ciudadano no tiene forma de saber si su trámite avanza sin llamar o acudir a preguntar"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "notificaciones_automaticas"
+  uy:
+    paso_administrativo: "Implementar notificaciones automáticas al ciudadano sobre el avance del trámite"
+    paso_tecnico: "Sistema de notificaciones automáticas conectado al estado real del trámite -- categoría, no marca"
+    paso_organizacional: "Definir en qué momentos del flujo se dispara cada notificación"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "notificaciones_automaticas"

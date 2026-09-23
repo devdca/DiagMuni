@@ -10,7 +10,9 @@ Proyecto presentado a **GovTech Connect** (BID Lab / Red de Innovación Local), 
 
 ## Estado
 
-En desarrollo temprano — sin release todavía. Motor determinista, modelo de datos y API REST del backend ya funcionan (ver `backend/`), con capa de IA (fallback Claude → Claude respaldo → local/Ollama → plantilla) ya probada contra Ollama real. Las 6 pantallas del frontend (login, panel de resumen, diagnóstico, plan, seguimiento, perfil del gobierno) ya existen, con tests E2E (Playwright) que las recorren de punta a punta contra un stack Docker real en cada PR y lint propio (ESLint) en cada PR.
+En desarrollo activo — sin release todavía. Motor determinista, modelo de datos y API REST del backend funcionan de punta a punta (ver `backend/`), con capa de IA (fallback Claude → Claude respaldo → local/Ollama → plantilla) probada contra Ollama real. Las 6 pantallas del frontend (login, panel de resumen, diagnóstico, plan, seguimiento, perfil del gobierno) ya existen, cubiertas por tests E2E (Playwright) contra un stack Docker real y tests unitarios (Vitest + Testing Library), con lint propio (ESLint) en cada PR.
+
+Soporta los tres órdenes de gobierno (`nivel_gobierno`, reglas y factibilidad por nivel) e integración con INEGI (población, sincronización, bitácora de correcciones de la IA). Cobertura de backend medida en 89%, con Postgres real en CI, y ciclo backup→restore probado de punta a punta. Auditoría de seguridad cerrada (hallazgos H-01 a H-13, incluyendo un prompt injection y un bypass de rate limit encontrados con PentAGI), más escaneo de CVEs conocidas en cada PR (pip-audit, npm audit) y gobernanza OSS básica (`CODEOWNERS`, `CODE_OF_CONDUCT.md`, `SECURITY.md`).
 
 ## Cómo correr el proyecto
 

@@ -1,0 +1,30 @@
+# CODEOWNERS -- se requiere aprobación de al menos una de estas personas para
+# mergear un PR (si se activa "Require review from Code Owners" en la
+# protección de rama de `main`, GitHub Settings > Branches).
+#
+# NOTA para quien active esto: GitHub necesita @usuario-de-github, no un email
+# suelto -- abajo se usan los correos reales de `git log` (git shortlog -sne)
+# porque no tenemos confirmados los handles de GitHub de cada quien. Antes de
+# activar la protección de rama, reemplazar cada línea por el @usuario real
+# (funciona igual si el correo ya está verificado en esa cuenta de GitHub,
+# pero @usuario es lo estándar y evita ambigüedad).
+#
+# Regla por defecto: todo el repo, cualquiera de los 2.
+* ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+
+# Áreas sensibles -- seguridad, secretos, infraestructura de despliegue.
+# Eduardo García Pacheco (eduardo.garcia@fibroptica.com.mx, 17 commits en el
+# historial hasta el 14-sep-2026) ya no está en el proyecto (actualizado el
+# 2026-09-15) -- el equipo completo hoy son estas 2 personas, no una
+# concentración dentro de un grupo más grande. Bus factor de 2 sin margen:
+# la ausencia de cualquiera de las dos deja al proyecto con una sola persona
+# activa -- esto no lo resuelve, pero al menos deja constancia de quién
+# debería revisar cada parte, en vez de que viva solo en la cabeza de alguien.
+/backend/app/core/security.py               ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+/backend/app/core/cifrado.py                 ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+/backend/app/adaptadores/llm/                ricardo.flores@fibroptica.com.mx
+/backend/db-init/                            ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+/backend/alembic/                            ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+/docker-compose*.yml                         ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+/.github/workflows/                          ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx
+/SECURITY.md                                 ricardo.flores@fibroptica.com.mx b_i_analyst@fibroptica.com.mx

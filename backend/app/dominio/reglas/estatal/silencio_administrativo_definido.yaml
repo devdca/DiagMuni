@@ -1,0 +1,14 @@
+# Fase A -- piloto estatal (LNETB). Verificado leyendo el texto oficial completo.
+# Solo México, sin rama `uy`.
+version: "1.0"
+variable: silencio_administrativo_definido
+criterio_deteccion: "silencio_administrativo_definido == false"
+acciones:
+  mx:
+    paso_administrativo: "Definir y publicar en el Portal Ciudadano Único si aplica la afirmativa o negativa ficta para este trámite"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una definición jurídica que después se refleja en el portal del trámite"
+    paso_organizacional: "Capacitar al personal jurídico/de mostrador en el sentido del silencio administrativo de este trámite"
+    prerrequisitos: []
+    por_que_importa: "La LNETB exige registrar explícitamente 'el plazo que tiene el sujeto obligado para resolver el trámite y, en su caso, si aplica la afirmativa o negativa ficta' -- sin esto, el ciudadano no sabe qué esperar si el gobierno no responde a tiempo"
+    fuente_normativa: "LNETB art. 54, fracc. IX (afirmativa o negativa ficta) -- marco general, aplicable a las 32 entidades por igual"
+    categoria_catalogo: "silencio_administrativo"

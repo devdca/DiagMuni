@@ -42,9 +42,9 @@ def test_actualizado_en_es_nullable_created_at_no():
     assert ContextoInstitucional.__table__.c.created_at.nullable is False
 
 
-def test_conectividad_acepta_los_3_valores_del_diseno():
+def test_conectividad_acepta_los_4_valores_del_diseno():
     tenant_id = uuid4()
-    for valor in ("estable", "intermitente", "sin_conexion"):
+    for valor in ("estable", "intermitente", "deficiente", "sin_conexion"):
         instancia = ContextoInstitucional(tenant_id=tenant_id, conectividad=valor)
         assert instancia.conectividad == valor
 

@@ -1,0 +1,25 @@
+# Fase A (expansión a los 3 órdenes de gobierno) -- piloto de contenido para
+# nivel_gobierno=estatal, trámite genérico. Fuente verificada leyendo el texto
+# oficial completo de la Ley Nacional para Eliminar Trámites Burocráticos
+# (LNETB, "Nueva Ley" DOF 16-jul-2025, diputados.gob.mx/LeyesBiblio/pdf/LNETB.pdf)
+# -- no un resumen de búsqueda. La LNETB abroga la Ley General de Mejora
+# Regulatoria (2018) y extingue CONAMER (docs/anexo_legislacion_mx.md); OJO:
+# aunque conserva casi el mismo texto y numeración que la LGMR abrogada en la
+# mayoría de artículos, este NO es siempre el caso -- este artículo en
+# particular cambió de numeración (antes 3-XIII/XIV en la LGMR, ahora 3-VI en
+# la LNETB), así que cada cita se verificó contra el texto vigente, no se
+# asumió por analogía. Solo México: no tiene equivalente en el marco jurídico
+# uruguayo (que no tiene "estados"), así que esta regla no declara rama `uy`.
+version: "1.0"
+variable: autoridad_gobernanza_digital
+criterio_deteccion: "autoridad_gobernanza_digital == false"
+acciones:
+  mx:
+    paso_administrativo: "Constituir o fortalecer la Autoridad Estatal de Simplificación y Digitalización y designar al Enlace de Simplificación y Digitalización correspondiente"
+    paso_tecnico: "No aplica un componente tecnológico específico — brecha de gobernanza institucional, no de adopción de software"
+    paso_organizacional: "Formalizar el mandato de la Autoridad mediante el instrumento jurídico estatal correspondiente, y dirigir hacia esa Autoridad las recomendaciones de gobernanza del resto del plan"
+    prerrequisitos: []
+    por_que_importa: "Transversal a todos los trámites del gobierno estatal -- es el interlocutor institucional que la LNETB exige para coordinar la digitalización y al que deben dirigirse las recomendaciones de gobernanza del plan"
+    fuente_normativa: "LNETB art. 3, fracc. VI (define la Autoridad Estatal de Simplificación y Digitalización como responsable de implementar, supervisar y vigilar el cumplimiento de la Ley en la entidad federativa) -- marco general, aplicable a las 32 entidades por igual; la implementación operativa puede variar según la normativa local correspondiente"
+    categoria_catalogo: "gobernanza_institucional"
+    requiere_nueva_norma: true

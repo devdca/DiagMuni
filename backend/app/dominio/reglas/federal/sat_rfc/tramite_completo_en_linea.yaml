@@ -1,0 +1,14 @@
+# Fase A -- piloto federal, tipo_tramite="sat_rfc". Confirmado operativamente
+# en sat.gob.mx (hecho, no cita legal). Solo México, sin rama `uy`.
+version: "1.0"
+variable: tramite_completo_en_linea
+criterio_deteccion: "tramite_completo_en_linea == false"
+acciones:
+  mx:
+    paso_administrativo: "Completar la inscripción al RFC de principio a fin en línea, incluyendo validación biométrica cuando aplique"
+    paso_tecnico: "Portal transaccional de principio a fin ya ofrecido por el SAT (sat.gob.mx) -- confirmar que el gobierno lo está aprovechando, no construir uno nuevo"
+    paso_organizacional: "Capacitar al personal para orientar al ciudadano en el trámite en línea del SAT en vez de canalizarlo a una oficina física"
+    prerrequisitos: []
+    por_que_importa: "El SAT ya ofrece este trámite 100% en línea -- la brecha típica es de conocimiento/orientación del personal, no de infraestructura faltante"
+    fuente_normativa: "Confirmado operativamente en sat.gob.mx (trámite de inscripción al RFC persona física, disponible en línea)"
+    categoria_catalogo: "portal_transaccional_completo"
