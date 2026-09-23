@@ -32,7 +32,12 @@ def upgrade() -> None:
         # (migración 0012): `eliminar_tramite` permite borrado físico de un
         # trámite archivado, y una notificación sobre un trámite que ya no
         # existe no tiene valor.
-        sa.Column("tramite_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("tramite.id", ondelete="CASCADE"), nullable=True),
+        sa.Column(
+            "tramite_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("tramite.id", ondelete="CASCADE"),
+            nullable=True,
+        ),
         # Solo se llena para tipo="accion_atrasada" -- permite no duplicar una
         # notificación por la misma acción cada vez que se revisa (ver
         # app/aplicacion/notificaciones.py::generar_notificaciones_acciones_atrasadas,

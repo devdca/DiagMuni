@@ -12,7 +12,7 @@ from sqlalchemy import text
 from app.adaptadores.http.deps import TokenData
 from app.adaptadores.http.planes import listar_versiones_plan, obtener_version_plan
 from app.core.config import settings
-from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
+from app.db.rls import abrir_sesion_tenant
 from app.models import DiagnosticoTramite, PlanModernizacion, Tenant, Tramite
 
 

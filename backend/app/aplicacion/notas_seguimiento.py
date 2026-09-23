@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 from app.models import NotaSeguimiento, Usuario
 
 
-def crear_nota(db: Session, *, tenant_id: UUID, accion_seguimiento_id: UUID, usuario_id: UUID, texto: str) -> NotaSeguimiento:
+def crear_nota(
+    db: Session, *, tenant_id: UUID, accion_seguimiento_id: UUID, usuario_id: UUID, texto: str
+) -> NotaSeguimiento:
     nota = NotaSeguimiento(
         tenant_id=tenant_id, accion_seguimiento_id=accion_seguimiento_id, usuario_id=usuario_id, texto=texto.strip()
     )

@@ -96,10 +96,14 @@ def test_crear_y_listar_notas_en_orden_cronologico(escenario_completo):
     tenant_id, accion_id, usuario_id = escenario_completo
     db = abrir_sesion_tenant(tenant_id)
     try:
-        crear_nota(db, tenant_id=tenant_id, accion_seguimiento_id=accion_id, usuario_id=usuario_id, texto="Primera nota")
+        crear_nota(
+            db, tenant_id=tenant_id, accion_seguimiento_id=accion_id, usuario_id=usuario_id, texto="Primera nota"
+        )
         db.commit()
         fijar_contexto_tenant(db, tenant_id)
-        crear_nota(db, tenant_id=tenant_id, accion_seguimiento_id=accion_id, usuario_id=usuario_id, texto="Segunda nota")
+        crear_nota(
+            db, tenant_id=tenant_id, accion_seguimiento_id=accion_id, usuario_id=usuario_id, texto="Segunda nota"
+        )
         db.commit()
 
         fijar_contexto_tenant(db, tenant_id)

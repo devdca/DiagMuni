@@ -35,7 +35,12 @@ def upgrade() -> None:
         # -- si ya tiene eventos de historial (ej. "archivado"), sin CASCADE el
         # DELETE de `tramite` reventaría con una FK violation. Un evento de
         # historial de un trámite que ya no existe no tiene ningún valor.
-        sa.Column("tramite_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("tramite.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "tramite_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("tramite.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         # Sin FK a `usuario` a propósito: varios flujos de prueba/servicio operan
         # con un `usuario_id` de claim que no siempre corresponde a una fila real
         # (ej. tokens de prueba contra Postgres real, ver tests de esta app) --
