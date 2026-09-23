@@ -22,7 +22,10 @@ from app.dominio.reglas_loader import cargar_catalogo
 
 _OLLAMA_API_BASE_PRUEBA = "http://localhost:11434"
 
-_TIMEOUT_MAXIMO_SEGUNDOS = 200  # margen sobre los 180s de timeout de la ruta `local`
+# Margen sobre el timeout real de la ruta `local`, leído del propio YAML en vez de
+# un literal: el valor pasó de 180s a 600s y esta constante quedó en "200 # margen
+# sobre los 180s", es decir, afirmando un timeout que ya no existía.
+_MARGEN_SOBRE_TIMEOUT_SEGUNDOS = 20
 
 
 def _ollama_real_disponible() -> bool:
@@ -84,7 +87,9 @@ def test_generar_contenido_llm_via_ollama_local_real(monkeypatch):
     # un fallo silencioso -- la plantilla determinista es un texto fijo, no generado.
     assert narrativa != _narrativa_plantilla(accion)
 
-    assert duracion < _TIMEOUT_MAXIMO_SEGUNDOS, (
+    timeout_ruta = ia_config.obtener_ruta("local").timeout_segundos
+    tope = timeout_ruta + _MARGEN_SOBRE_TIMEOUT_SEGUNDOS
+    assert duracion < tope, (
         f"la llamada real tardó {duracion:.1f}s, por encima del margen de "
-        f"{_TIMEOUT_MAXIMO_SEGUNDOS}s sobre el timeout de 180s de la ruta local"
+        f"{_MARGEN_SOBRE_TIMEOUT_SEGUNDOS}s sobre el timeout de {timeout_ruta}s de la ruta local"
     )

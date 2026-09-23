@@ -13,6 +13,8 @@ contra un problema a nivel de modelo/generación); si esta también falla, cae e
 `_narrativa_plantilla`, la misma función que usa el modo degradado.
 """
 
+import logging
+
 import litellm
 
 from app.adaptadores.llm.config import (
@@ -27,6 +29,8 @@ from app.adaptadores.llm.contexto_gobierno import formatear_contexto_gobierno
 from app.dominio.catalogo_loader import componente_recomendado_para
 from app.dominio.plantillas import _narrativa_plantilla
 from app.dominio.reglas_loader import AccionPais, cargar_catalogo, criterio_se_cumple
+
+logger = logging.getLogger(__name__)
 
 _PROMPT_INSTRUCCIONES = (
     "Redacta un párrafo breve, profesional y en español neutro, dirigido a un "
@@ -78,6 +82,12 @@ def _intentar_narrativa_via_ruta(
         "model": ruta.model,
         "messages": [{"role": "user", "content": _armar_prompt(accion, contexto_gobierno)}],
         "timeout": ruta.timeout_segundos,
+        # Sin tope, un modelo pequeño ignora el "párrafo breve" del prompt y genera
+        # hasta que vence el timeout -- mismo comportamiento que la sección 9 de
+        # docs/plan-implementacion-e1-bis-capa-ia-local.md ya documentó para F9. 450
+        # deja holgura sobre los 308 tokens que midió el benchmark de agosto para esta
+        # misma acción. LiteLLM lo traduce a `num_predict` en las rutas `ollama/`.
+        "max_tokens": 450,
     }
     if api_key is not None:
         completion_kwargs["api_key"] = api_key
@@ -113,8 +123,21 @@ def _narrativa_llm(
         try:
             return _intentar_narrativa_via_ruta(nombre_ruta, accion, contexto_gobierno, override=override)
         except Exception:
-            pass
+            # No propagar es el contrato, pero callar hacía la degradación
+            # indistinguible de un plan generado de verdad: sin traceback ni log, ni
+            # con LITELLM_LOG=DEBUG (sección 8 de
+            # docs/plan-implementacion-e1-bis-capa-ia-local.md).
+            logger.warning(
+                "Ruta LLM '%s' falló al redactar la narrativa de '%s' (F3); se intenta la siguiente ruta.",
+                nombre_ruta,
+                accion.categoria_catalogo,
+                exc_info=True,
+            )
 
+    logger.warning(
+        "Ninguna ruta LLM produjo la narrativa de '%s' (F3): se degrada a la plantilla determinista.",
+        accion.categoria_catalogo,
+    )
     return _narrativa_plantilla(accion)
 
 
