@@ -49,6 +49,55 @@ def _postgres_real_disponible() -> bool:
     not _postgres_real_disponible(),
     reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
 )
+def test_guardar_diagnostico_no_revierte_el_estado_mientras_se_genera_el_plan_contra_postgres_real():
+    """Contracara del test de abajo: volver a `en_progreso` es correcto desde
+    `plan_listo` (editar después), pero no mientras el job corre. El autoguardado
+    por campo dispara 1500 ms después del último cambio, así que un PUT en vuelo
+    cuando el funcionario pulsa "Enviar" llega después del POST."""
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(
+            Tenant(
+                id=tenant_id,
+                nombre="Tenant carrera autoguardado",
+                clave=f"prueba-carrera-{tenant_id}",
+                pais="mx",
+            )
+        )
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite generando plan", estado="generando_plan")
+        db.add(tramite)
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        resultado = guardar_diagnostico(tramite.id, DiagnosticoGuardar(respuestas={"algo": "tardio"}), token, db)
+
+        fijar_contexto_tenant(db, tenant_id)
+        db.refresh(tramite)
+        # Las respuestas sí se guardan; lo que no se toca es la máquina de estados.
+        assert tramite.estado == "generando_plan"
+        assert resultado.respuestas == {"algo": "tardio"}
+    finally:
+        try:
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
 def test_guardar_diagnostico_regresa_a_en_progreso_desde_plan_listo_contra_postgres_real():
     tenant_id = uuid4()
     db = abrir_sesion_tenant(tenant_id)

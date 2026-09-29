@@ -17,7 +17,10 @@ export function CampoBooleanoRadio({
 }) {
   return (
     <RadioGroup
-      value={valor === null ? undefined : valor ? "si" : "no"}
+      // Cadena vacía, no `undefined`: con `undefined` React trata el RadioGroup
+      // como no controlado y avisa "changing from uncontrolled to controlled"
+      // en cuanto llega el valor guardado (autoguardado rehidratando).
+      value={valor === null ? "" : valor ? "si" : "no"}
       onValueChange={(v) => onCambiar(v === "si")}
       className="grid grid-cols-2 gap-3 sm:w-64"
     >

@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico, iniciarSesion } from "./flujo";
+import {
+  completarYEnviarDiagnostico,
+  crearTramiteYAbrirDiagnostico,
+  responderParcialYEsperarAutoguardado,
+} from "./flujo";
 
 // Recorre el camino principal del mapa de docs/app-flow.md en un solo flujo
 // encadenado (login -> alta de trámite -> diagnóstico -> plan -> seguimiento ->
@@ -14,9 +18,23 @@ import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico, iniciarSesi
 test("recorrido completo de un gobierno nuevo", async ({ page }) => {
   const nombreTramite = `Licencia de funcionamiento E2E ${Date.now()}`;
 
-  await test.step("login en dos pasos", () => iniciarSesion(page));
+  // El login corre en el proyecto de setup (e2e/auth.setup.ts), una sola vez por
+  // corrida; acá se arranca ya autenticado en el panel de resumen.
+  await page.goto("/");
 
   await test.step("alta de trámite en el panel resumen", () => crearTramiteYAbrirDiagnostico(page, nombreTramite));
+
+  await test.step("guardar parcial y reanudar tras recargar", async () => {
+    const respondidas = await responderParcialYEsperarAutoguardado(page, 3);
+
+    await page.reload();
+
+    // El autoguardado por campo solo sirve de algo si lo capturado sobrevive a
+    // que el funcionario cierre la pestaña y vuelva después.
+    for (const variable of respondidas) {
+      await expect(page.locator(`#${variable}-no`)).toBeChecked();
+    }
+  });
 
   await test.step("cuestionario de diagnóstico completo", () => completarYEnviarDiagnostico(page));
 
@@ -36,11 +54,11 @@ test("recorrido completo de un gobierno nuevo", async ({ page }) => {
   });
 
   await test.step("cambiar estado de una acción en seguimiento", async () => {
-    // Anclar la fila por la descripción de su acción, no por `.first()`:
-    // `GET /api/seguimiento` no lleva ORDER BY, así que Postgres puede devolver
-    // las filas en otro orden tras el PATCH y `.first()` pasaría a resolver a
-    // una acción distinta de la que se acaba de cambiar. Con un plan de 21
-    // acciones eso ocurre de forma reproducible.
+    // Anclar la fila por la descripción de su acción, no por `.first()`. El
+    // endpoint ya ordena de forma determinista, pero `.first()` seguiría siendo
+    // frágil: el orden es por fecha objetivo, así que cualquier cambio en las
+    // fechas que genere el plan movería la fila. Se fija la acción concreta que
+    // se va a cambiar.
     const descripcion = (
       await page.getByRole("row").filter({ hasText: nombreTramite }).first().locator("p").first().innerText()
     ).trim();

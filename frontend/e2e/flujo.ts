@@ -54,6 +54,30 @@ async function variablesBooleanas(page: Page): Promise<string[]> {
   return ids.filter((variable) => !PREFIJOS_NO_CATALOGO.has(variable));
 }
 
+/** Responde las primeras `cantidad` booleanas con "No", espera a que el
+ * autoguardado por campo las persista y devuelve qué variables respondió.
+ * Sirve para el caso "funcionario interrumpido" de docs/ux-brief.md: capturar
+ * una parte, irse, y encontrar el cuestionario como lo dejó. */
+export async function responderParcialYEsperarAutoguardado(page: Page, cantidad: number): Promise<string[]> {
+  await expect(page.getByRole("radiogroup").first()).toBeVisible();
+
+  const elegidas = (await variablesBooleanas(page)).slice(0, cantidad);
+  expect(elegidas.length, "el cuestionario no tenía suficientes preguntas booleanas").toBe(cantidad);
+
+  // Igual que en `completarYEnviarDiagnostico`: la promesa se registra antes del
+  // último clic, porque el debounce puede vencer mientras se resuelve el locator.
+  for (const variable of elegidas.slice(0, -1)) {
+    await page.locator(`#${variable}-no`).click();
+  }
+  const guardado = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && /\/diagnostico$/.test(new URL(r.url()).pathname),
+  );
+  await page.locator(`#${elegidas[elegidas.length - 1]}-no`).click();
+  await guardado;
+
+  return elegidas;
+}
+
 export async function completarYEnviarDiagnostico(
   page: Page,
   opciones?: {

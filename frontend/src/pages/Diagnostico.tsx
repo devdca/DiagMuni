@@ -374,17 +374,24 @@ function CardBooleana({
 // de trámite, no del catálogo de 6 variables que ya tiene ese flujo.
 
 function CardVariableAdicional({
+  variable,
   pregunta,
   ayuda,
   valor,
   onCambiarValor,
 }: {
+  variable: string;
   pregunta: string;
   ayuda: string;
   valor: boolean | null;
   onCambiarValor: (valor: boolean) => void;
 }) {
-  const id = `adicional-${pregunta}`;
+  // El prefijo es el nombre de la variable, no el texto de la pregunta: es el
+  // mismo contrato que usan las booleanas del catálogo (`${variable}-si|no`),
+  // del que depende frontend/e2e/flujo.ts para responder el cuestionario sin
+  // asumir orden ni cantidad. Con el texto de la pregunta, el `id` cambiaba al
+  // reescribir la redacción.
+  const id = variable;
   return (
     <Card>
       <CardHeader>
@@ -1084,6 +1091,7 @@ export function Diagnostico() {
       {variablesAdicionales.map((va) => (
         <CardVariableAdicional
           key={va.variable}
+          variable={va.variable}
           pregunta={va.pregunta}
           ayuda={va.ayuda}
           valor={valoresAdicionales[va.variable] ?? null}

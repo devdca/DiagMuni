@@ -83,6 +83,16 @@ def listar_acciones(db: Annotated[Session, Depends(get_db)]) -> list[AccionSegui
             AccionSeguimiento.plan_modernizacion_id.in_(ids_vigentes),
             Tramite.archivado_en.is_(None),  # un trámite archivado sale también de seguimiento
         )
+        # Sin ORDER BY, Postgres puede devolver las filas en cualquier orden y en
+        # la práctica mueve la fila recién actualizada: la tabla de seguimiento se
+        # reordenaba sola cada vez que el funcionario cambiaba un semáforo. Se
+        # ordena por urgencia (fecha objetivo), con `id` de desempate para que el
+        # resultado sea determinista incluso entre acciones de la misma fecha.
+        .order_by(
+            AccionSeguimiento.fecha_objetivo.asc(),
+            Tramite.nombre.asc(),
+            AccionSeguimiento.id.asc(),
+        )
     ).all()
     return [_construir_accion_out(accion, tramite_id, tramite_nombre) for accion, tramite_id, tramite_nombre in filas]
 

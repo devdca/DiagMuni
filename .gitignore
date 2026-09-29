@@ -31,6 +31,9 @@ dist/
 # Playwright (E2E del frontend)
 frontend/playwright-report/
 frontend/test-results/
+# Sesión que el proyecto de setup de Playwright guarda para no repetir el
+# login en cada spec -- contiene un JWT válido, nunca se versiona.
+frontend/e2e/.auth/
 frontend/blob-report/
 
 # Artefactos del MCP de Playwright (exploración interactiva, no del proyecto)

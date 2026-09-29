@@ -90,7 +90,13 @@ def guardar_diagnostico(
 
     diagnostico = _obtener_o_crear_diagnostico(db, token.tenant_id, tramite_id)
     diagnostico.respuestas = payload.respuestas
-    if tramite.estado != "en_progreso":
+    # Volver a `en_progreso` es deliberado para "editar después" de que ya hay un
+    # plan, pero NO mientras el plan se está generando: el autoguardado por campo
+    # dispara 1500 ms después del último cambio, así que un PUT en vuelo cuando el
+    # funcionario pulsa "Enviar" llega después del POST y dejaría el trámite en
+    # `en_progreso` con el job corriendo. Las respuestas sí se guardan (son las
+    # mismas que se acaban de enviar); lo que no se toca es la máquina de estados.
+    if tramite.estado not in ("en_progreso", "generando_plan"):
         tramite.estado = "en_progreso"
     db.commit()
     # commit() resetea app.tenant_id (ver app/db/rls.py) -- refijar para la sesión.

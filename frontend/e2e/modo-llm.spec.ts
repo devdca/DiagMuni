@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico, iniciarSesion } from "./flujo";
+import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico } from "./flujo";
 
 // Margen sobre los 76-123s medidos contra phi3 sin GPU (docs/TRD.md) para UNA
 // sola llamada -- el diagnóstico de este test abre una sola brecha a propósito
@@ -38,7 +38,7 @@ test("plan generado en modo llm no muestra el aviso de modo degradado", async ({
 
   const nombreTramite = `Licencia de funcionamiento E2E modo-llm ${Date.now()}`;
 
-  await iniciarSesion(page);
+  await page.goto("/");
   await crearTramiteYAbrirDiagnostico(page, nombreTramite);
   await completarYEnviarDiagnostico(page, {
     brechas: ["firma_electronica_habilitada"],
