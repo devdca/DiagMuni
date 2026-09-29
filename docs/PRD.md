@@ -7,7 +7,7 @@ Primero de los 6 documentos de blueprint de producto (`docs/`), previos a escrib
 
 DiagMuni es una plataforma open source (Apache 2.0) que permite a un gobierno local — municipio en México, intendencia en Uruguay — autodiagnosticar su nivel de madurez digital trámite por trámite y recibir, en automático, un plan de modernización a la medida: tecnología a adoptar, inversión estimada, personal y capacitación requeridos.
 
-Es un proyecto del Laboratorio de Innovación Pública del INAP, postulado a **GovTech Connect** (BID Lab / Red de Innovación Local), con piloto objetivo en una intendencia de la coalición CIIAR (Uruguay). Este PRD cubre el **producto**, no la estrategia de postulación.
+Es un proyecto del Laboratorio de Innovación Pública del INAP, desarrollado para **GovTech Connect** (BID Lab / Red de Innovación Local), con piloto objetivo en una intendencia de la coalición CIIAR (Uruguay). Este PRD cubre el **producto**, no la estrategia de postulación.
 
 ## Problema
 

@@ -23,7 +23,7 @@ El cálculo del índice y las reglas que arman el plan son código auditable, no
 
 ## Qué está detrás de DiagMuni
 
-Es un proyecto del Laboratorio de Innovación Pública del INAP, presentado a **GovTech Connect** (BID Lab / Red de Innovación Local), para un piloto de código abierto con una ciudad de la coalición CIIAR Uruguay.
+Es un proyecto del Laboratorio de Innovación Pública del INAP, desarrollado para **GovTech Connect** (BID Lab / Red de Innovación Local), para un piloto de código abierto con una ciudad de la coalición CIIAR Uruguay.
 
 ## Qué le pedimos a la intendencia
 
