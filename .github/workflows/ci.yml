@@ -165,7 +165,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
-      # 3. tests (E2E, frontend) — recorre las 6 pantallas de docs/app-flow.md contra el
+      # 3. tests (E2E, frontend) — recorre el camino principal de docs/app-flow.md contra el
       # stack Docker real (docs/runbook-despliegue.md), no contra `vite dev` ni mocks.
       - name: Configurar .env
         run: cp .env.example .env

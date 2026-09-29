@@ -7,6 +7,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false, // los specs comparten un solo tenant de prueba, evitar carreras
+  // El cuestionario pasó de 6 a 21 preguntas (expansión a tres órdenes de
+  // gobierno): el recorrido encadenado hace ~4x más clics que cuando se fijó
+  // el default de 30 s, que quedó sin margen.
+  timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {

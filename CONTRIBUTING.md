@@ -40,7 +40,7 @@ npx tsc -b
 ```
 
 **E2E** (stack Docker completo, más lento — el job `e2e` de CI lo corre
-siempre, pero si tocaste una de las 6 pantallas vale la pena correrlo local):
+siempre, pero si tocaste una pantalla del frontend vale la pena correrlo local):
 ```
 docker compose up -d --build
 docker compose exec backend alembic upgrade head

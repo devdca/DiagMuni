@@ -11,7 +11,7 @@ toca algo que solo se ejercita con Postgres real -- dilo explícitamente. -->
 - [ ] `ruff check .` / `mypy app` (backend) o `eslint .` / `tsc -b` (frontend)
 - [ ] `pytest --cov=app` (backend) -- ¿cambia la cobertura medida?
 - [ ] Probado contra Postgres real, no solo con los tests que se saltan sin él
-- [ ] E2E (`npx playwright test`) si tocaste una de las 6 pantallas
+- [ ] E2E (`npx playwright test`) si tocaste una pantalla del frontend
 
 ## ¿Toca algo sensible?
 

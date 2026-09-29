@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico, iniciarSesion } from "./flujo";
 
-// Recorre las 6 pantallas del mapa de docs/app-flow.md en un solo flujo
+// Recorre el camino principal del mapa de docs/app-flow.md en un solo flujo
 // encadenado (login -> alta de trámite -> diagnóstico -> plan -> seguimiento ->
 // perfil), igual que la verificación manual que reemplaza. Un solo test en vez
 // de varios independientes porque cada pantalla depende del estado que deja la
@@ -22,6 +22,11 @@ test("recorrido completo de un gobierno nuevo", async ({ page }) => {
 
   await test.step("plan de modernización con detalle de brechas", async () => {
     await expect(page.getByText("Plan de modernización")).toBeVisible();
+
+    // El plan se divide en pestañas y abre en "Resumen ejecutivo"; el acordeón
+    // por brecha vive en "Detalle técnico" (Plan.tsx, TabsContent value="tecnico").
+    await page.getByRole("tab", { name: "Detalle técnico" }).click();
+
     const primeraBrecha = page.getByRole("button", { name: /Bloquea|Refuerza|Requisito/ }).first();
     await primeraBrecha.click();
     await expect(page.getByText("Fuente normativa:")).toBeVisible();
@@ -31,8 +36,20 @@ test("recorrido completo de un gobierno nuevo", async ({ page }) => {
   });
 
   await test.step("cambiar estado de una acción en seguimiento", async () => {
-    const primeraFila = page.getByRole("row").filter({ hasText: nombreTramite }).first();
-    const semaforo = primeraFila.getByLabel("Cambiar estado del semáforo");
+    // Anclar la fila por la descripción de su acción, no por `.first()`:
+    // `GET /api/seguimiento` no lleva ORDER BY, así que Postgres puede devolver
+    // las filas en otro orden tras el PATCH y `.first()` pasaría a resolver a
+    // una acción distinta de la que se acaba de cambiar. Con un plan de 21
+    // acciones eso ocurre de forma reproducible.
+    const descripcion = (
+      await page.getByRole("row").filter({ hasText: nombreTramite }).first().locator("p").first().innerText()
+    ).trim();
+
+    // Los dos filtros son necesarios: la descripción viene del catálogo, así que
+    // se repite en cada trámite diagnosticado, y el nombre del trámite por sí
+    // solo cubre sus 21 acciones.
+    const fila = page.getByRole("row").filter({ hasText: nombreTramite }).filter({ hasText: descripcion });
+    const semaforo = fila.getByLabel("Cambiar estado del semáforo");
     await semaforo.selectOption("Completado");
     // No usar getByText("Completado") acá: matchea tanto la etiqueta visible como
     // la <option> oculta del propio <select>, modo estricto lo rechaza.
