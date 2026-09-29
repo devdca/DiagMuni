@@ -11,13 +11,17 @@ alembic==1.14.0
 psycopg[binary]==3.2.10
 pydantic==2.10.4
 pydantic-settings==2.7.1
-# 2.13.0 -- corrige CVE-2026-32597 (header `crit` no validado) y CVE-2026-48526
-# (confusión de algoritmo HMAC/JWK), además de los avisos previos que la misma
-# release agrupa (CVE-2026-48522/48523/48524/48525). Verificado que este proyecto
-# solo usa HS256 simétrico (app/core/security.py) -- no se ve afectado por el
-# vector directo de la confusión de algoritmo, pero se actualiza igual por ser
-# la única dependencia que firma/verifica la autenticación de la plataforma.
-pyjwt==2.13.0
+# 2.14.0 -- corrige CVE-2026-102274: de 2.9.0 a 2.13.0, `PyJWKSet` no atrapaba el
+# `ValueError` que lanza `RSAAlgorithm.from_jwk` ante componentes RSA malformados,
+# así que una sola clave mal formada en un JWK Set abortaba la construcción del
+# conjunto entero (fallo de autenticación / DoS a nivel de request, CVSS 5.9).
+# Este proyecto no consume JWK Sets ni claves RSA: firma y verifica con HS256
+# simétrico (app/core/security.py), así que no lo alcanza el vector real. Se
+# actualiza igual, por la misma razón que la vez anterior (CVE-2026-32597 y
+# CVE-2026-48526, más los avisos que esa release agrupaba): es la única
+# dependencia que firma y verifica la autenticación de la plataforma, y el gate
+# de CVEs del CI no distingue vectores aplicables de los que no lo son.
+pyjwt==2.14.0
 argon2-cffi==23.1.0
 pyyaml==6.0.2
 # litellm: MIT (docs/stack-tecnologico.md, "Nota sobre LiteLLM (licencia)"), verificado
