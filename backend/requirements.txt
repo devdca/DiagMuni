@@ -3,7 +3,7 @@ fastapi==0.141.1
 starlette==1.6.0
 uvicorn[standard]==0.34.0
 sqlalchemy==2.0.36
-alembic==1.14.0
+alembic==1.20.0
 # psycopg es LGPL-3.0, no GPL — LGPL permite explícitamente el linking dinámico sin
 # obligar a que el proyecto que lo usa también sea GPL (a diferencia de GPL a secas).
 # Es más permisivo que el carve-out "GPL solo como servicio separado" del Principio 2
