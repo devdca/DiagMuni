@@ -35,7 +35,7 @@ pyyaml==6.0.2
 # versiones puntuales (1.82.7 y 1.82.8) fueron comprometidas en PyPI mediante
 # credenciales de CI robadas y puestas en cuarentena ~40 minutos después de su
 # publicación; no afecta a 1.94.0 (muy posterior) ni a ninguna versión fijada aquí.
-litellm==1.94.0
+litellm==1.102.1
 # fpdf2: LGPL-3.0 (github.com/py-pdf/fpdf2/blob/master/LICENSE) -- mismo criterio
 # que psycopg[binary] arriba: uso dinámico vía pip install, no modificación ni
 # linking estático de la librería. Python puro, sin librerías nativas del SO
