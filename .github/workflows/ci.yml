@@ -276,7 +276,7 @@ jobs:
           echo "valor=${comando}" >> "$GITHUB_OUTPUT"
       - name: Subir la versión de preview a Cloudflare Workers
         if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
-        uses: cloudflare/wrangler-action@fd068e64608ca96138f55b21ecc6bcc928b3915b # v4.1.2
+        uses: cloudflare/wrangler-action@25853364521e0d392ece9b0c1e97a4b37b638087 # v4.1.2
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
