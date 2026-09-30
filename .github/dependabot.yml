@@ -1,4 +1,19 @@
 version: 2
+
+# Nota de calibración (30-sep-2026): al activarse por primera vez, esta
+# configuración abrió 19 PRs en una sola tanda. El problema no era la
+# frecuencia sino la ausencia de `groups`: sin agrupar, Dependabot abre un PR
+# por dependencia, y con `CODEOWNERS` cubriendo `*` cada uno pide revisión
+# aparte. Con el proyecto operado por una sola persona, eso es ruido que
+# entierra justamente los avisos que sí importan.
+#
+# Criterio: las actualizaciones menores y de parche viajan agrupadas en un solo
+# PR por ecosistema; las mayores siguen saliendo por separado, porque son las
+# que pueden romper algo y merecen revisión propia (ver `ignore` de Python
+# abajo). Mensual en vez de semanal: para un piloto, una tanda al mes basta, y
+# las vulnerabilidades reales no dependen de esta cadencia -- llegan por las
+# alertas de seguridad de Dependabot y por el gate de CVEs del CI, que corre en
+# cada PR.
 updates:
   # Backend (pip) -- requirements.txt fija versiones exactas con nota de
   # licencia/seguridad por dependencia (ver CONTRIBUTING.md); Dependabot abre
@@ -7,38 +22,69 @@ updates:
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 3
     labels:
       - "dependencias"
+    groups:
+      backend-menores:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Frontend (npm)
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 3
     labels:
       - "dependencias"
+    groups:
+      frontend-menores:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
-  # Imágenes base de Docker (backend/Dockerfile, nginx/Dockerfile)
+  # Imágenes base de Docker (backend/Dockerfile, nginx/Dockerfile).
+  # La versión de Python está anclada a propósito: el job `backend` de ci.yml
+  # usa `python-version: "3.12"`, así que subir la imagen sin subir el CI
+  # dejaría el contenedor y el pipeline probando cosas distintas. Es un cambio
+  # deliberado, no automático.
   - package-ecosystem: "docker"
     directory: "/backend"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 2
     labels:
       - "dependencias"
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
   - package-ecosystem: "docker"
     directory: "/nginx"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 2
     labels:
       - "dependencias"
 
-  # Las propias GitHub Actions del CI (ver ci.yml, todas fijadas por SHA)
+  # Las propias GitHub Actions del CI (ver ci.yml, todas fijadas por SHA).
+  # Van todas en un solo PR: están pinneadas por SHA y el propio CI las
+  # ejercita, así que revisarlas juntas es más barato que una por una.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 2
     labels:
       - "dependencias"
+    groups:
+      acciones-del-ci:
+        patterns:
+          - "*"
