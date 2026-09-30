@@ -2,8 +2,8 @@
 `litellm.completion` siempre monkeypatcheado. Cubre el sesgo fail-safe: cualquier
 fallo cae en `no_concluyente`/`no_clasificable`, nunca en una excepción propagada."""
 
-from app.ia import asistente_captura
-from app.ia.asistente_captura import (
+from app.adaptadores.llm import asistente_captura
+from app.adaptadores.llm.asistente_captura import (
     ID_URUGUAY,
     LLAVE_MX,
     NINGUNO,
@@ -22,8 +22,8 @@ def _mock_respuesta(texto: str) -> dict:
 
 
 def _disponible(monkeypatch, disponible: bool = True) -> None:
-    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta: disponible)
-    monkeypatch.setattr(asistente_captura, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta, **_kw: disponible)
+    monkeypatch.setattr(asistente_captura, "api_key_de", lambda ruta, **_kw: "sk-test")
 
 
 # === (A) clasificar_consistencia_booleana ========================================
@@ -37,7 +37,8 @@ def test_consistencia_devuelve_consistente(monkeypatch):
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("consistente")
     )
     resultado = clasificar_consistencia_booleana("todo normal, sin novedad", valor_marcado=True)
-    assert resultado == "consistente"
+    assert resultado.categoria == "consistente"
+    assert resultado.ruta_llm == "economico"
 
 
 def test_consistencia_devuelve_posible_contradiccion_hacia_si(monkeypatch):
@@ -51,7 +52,8 @@ def test_consistencia_devuelve_posible_contradiccion_hacia_si(monkeypatch):
         "marcamos No, pero usamos firma digital para todos los documentos desde 2024",
         valor_marcado=False,
     )
-    assert resultado == POSIBLE_CONTRADICCION_HACIA_SI
+    assert resultado.categoria == POSIBLE_CONTRADICCION_HACIA_SI
+    assert resultado.ruta_llm == "economico"
 
 
 def test_consistencia_devuelve_posible_contradiccion_hacia_no(monkeypatch):
@@ -65,7 +67,8 @@ def test_consistencia_devuelve_posible_contradiccion_hacia_no(monkeypatch):
         "marcamos Sí, pero en realidad solo aceptamos depósito bancario sin conciliación",
         valor_marcado=True,
     )
-    assert resultado == POSIBLE_CONTRADICCION_HACIA_NO
+    assert resultado.categoria == POSIBLE_CONTRADICCION_HACIA_NO
+    assert resultado.ruta_llm == "economico"
 
 
 def test_consistencia_devuelve_no_concluyente_por_respuesta_del_llm(monkeypatch):
@@ -74,14 +77,17 @@ def test_consistencia_devuelve_no_concluyente_por_respuesta_del_llm(monkeypatch)
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("no_concluyente")
     )
     resultado = clasificar_consistencia_booleana("texto ambiguo, no queda claro", valor_marcado=True)
-    assert resultado == NO_CONCLUYENTE
+    assert resultado.categoria == NO_CONCLUYENTE
+    # "no_concluyente" es una de las 4 categorías válidas del prompt -- sí vino de
+    # una respuesta real del LLM, a diferencia de los fail-safe de abajo.
+    assert resultado.ruta_llm == "economico"
 
 
 # --- fail-safe: ruta no disponible ------------------------------------------------
 
 
 def test_consistencia_ruta_no_disponible_devuelve_no_concluyente_sin_llamar(monkeypatch):
-    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta, **_kw: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse sin ruta 'economico' disponible")
@@ -89,7 +95,8 @@ def test_consistencia_ruta_no_disponible_devuelve_no_concluyente_sin_llamar(monk
     monkeypatch.setattr(asistente_captura.litellm, "completion", _completion_no_debe_llamarse)
 
     resultado = clasificar_consistencia_booleana("cualquier texto", valor_marcado=True)
-    assert resultado == NO_CONCLUYENTE
+    assert resultado.categoria == NO_CONCLUYENTE
+    assert resultado.ruta_llm is None
 
 
 # --- fail-safe: excepción (timeout, red, etc.) ------------------------------------
@@ -104,7 +111,8 @@ def test_consistencia_excepcion_devuelve_no_concluyente_sin_propagar(monkeypatch
     monkeypatch.setattr(asistente_captura.litellm, "completion", _completion_falla)
 
     resultado = clasificar_consistencia_booleana("cualquier texto", valor_marcado=True)
-    assert resultado == NO_CONCLUYENTE
+    assert resultado.categoria == NO_CONCLUYENTE
+    assert resultado.ruta_llm is None
 
 
 # --- fail-safe: respuesta no reconocible / vacía ----------------------------------
@@ -118,14 +126,16 @@ def test_consistencia_respuesta_no_reconocible_devuelve_no_concluyente(monkeypat
         lambda *a, **k: _mock_respuesta("esto no es ninguna de las categorías esperadas"),
     )
     resultado = clasificar_consistencia_booleana("cualquier texto", valor_marcado=True)
-    assert resultado == NO_CONCLUYENTE
+    assert resultado.categoria == NO_CONCLUYENTE
+    assert resultado.ruta_llm is None
 
 
 def test_consistencia_respuesta_vacia_devuelve_no_concluyente(monkeypatch):
     _disponible(monkeypatch)
     monkeypatch.setattr(asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("   "))
     resultado = clasificar_consistencia_booleana("cualquier texto", valor_marcado=True)
-    assert resultado == NO_CONCLUYENTE
+    assert resultado.categoria == NO_CONCLUYENTE
+    assert resultado.ruta_llm is None
 
 
 # --- espía: model/api_key/timeout correctos ---------------------------------------
@@ -162,7 +172,8 @@ def test_mecanismo_identidad_llave_mx_para_pais_mx(monkeypatch):
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("llave_mx")
     )
     resultado = clasificar_mecanismo_identidad("usamos la llave nacional mexicana", pais="mx")
-    assert resultado == LLAVE_MX
+    assert resultado.categoria == LLAVE_MX
+    assert resultado.ruta_llm == "economico"
 
 
 def test_mecanismo_identidad_id_uruguay_para_pais_uy(monkeypatch):
@@ -171,7 +182,8 @@ def test_mecanismo_identidad_id_uruguay_para_pais_uy(monkeypatch):
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("id_uruguay")
     )
     resultado = clasificar_mecanismo_identidad("usamos la cédula/ID Uruguay nacional", pais="uy")
-    assert resultado == ID_URUGUAY
+    assert resultado.categoria == ID_URUGUAY
+    assert resultado.ruta_llm == "economico"
 
 
 def test_mecanismo_identidad_propio(monkeypatch):
@@ -181,14 +193,16 @@ def test_mecanismo_identidad_propio(monkeypatch):
         "tenemos una cédula digital propia de la intendencia, no es un mecanismo nacional",
         pais="uy",
     )
-    assert resultado == PROPIO
+    assert resultado.categoria == PROPIO
+    assert resultado.ruta_llm == "economico"
 
 
 def test_mecanismo_identidad_ninguno(monkeypatch):
     _disponible(monkeypatch)
     monkeypatch.setattr(asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("ninguno"))
     resultado = clasificar_mecanismo_identidad("no tenemos ningún mecanismo de identidad", pais="mx")
-    assert resultado == NINGUNO
+    assert resultado.categoria == NINGUNO
+    assert resultado.ruta_llm == "economico"
 
 
 def test_mecanismo_identidad_no_clasificable_por_respuesta_del_llm(monkeypatch):
@@ -197,7 +211,11 @@ def test_mecanismo_identidad_no_clasificable_por_respuesta_del_llm(monkeypatch):
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("no_clasificable")
     )
     resultado = clasificar_mecanismo_identidad("texto totalmente ambiguo", pais="mx")
-    assert resultado == NO_CLASIFICABLE
+    assert resultado.categoria == NO_CLASIFICABLE
+    # "no_clasificable" nunca es una candidata dentro de `_categorias_candidatas`
+    # (es el fallback, no una opción ofrecida en el prompt) -- por eso cae en la
+    # misma rama de "no reconocido/no candidata" que cualquier otro fail-safe.
+    assert resultado.ruta_llm is None
 
 
 # --- restricción de candidatas por país (doble barrera) ---------------------------
@@ -247,8 +265,9 @@ def test_mecanismo_identidad_invalida_id_uruguay_devuelto_para_pais_mx(monkeypat
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("id_uruguay")
     )
     resultado = clasificar_mecanismo_identidad("texto cualquiera", pais="mx")
-    assert resultado == NO_CLASIFICABLE
-    assert resultado != ID_URUGUAY
+    assert resultado.categoria == NO_CLASIFICABLE
+    assert resultado.categoria != ID_URUGUAY
+    assert resultado.ruta_llm is None
 
 
 def test_mecanismo_identidad_invalida_llave_mx_devuelto_para_pais_uy(monkeypatch):
@@ -258,15 +277,16 @@ def test_mecanismo_identidad_invalida_llave_mx_devuelto_para_pais_uy(monkeypatch
         asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta("llave_mx")
     )
     resultado = clasificar_mecanismo_identidad("texto cualquiera", pais="uy")
-    assert resultado == NO_CLASIFICABLE
-    assert resultado != LLAVE_MX
+    assert resultado.categoria == NO_CLASIFICABLE
+    assert resultado.categoria != LLAVE_MX
+    assert resultado.ruta_llm is None
 
 
 # --- fail-safe: ruta no disponible ------------------------------------------------
 
 
 def test_mecanismo_identidad_ruta_no_disponible_devuelve_no_clasificable_sin_llamar(monkeypatch):
-    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(asistente_captura, "esta_disponible", lambda ruta, **_kw: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse sin ruta 'economico' disponible")
@@ -274,7 +294,8 @@ def test_mecanismo_identidad_ruta_no_disponible_devuelve_no_clasificable_sin_lla
     monkeypatch.setattr(asistente_captura.litellm, "completion", _completion_no_debe_llamarse)
 
     resultado = clasificar_mecanismo_identidad("cualquier texto", pais="mx")
-    assert resultado == NO_CLASIFICABLE
+    assert resultado.categoria == NO_CLASIFICABLE
+    assert resultado.ruta_llm is None
 
 
 # --- fail-safe: excepción (timeout, red, etc.) ------------------------------------
@@ -289,7 +310,8 @@ def test_mecanismo_identidad_excepcion_devuelve_no_clasificable_sin_propagar(mon
     monkeypatch.setattr(asistente_captura.litellm, "completion", _completion_falla)
 
     resultado = clasificar_mecanismo_identidad("cualquier texto", pais="uy")
-    assert resultado == NO_CLASIFICABLE
+    assert resultado.categoria == NO_CLASIFICABLE
+    assert resultado.ruta_llm is None
 
 
 # --- fail-safe: respuesta no reconocible / vacía ----------------------------------
@@ -303,14 +325,16 @@ def test_mecanismo_identidad_respuesta_no_reconocible_devuelve_no_clasificable(m
         lambda *a, **k: _mock_respuesta("esto no es ninguna categoría válida"),
     )
     resultado = clasificar_mecanismo_identidad("cualquier texto", pais="mx")
-    assert resultado == NO_CLASIFICABLE
+    assert resultado.categoria == NO_CLASIFICABLE
+    assert resultado.ruta_llm is None
 
 
 def test_mecanismo_identidad_respuesta_vacia_devuelve_no_clasificable(monkeypatch):
     _disponible(monkeypatch)
     monkeypatch.setattr(asistente_captura.litellm, "completion", lambda *a, **k: _mock_respuesta(""))
     resultado = clasificar_mecanismo_identidad("cualquier texto", pais="mx")
-    assert resultado == NO_CLASIFICABLE
+    assert resultado.categoria == NO_CLASIFICABLE
+    assert resultado.ruta_llm is None
 
 
 # --- espía: model/api_key/timeout correctos ---------------------------------------

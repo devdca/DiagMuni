@@ -1,0 +1,20 @@
+version: "1.0"
+variable: personal_capacitado_tramite_digital
+criterio_deteccion: "personal_capacitado_tramite_digital == false"
+acciones:
+  mx:
+    paso_administrativo: "Capacitar al personal que opera este trámite en su versión digital"
+    paso_tecnico: "No aplica un componente tecnológico específico -- brecha de capacidad del personal, no de adopción de software"
+    paso_organizacional: "Incluir la capacitación de este trámite en específico en el programa anual de capacitación"
+    prerrequisitos: []
+    por_que_importa: "Ningún componente digital de este trámite rinde si el personal que lo opera no sabe usarlo"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "capacitacion_tramite_especifico"
+  uy:
+    paso_administrativo: "Capacitar al personal que opera este trámite en su versión digital"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Incluir la capacitación de este trámite en específico en el programa anual de capacitación"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "capacitacion_tramite_especifico"

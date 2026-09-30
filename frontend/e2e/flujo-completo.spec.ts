@@ -1,8 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico, iniciarSesion } from "./flujo";
+import {
+  completarYEnviarDiagnostico,
+  crearTramiteYAbrirDiagnostico,
+  responderParcialYEsperarAutoguardado,
+} from "./flujo";
 
-// Recorre las 6 pantallas del mapa de docs/app-flow.md en un solo flujo
+// Recorre el camino principal del mapa de docs/app-flow.md en un solo flujo
 // encadenado (login -> alta de trámite -> diagnóstico -> plan -> seguimiento ->
 // perfil), igual que la verificación manual que reemplaza. Un solo test en vez
 // de varios independientes porque cada pantalla depende del estado que deja la
@@ -14,14 +18,33 @@ import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico, iniciarSesi
 test("recorrido completo de un gobierno nuevo", async ({ page }) => {
   const nombreTramite = `Licencia de funcionamiento E2E ${Date.now()}`;
 
-  await test.step("login en dos pasos", () => iniciarSesion(page));
+  // El login corre en el proyecto de setup (e2e/auth.setup.ts), una sola vez por
+  // corrida; acá se arranca ya autenticado en el panel de resumen.
+  await page.goto("/");
 
   await test.step("alta de trámite en el panel resumen", () => crearTramiteYAbrirDiagnostico(page, nombreTramite));
+
+  await test.step("guardar parcial y reanudar tras recargar", async () => {
+    const respondidas = await responderParcialYEsperarAutoguardado(page, 3);
+
+    await page.reload();
+
+    // El autoguardado por campo solo sirve de algo si lo capturado sobrevive a
+    // que el funcionario cierre la pestaña y vuelva después.
+    for (const variable of respondidas) {
+      await expect(page.locator(`#${variable}-no`)).toBeChecked();
+    }
+  });
 
   await test.step("cuestionario de diagnóstico completo", () => completarYEnviarDiagnostico(page));
 
   await test.step("plan de modernización con detalle de brechas", async () => {
     await expect(page.getByText("Plan de modernización")).toBeVisible();
+
+    // El plan se divide en pestañas y abre en "Resumen ejecutivo"; el acordeón
+    // por brecha vive en "Detalle técnico" (Plan.tsx, TabsContent value="tecnico").
+    await page.getByRole("tab", { name: "Detalle técnico" }).click();
+
     const primeraBrecha = page.getByRole("button", { name: /Bloquea|Refuerza|Requisito/ }).first();
     await primeraBrecha.click();
     await expect(page.getByText("Fuente normativa:")).toBeVisible();
@@ -31,8 +54,20 @@ test("recorrido completo de un gobierno nuevo", async ({ page }) => {
   });
 
   await test.step("cambiar estado de una acción en seguimiento", async () => {
-    const primeraFila = page.getByRole("row").filter({ hasText: nombreTramite }).first();
-    const semaforo = primeraFila.getByLabel("Cambiar estado del semáforo");
+    // Anclar la fila por la descripción de su acción, no por `.first()`. El
+    // endpoint ya ordena de forma determinista, pero `.first()` seguiría siendo
+    // frágil: el orden es por fecha objetivo, así que cualquier cambio en las
+    // fechas que genere el plan movería la fila. Se fija la acción concreta que
+    // se va a cambiar.
+    const descripcion = (
+      await page.getByRole("row").filter({ hasText: nombreTramite }).first().locator("p").first().innerText()
+    ).trim();
+
+    // Los dos filtros son necesarios: la descripción viene del catálogo, así que
+    // se repite en cada trámite diagnosticado, y el nombre del trámite por sí
+    // solo cubre sus 21 acciones.
+    const fila = page.getByRole("row").filter({ hasText: nombreTramite }).filter({ hasText: descripcion });
+    const semaforo = fila.getByLabel("Cambiar estado del semáforo");
     await semaforo.selectOption("Completado");
     // No usar getByText("Completado") acá: matchea tanto la etiqueta visible como
     // la <option> oculta del propio <select>, modo estricto lo rechaza.

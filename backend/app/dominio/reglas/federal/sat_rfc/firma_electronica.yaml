@@ -1,0 +1,18 @@
+# Fase A -- piloto federal, tipo_tramite="sat_rfc" (inscripción al RFC persona
+# física). Override específico de este trámite sobre el catálogo genérico
+# federal (ver reglas_loader.cargar_catalogo) -- el fundamento normativo del
+# SAT es propio (Código Fiscal de la Federación), distinto de otros trámites
+# federales. Verificado contra fuente oficial (sat.gob.mx, BADO sobre el texto
+# del CFF). Solo México, sin rama `uy`.
+version: "1.0"
+variable: firma_electronica_habilitada
+criterio_deteccion: "firma_electronica_habilitada == false"
+acciones:
+  mx:
+    paso_administrativo: "Tramitar la e.firma (firma electrónica avanzada) ante el SAT"
+    paso_tecnico: "Integrar validación de e.firma con certificado emitido por el SAT (estándar propio del SAT, no un componente OSS genérico)"
+    paso_organizacional: "Capacitar al personal en el uso y verificación de la e.firma"
+    prerrequisitos: []
+    por_que_importa: "El Código Fiscal de la Federación da a los documentos firmados con e.firma avanzada el mismo valor que la firma autógrafa -- sin ella, el trámite no puede completarse en línea"
+    fuente_normativa: "Código Fiscal de la Federación, art. 17-D (firma electrónica avanzada con certificado emitido por el SAT)"
+    categoria_catalogo: "modulo_firma_electronica"

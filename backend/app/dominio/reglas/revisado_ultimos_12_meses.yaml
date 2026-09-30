@@ -1,0 +1,20 @@
+version: "1.0"
+variable: revisado_ultimos_12_meses
+criterio_deteccion: "revisado_ultimos_12_meses == false"
+acciones:
+  mx:
+    paso_administrativo: "Revisar y simplificar este trámite (eliminar requisitos innecesarios) como parte de la Agenda de Simplificación y Digitalización semestral"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una revisión administrativa/regulatoria"
+    paso_organizacional: "Incluir este trámite en el ciclo semestral de revisión que ya exige la Agenda"
+    prerrequisitos: []
+    por_que_importa: "La LNETB exige revisión y publicación semestral de avances -- un trámite sin revisión en 12 meses probablemente acumula requisitos obsoletos"
+    fuente_normativa: "LNETB art. 21 (Agenda de Simplificación y Digitalización semestral)"
+    categoria_catalogo: "revision_periodica_tramite"
+  uy:
+    paso_administrativo: "Revisar y simplificar este trámite periódicamente"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Establecer un ciclo de revisión periódica para este trámite"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar si existe un mecanismo equivalente a la Agenda de Simplificación"
+    categoria_catalogo: "revision_periodica_tramite"

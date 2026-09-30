@@ -1,25 +1,20 @@
-// Paleta de estado del semáforo de seguimiento (docs/ux-brief.md sección
-// "Semáforo de seguimiento (F6)"), fija y validada -- nunca reutilizada como color
-// de serie ni para otro propósito. Solo 3 estados, mismos valores que
-// backend/app/models/accion_seguimiento.py::AccionSeguimiento.estado_semaforo.
-//
-// Regla dura del documento: "warning" y "critical" caen bajo el piso de contraste
-// 3:1 en superficie clara por diseño de la paleta -- todo estado debe mostrarse
-// siempre con ícono + etiqueta de texto, nunca solo el punto de color.
+// Paleta de estado del semáforo (docs/ux-brief.md, "Semáforo de seguimiento"),
+// fija -- nunca reutilizada como color de serie. Variables CSS, no hex directo:
+// "en_progreso"/"atrasado" no cumplen AA en ambos modos por diseño, por eso todo
+// estado va siempre con ícono + etiqueta de texto, nunca solo el color.
 export type EstadoSemaforo = "completado" | "en_progreso" | "atrasado";
 
 export interface InfoEstadoSemaforo {
   etiqueta: string;
   hex: string;
-  // Glyph decorativo (aria-hidden) -- el significado siempre lo lleva `etiqueta`,
-  // nunca el ícono ni el color por sí solos.
+  /** Decorativo (aria-hidden) -- el significado lo lleva `etiqueta`, no el ícono. */
   icono: string;
 }
 
 export const ESTADOS_SEMAFORO: Record<EstadoSemaforo, InfoEstadoSemaforo> = {
-  completado: { etiqueta: "Completado", hex: "#0ca30c", icono: "✓" },
-  en_progreso: { etiqueta: "En progreso", hex: "#fab219", icono: "●" },
-  atrasado: { etiqueta: "Atrasado o bloqueado", hex: "#d03b3b", icono: "⚠" },
+  completado: { etiqueta: "Completado", hex: "var(--semaforo-completado)", icono: "✓" },
+  en_progreso: { etiqueta: "En progreso", hex: "var(--semaforo-en-progreso)", icono: "●" },
+  atrasado: { etiqueta: "Atrasado o bloqueado", hex: "var(--semaforo-atrasado)", icono: "⚠" },
 };
 
 export const ORDEN_ESTADOS_SEMAFORO: readonly EstadoSemaforo[] = ["completado", "en_progreso", "atrasado"];

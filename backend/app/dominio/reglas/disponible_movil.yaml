@@ -1,0 +1,20 @@
+version: "1.0"
+variable: disponible_movil
+criterio_deteccion: "disponible_movil == false"
+acciones:
+  mx:
+    paso_administrativo: "Adaptar el trámite en línea para que se pueda iniciar y completar desde un dispositivo móvil, no solo desde computadora"
+    paso_tecnico: "Interfaz responsiva o app móvil para el trámite -- categoría, no marca"
+    paso_organizacional: "Probar el flujo completo desde un navegador móvil antes de publicarlo"
+    prerrequisitos: ["Trámite disponible en línea"]
+    por_que_importa: "Una parte significativa de la ciudadanía accede a internet principalmente desde el celular -- sin esto, la digitalización del trámite no le sirve a esa población"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "disponibilidad_movil"
+  uy:
+    paso_administrativo: "Adaptar el trámite en línea para que se pueda iniciar y completar desde un dispositivo móvil"
+    paso_tecnico: "Interfaz responsiva o app móvil para el trámite -- categoría, no marca"
+    paso_organizacional: "Probar el flujo completo desde un navegador móvil antes de publicarlo"
+    prerrequisitos: ["Trámite disponible en línea"]
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "disponibilidad_movil"

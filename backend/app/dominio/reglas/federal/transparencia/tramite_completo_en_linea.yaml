@@ -1,0 +1,15 @@
+# Fase A -- piloto federal, tipo_tramite="transparencia". Verificado leyendo
+# el texto oficial completo de la LGTAIP (arts. 124-127). Solo México, sin
+# rama `uy`.
+version: "1.0"
+variable: tramite_completo_en_linea
+criterio_deteccion: "tramite_completo_en_linea == false"
+acciones:
+  mx:
+    paso_administrativo: "Habilitar la recepción y respuesta de solicitudes íntegramente a través de la Plataforma Nacional de Transparencia"
+    paso_tecnico: "Integración con la Plataforma Nacional de Transparencia (asignación automática de folio, notificaciones por el mismo sistema)"
+    paso_organizacional: "Capacitar al personal para operar el trámite sin requerir que el solicitante acuda en persona en ningún paso"
+    prerrequisitos: []
+    por_que_importa: "La ley ya prevé que la solicitud, su seguimiento y la notificación de la respuesta ocurran íntegramente por medios electrónicos vía la Plataforma Nacional -- la brecha típica es no estar aprovechando ese canal, no que falte construir uno nuevo"
+    fuente_normativa: "LGTAIP arts. 124-127 (presentación vía Plataforma Nacional, folio automático, notificaciones por el mismo sistema)"
+    categoria_catalogo: "portal_transaccional_completo"

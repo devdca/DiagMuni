@@ -1,0 +1,20 @@
+version: "1.0"
+variable: silencio_administrativo_definido
+criterio_deteccion: "silencio_administrativo_definido == false"
+acciones:
+  mx:
+    paso_administrativo: "Definir y publicar si aplica el silencio administrativo positivo o negativo para este trámite, conforme a la ley que lo rige"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una definición jurídica que después se refleja en el portal del trámite"
+    paso_organizacional: "Capacitar al personal jurídico/de mostrador en el sentido del silencio administrativo de este trámite"
+    prerrequisitos: []
+    por_que_importa: "Sin esto, el ciudadano no sabe qué esperar si el gobierno no responde a tiempo -- la LFPA fija sentido negativo por default salvo excepción expresa"
+    fuente_normativa: "Ley Federal de Procedimiento Administrativo, art. 17-A (efectos del silencio administrativo, salvo que la naturaleza del asunto lo impida)"
+    categoria_catalogo: "silencio_administrativo"
+  uy:
+    paso_administrativo: "Definir y publicar si aplica el silencio administrativo positivo o negativo para este trámite"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Capacitar al personal jurídico/de mostrador en el sentido del silencio administrativo de este trámite"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra el Decreto de Procedimiento Administrativo aplicable"
+    categoria_catalogo: "silencio_administrativo"

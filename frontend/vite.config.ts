@@ -2,7 +2,12 @@ import path from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+// `defineConfig` de "vitest/config" en vez de "vite" -- reexporta la misma
+// config de Vite con el campo `test` tipado, sin depender de tipos globales
+// de Vitest en tsconfig.json (cada test importa `describe`/`it`/`expect`
+// explícitamente, mismo criterio de "nunca un global implícito" del resto
+// del proyecto).
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -10,6 +15,14 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    // src/**/*.test.tsx -- junto al componente que prueban, no en un
+    // directorio __tests__ aparte (más fácil de encontrar el test de un
+    // componente dado). e2e/ ya es Playwright, nunca Vitest.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
   server: {
     // Mismo código con rutas relativas "/api/..." sirve en dev y en

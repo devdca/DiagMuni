@@ -25,9 +25,13 @@ erDiagram
 | `id` | uuid, PK | |
 | `nombre` | text | Nombre del gobierno local |
 | `pais` | enum(`mx`,`uy`) | Determina qué capa de parámetros normativos aplica (ver `entregables/fase-1/matriz-normativa.md`) |
+| `logo_content_type` | text, nullable, CHECK ∈ {`image/png`,`image/jpeg`,`image/svg+xml`} | `NULL` = el tenant nunca subió un logo, la UI cae a mostrar `nombre`. El archivo en sí NO vive en esta fila — vive en disco (migración 0021, ver más abajo) |
+| `logo_actualizado_en` | timestamptz, nullable | `NULL` hasta la primera subida; el frontend lo usa como key de invalidación de su propia caché del logo ya descargado |
 | `created_at` | timestamptz | |
 
 Sin RLS (es la tabla raíz que define el aislamiento, no tiene `tenant_id` propio).
+
+**Logo del gobierno** (`PUT`/`GET /api/gobierno/logo`, migración 0021, `app/adaptadores/http/gobierno_logo.py`): el archivo (png/jpg/svg, tope `LOGO_MAX_BYTES`) se guarda en disco bajo el volumen `diagmuni_logos_data` (`app/adaptadores/almacenamiento/logo_storage.py`, un archivo por `tenant_id`), no como blob en Postgres — mismo criterio de single-host que `diagmuni_db_data` (`docker-compose.yml`), y evita tener que ir a la base de datos para servir un archivo que se lee mucho más de lo que se escribe. Solo `logo_content_type`/`logo_actualizado_en` viven en `tenant`. Ambos endpoints exigen sesión del propio tenant (nunca un tenant_id por URL); subir/reemplazar exige además `admin_gobierno` (`requerir_admin`), ver GET solo exige sesión autenticada porque cualquier funcionario necesita poder cargarlo en su propia UI.
 
 ### `contexto_institucional`
 | Columna | Tipo | Notas |
@@ -54,7 +58,9 @@ Perfil de contexto y capacidad institucional del gobierno, 1:1 con `tenant`, cap
 | `email` | text, unique por tenant | |
 | `password_hash` | text | argon2 (vía `passlib`/`argon2-cffi`) — nunca bcrypt puro sin costo configurable |
 | `nombre` | text | |
-| `rol` | enum(`funcionario`) | Un solo rol en el MVP — sin distinción admin/funcionario todavía (ver Riesgos abiertos) |
+| `rol` | enum(`funcionario`,`admin_gobierno`) | RBAC (migración 0011): `admin_gobierno` gestiona usuarios, catálogo de trámites y salud del sistema de IA (`/api/admin/usuarios`); `funcionario` responde diagnósticos y ve planes. El primer usuario de `crear_gobierno` siempre nace `admin_gobierno`. |
+| `activo` | boolean, default `true` | Alta/baja reversible de un funcionario (migración 0011). Un usuario inactivo no puede iniciar sesión y pierde acceso de inmediato en su siguiente request, no solo al expirar su JWT (`get_current_token`, `app/adaptadores/http/deps.py`). No permitido dejar a un tenant sin ningún `admin_gobierno` activo (`app/aplicacion/gestion_usuarios.py`). |
+| `ultimo_login_en` | timestamptz, nullable | `NULL` = nunca inició sesión. Se actualiza en cada login exitoso (migración 0011). |
 | `created_at` | timestamptz | |
 
 ### `tramite`
@@ -120,9 +126,22 @@ Perfil de contexto y capacidad institucional del gobierno, 1:1 con `tenant`, cap
 | `resultado` | jsonb, nullable | |
 | `created_at`, `updated_at` | timestamptz | |
 
+### `historial_indice_global`
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid, PK | |
+| `tenant_id` | uuid, FK → tenant | RLS |
+| `indice_global` | float | Snapshot recalculado con `calcular_indice_global` (mismos trámites activos que el panel resumen) |
+| `nivel_0_conteo` … `nivel_4_conteo` | integer | Cuántos de esos trámites estaban en cada nivel de la rampa (0-4) en el mismo instante (migración 0017) — alimenta la gráfica apilada, no solo el promedio |
+| `creado_en` | timestamptz | |
+
+Append-only (migración 0015, ampliada por la 0017) — un punto por cada `POST /api/tramites/{id}/diagnostico/enviar` (`app/aplicacion/historial_indice_global.py`), nunca se actualiza ni se borra. Alimenta la gráfica de tendencia apilada del panel resumen (`docs/ux-brief.md`, "2. Panel resumen"); leída por `GET /api/tramites/indice-global/historial`.
+
+Nota de numeración: existen dos migraciones "0016" en el historial de este repo por una colisión real (`0016_tenant_credenciales_llm.py`, credenciales de IA por gobierno, ya en el árbol de trabajo antes de esta tarea, vs. lo que iba a ser esta misma migración) — se resolvió renumerando esta a 0017 con `Revises: 0016` apuntando a la de credenciales. Si algún día ves referencias a "migración 0016" para esta tabla en un comentario viejo, es la distribución por nivel — quedó en 0017.
+
 ## Políticas RLS
 
-Todas las tablas con `tenant_id` (`usuario`, `tramite`, `diagnostico_tramite`, `plan_modernizacion`, `accion_seguimiento`, `job`) llevan la misma policy, mecánica ya fijada en `docs/TRD.md`:
+Todas las tablas con `tenant_id` (`usuario`, `tramite`, `diagnostico_tramite`, `plan_modernizacion`, `accion_seguimiento`, `job`, `historial_indice_global`) llevan la misma policy, mecánica ya fijada en `docs/TRD.md`:
 
 ```sql
 CREATE POLICY tenant_isolation ON <tabla>
@@ -141,7 +160,7 @@ Alembic, una migración por cambio de esquema, nunca migraciones que alteren dat
 
 ## Riesgos abiertos
 
-1. **Un solo rol (`funcionario`)** — el MVP no distingue "funcionario que responde" de "contraparte técnica que administra". Si el piloto revela que se necesita un rol de administración (dar de alta trámites, gestionar usuarios), es una migración aditiva simple (agregar valor al enum + endpoint de administración), no un rediseño.
+1. ~~Un solo rol (`funcionario`)~~ — resuelto en migración 0011: `rol` ahora admite `admin_gobierno` además de `funcionario`, con panel de administración vía HTTP (`app/adaptadores/http/admin_usuarios.py`, `app/adaptadores/http/perfil_usuario.py`) y toda la lógica concentrada en `app/aplicacion/gestion_usuarios.py` (compartida con la CLI de `app/bootstrap_tenant.py`, sin segunda copia).
 2. **`contenido` de `plan_modernizacion` como jsonb, no tablas normalizadas** — se eligió así porque la estructura enriquecida (paso administrativo/técnico/organizacional...) es fiel a la forma del catálogo de reglas (`docs/TRD.md`), que también es semi-estructurado. Si el piloto necesita reportar/filtrar por campo individual de la estructura (ej. "todas las acciones con categoría X"), normalizar en tablas separadas es un cambio de fase 2, no MVP.
 
 ## Documentos relacionados

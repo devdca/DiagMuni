@@ -1,0 +1,17 @@
+# Fase A -- piloto federal, tipo_tramite="transparencia" (solicitud de acceso a
+# la información). Verificado leyendo el texto oficial completo de la Ley
+# General de Transparencia y Acceso a la Información Pública (LGTAIP, "Nueva
+# Ley" DOF 20-03-2025, diputados.gob.mx/LeyesBiblio/pdf/LGTAIP.pdf). Solo
+# México, sin rama `uy`.
+version: "1.0"
+variable: costo_publicado_en_linea
+criterio_deteccion: "costo_publicado_en_linea == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar que el ejercicio del derecho de acceso a la información es gratuito, y el tope de cobro que solo aplica a la reproducción (materiales, envío, certificación)"
+    paso_tecnico: "Sección de costos en el portal de transparencia, aclarando que la solicitud en sí no tiene costo"
+    paso_organizacional: "Capacitar al personal para no cobrar por el ejercicio del derecho, solo por la reproducción cuando proceda"
+    prerrequisitos: []
+    por_que_importa: "La ley es explícita: el acceso es gratuito, y los ajustes razonables para personas con discapacidad nunca tienen costo -- cobrar de más aquí es ilegal, no solo una mala práctica"
+    fuente_normativa: "LGTAIP art. 15 (gratuidad, salvo cobro de reproducción) + art. 143 (tope: materiales + envío + certificación)"
+    categoria_catalogo: "costo_publicado"

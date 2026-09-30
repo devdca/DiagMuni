@@ -8,9 +8,9 @@ en un test contra Ollama real: `local`/phi3 se retiró de la cadena de veredicto
 tras confirmar que no discrimina fidelidad de forma confiable (docs/plan-
 implementacion-e1-bis-capa-ia-local.md sección 9)."""
 
-from app.ia import verificador
-from app.ia.config import obtener_ruta
-from app.ia.verificador import verificar_contenido
+from app.adaptadores.llm import verificador
+from app.adaptadores.llm.config import obtener_ruta
+from app.adaptadores.llm.verificador import verificar_contenido
 
 BRECHA_DETERMINISTA = {
     "variable": "firma_electronica_habilitada",
@@ -47,7 +47,7 @@ def test_sin_economico_narrativa_fiel_aprueba_sin_llamar_llm(monkeypatch):
     """Antes, sin ninguna ruta de verificación disponible, esto rechazaba siempre
     -- el modo llm 100% local quedaba inalcanzable. Ahora la compuerta
     determinista (sin citas/números fabricados) basta por sí sola."""
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: False)
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse sin economico disponible")
@@ -62,7 +62,7 @@ def test_sin_economico_narrativa_con_articulo_inventado_rechaza(monkeypatch):
     """La compuerta determinista rechaza aunque no haya ningún LLM disponible para
     contradecirla -- este es el caso real que motivó todo el rediseño (F9,
     docs/plan-implementacion-e1-bis-capa-ia-local.md sección 9)."""
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: False)
     monkeypatch.setattr(
         verificador.litellm,
         "completion",
@@ -79,8 +79,8 @@ def test_sin_economico_narrativa_con_articulo_inventado_rechaza(monkeypatch):
 def test_con_economico_disponible_la_compuerta_determinista_rechaza_sin_llamar_llm(monkeypatch):
     """Orden estricto: si la compuerta determinista rechaza, ni siquiera se llama
     al LLM -- un "SI" de economico nunca puede rescatar una cita fabricada."""
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse -- la compuerta ya rechazó")
@@ -95,8 +95,8 @@ def test_con_economico_disponible_la_compuerta_determinista_rechaza_sin_llamar_l
 
 
 def test_veredicto_si_aprueba(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
     monkeypatch.setattr(verificador.litellm, "completion", lambda *a, **k: _mock_respuesta("SI"))
 
     contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel a los datos")]}
@@ -107,8 +107,8 @@ def test_veredicto_si_aprueba(monkeypatch):
 
 
 def test_veredicto_no_rechaza(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
     monkeypatch.setattr(verificador.litellm, "completion", lambda *a, **k: _mock_respuesta("NO"))
 
     contenido_llm = {
@@ -124,8 +124,8 @@ def test_veredicto_no_rechaza(monkeypatch):
 
 
 def test_llm_lanza_excepcion_devuelve_false_sin_propagar(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
 
     def _completion_falla(*args, **kwargs):
         raise TimeoutError("simulated timeout")
@@ -140,8 +140,8 @@ def test_llm_lanza_excepcion_devuelve_false_sin_propagar(monkeypatch):
 
 
 def test_respuesta_vacia_devuelve_false(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
     monkeypatch.setattr(verificador.litellm, "completion", lambda *a, **k: _mock_respuesta("   "))
 
     contenido_llm = {"resumen_narrativo": "x", "brechas": [_brecha_llm("narrativa fiel")]}
@@ -150,8 +150,8 @@ def test_respuesta_vacia_devuelve_false(monkeypatch):
 
 def test_respuesta_ambigua_no_reconocida_devuelve_false(monkeypatch):
     # Ni "SI" ni "NO" reconocible -- no se asume aprobado por defecto.
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
     monkeypatch.setattr(
         verificador.litellm, "completion", lambda *a, **k: _mock_respuesta("Sí, parece razonable.")
     )
@@ -169,8 +169,8 @@ def test_veredicto_con_puntuacion_envolvente_aprueba(monkeypatch):
     debe tolerarse. Ninguno de estos casos es un prefix-match: se exige que TODO
     el resto (tras despojar la puntuación envolvente) sea exactamente "SI"/"SÍ"."""
     for respuesta_cruda in ('SI.', '"SÍ"', '**SI**', '  si.  ', "(SI)"):
-        monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-        monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+        monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+        monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
         monkeypatch.setattr(
             verificador.litellm, "completion", lambda *a, **k: _mock_respuesta(respuesta_cruda)
         )
@@ -190,8 +190,8 @@ def test_veredicto_con_apertura_concesiva_no_es_prefix_match_rechaza(monkeypatch
         "SI BIEN LA NARRATIVA ES CLARA, CONTRADICE LA FUENTE NORMATIVA",
         "SI, LA NARRA",
     ):
-        monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-        monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+        monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+        monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
         monkeypatch.setattr(
             verificador.litellm, "completion", lambda *a, **k: _mock_respuesta(respuesta_cruda)
         )
@@ -203,8 +203,8 @@ def test_veredicto_con_apertura_concesiva_no_es_prefix_match_rechaza(monkeypatch
 
 
 def test_cantidad_de_brechas_no_coincide_devuelve_false_sin_llamar(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse ante discrepancia estructural")
@@ -222,8 +222,8 @@ def test_cantidad_de_brechas_no_coincide_devuelve_false_sin_llamar(monkeypatch):
 
 
 def test_variable_sin_contraparte_determinista_devuelve_false(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
     monkeypatch.setattr(verificador.litellm, "completion", lambda *a, **k: _mock_respuesta("SI"))
 
     brecha_otra_variable = {**BRECHA_DETERMINISTA, "variable": "otra_variable_no_existe"}
@@ -235,8 +235,8 @@ def test_variable_sin_contraparte_determinista_devuelve_false(monkeypatch):
 
 
 def test_llm_recibe_model_y_api_key_de_la_ruta_economico(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test-economico")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test-economico")
 
     llamadas = []
 
@@ -263,8 +263,8 @@ def test_llm_recibe_model_y_api_key_de_la_ruta_economico(monkeypatch):
 
 
 def test_sin_brechas_en_ambos_lados_devuelve_true_sin_llamar(monkeypatch):
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
 
     def _completion_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("litellm.completion no debía invocarse sin brechas que auditar")

@@ -31,55 +31,107 @@ export async function crearTramiteYAbrirDiagnostico(page: Page, nombreTramite: s
   await expect(page).toHaveURL(/\/tramites\/.+\/diagnostico/);
 }
 
-export async function completarYEnviarDiagnostico(page: Page, opciones?: { timeoutPlanMs?: number }): Promise<void> {
-  // Cualquier combinación de respuestas es válida para el motor -- basta con
-  // responder las 6, sin importar el valor. "No" a las 5 booleanas + "Ninguno"
-  // para el mecanismo de identidad. `exact: true` + scoping por radiogroup es
-  // obligatorio acá: "Ninguno" contiene "no" como substring, así que
-  // `getByRole("radio", { name: "No" })` sin exact también matchea esa opción.
-  // `.count()` no espera a que React termine de hidratar el cuestionario (es
-  // navegación SPA, no una carga de página) -- sin esta espera devuelve 0 de
-  // inmediato y el loop de abajo nunca se ejecuta.
-  const grupos = page.getByRole("radiogroup");
-  await expect(grupos.first()).toBeVisible();
-  const totalGrupos = await grupos.count();
-  for (let i = 0; i < totalGrupos - 1; i++) {
-    await grupos.nth(i).getByRole("radio", { name: "No", exact: true }).click();
-  }
-  await grupos.last().getByRole("radio", { name: "Ninguno", exact: true }).click();
+// Variables booleanas cuyo criterio de detección dispara con `true` en vez de
+// con `false` (backend/app/dominio/reglas/*.yaml). Para ellas "Sí" es la
+// respuesta que abre brecha y "No" la conforme, al revés que el resto.
+const BOOLEANAS_INVERTIDAS = new Set(["proteccion_datos_incompleta"]);
 
-  await expect(page.getByText("6 de 6 preguntas respondidas")).toBeVisible();
+// `#concurrente-si|no` usa el mismo componente que las preguntas booleanas
+// (CampoBooleanoRadio con idPrefix), pero es contexto opcional del trámite, no
+// una variable del catálogo: no cuenta para "N de N" ni genera brechas.
+const PREFIJOS_NO_CATALOGO = new Set(["concurrente"]);
 
-  const enviar = page.getByRole("button", { name: "Enviar diagnóstico" });
-  await expect(enviar).toBeEnabled();
-  await enviar.click();
-
-  await expect(page).toHaveURL(/\/tramites\/.+\/plan/, { timeout: opciones?.timeoutPlanMs ?? 30_000 });
+/** Nombres de las variables booleanas presentes en el cuestionario, leídos del
+ * DOM. No asume cuántas son ni en qué orden aparecen: el catálogo crece (7 -> 29
+ * variables entre julio y septiembre de 2026) y anclarse a la posición fue
+ * justamente lo que rompió este helper. El contrato estable es el nombre de la
+ * variable, compartido por los YAML del motor, el JSON de `respuestas` y los
+ * `id` del DOM (ver frontend/src/components/ui/campo-booleano-radio.tsx). */
+async function variablesBooleanas(page: Page): Promise<string[]> {
+  const ids = await page.locator('[role="radio"][id$="-si"]').evaluateAll((nodos) =>
+    nodos.map((n) => n.id.replace(/-si$/, "")),
+  );
+  return ids.filter((variable) => !PREFIJOS_NO_CATALOGO.has(variable));
 }
 
-// Variante de una sola brecha, solo para modo-llm.spec.ts -- cada brecha
-// dispara su propia llamada al LLM (generación + verificación); en modo
-// degradado da igual (es instantáneo), pero contra Ollama/phi3 real sin GPU
-// (~76-123s por llamada, docs/TRD.md) cada brecha extra multiplica el tiempo
-// de espera. "Sí"/"No" por pregunta según backend/app/engine/reglas/*.yaml
-// (criterio_deteccion de cada regla) para que solo "firma_electronica" dispare:
-// documentos_digitalizados=Sí, motor_pagos=Sí, firma_electronica_habilitada=No,
-// interoperabilidad=Sí, proteccion_datos_incompleta=No (criterio pide =true
-// para disparar, "No" es la respuesta conforme), mecanismo_identidad="Llave MX".
-export async function completarDiagnosticoConUnaSolaBrechaYEnviar(
-  page: Page,
-  opciones?: { timeoutPlanMs?: number },
-): Promise<void> {
-  const grupos = page.getByRole("radiogroup");
-  await expect(grupos.first()).toBeVisible();
+/** Responde las primeras `cantidad` booleanas con "No", espera a que el
+ * autoguardado por campo las persista y devuelve qué variables respondió.
+ * Sirve para el caso "funcionario interrumpido" de docs/ux-brief.md: capturar
+ * una parte, irse, y encontrar el cuestionario como lo dejó. */
+export async function responderParcialYEsperarAutoguardado(page: Page, cantidad: number): Promise<string[]> {
+  await expect(page.getByRole("radiogroup").first()).toBeVisible();
 
-  const respuestasBooleanas = ["Sí", "Sí", "No", "Sí", "No"] as const;
-  for (const [indice, respuesta] of respuestasBooleanas.entries()) {
-    await grupos.nth(indice).getByRole("radio", { name: respuesta, exact: true }).click();
+  const elegidas = (await variablesBooleanas(page)).slice(0, cantidad);
+  expect(elegidas.length, "el cuestionario no tenía suficientes preguntas booleanas").toBe(cantidad);
+
+  // Igual que en `completarYEnviarDiagnostico`: la promesa se registra antes del
+  // último clic, porque el debounce puede vencer mientras se resuelve el locator.
+  for (const variable of elegidas.slice(0, -1)) {
+    await page.locator(`#${variable}-no`).click();
   }
-  await grupos.last().getByRole("radio", { name: "Llave MX", exact: true }).click();
+  const guardado = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && /\/diagnostico$/.test(new URL(r.url()).pathname),
+  );
+  await page.locator(`#${elegidas[elegidas.length - 1]}-no`).click();
+  await guardado;
 
-  await expect(page.getByText("6 de 6 preguntas respondidas")).toBeVisible();
+  return elegidas;
+}
+
+export async function completarYEnviarDiagnostico(
+  page: Page,
+  opciones?: {
+    /** Variables que deben quedar en estado de brecha. `"todas"` abre brecha en
+     * cada booleana -- útil en modo degradado, donde generar el plan es
+     * instantáneo. Una lista corta es lo que necesita modo-llm.spec.ts: cada
+     * brecha dispara su propia llamada al LLM (generación + verificación) y
+     * contra Ollama/phi3 sin GPU cada una cuesta decenas de segundos. */
+    brechas?: string[] | "todas";
+    mecanismo?: string;
+    timeoutPlanMs?: number;
+  },
+): Promise<void> {
+  // `.count()`/`evaluateAll` no esperan a que React termine de hidratar el
+  // cuestionario (es navegación SPA, no carga de página): sin esta espera la
+  // lista sale vacía y no se responde nada.
+  await expect(page.getByRole("radiogroup").first()).toBeVisible();
+
+  const brechas = opciones?.brechas ?? "todas";
+  const booleanas = await variablesBooleanas(page);
+  expect(booleanas.length, "el cuestionario no expuso ninguna pregunta booleana").toBeGreaterThan(0);
+
+  for (const variable of booleanas) {
+    const abreBrecha = brechas === "todas" || brechas.includes(variable);
+    const invertida = BOOLEANAS_INVERTIDAS.has(variable);
+    await page.locator(`#${variable}-${abreBrecha !== invertida ? "no" : "si"}`).click();
+  }
+
+  // Contexto opcional: no cuenta para el contador, pero se responde para que el
+  // diagnóstico enviado se parezca al de un funcionario real.
+  await page.locator("#volumen-100_1000").click();
+  await page.locator("#concurrente-no").click();
+
+  // El autoguardado por campo hace PUT 1500 ms después del último cambio. Si se
+  // pulsa "Enviar" dentro de esa ventana, el PUT puede llegar después del POST
+  // y devolver el trámite a `en_progreso` mientras el plan se genera (ver
+  // guardar_diagnostico en backend/app/adaptadores/http/diagnosticos.py, que
+  // cambia el estado sin el guard de 409 que sí tiene `enviar`). Esperar el PUT
+  // antes de enviar quita esa carrera del test; cerrarla en el producto es otro
+  // cambio.
+  //
+  // La promesa se registra ANTES del último clic a propósito: el debounce puede
+  // vencer mientras se evalúa el contador, y `waitForResponse` solo ve
+  // respuestas posteriores a su registro.
+  const guardado = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && /\/diagnostico$/.test(new URL(r.url()).pathname),
+  );
+  await page.locator(`#mecanismo-${opciones?.mecanismo ?? "ninguno"}`).click();
+
+  // Sin fijar el total: el contador dice "N de N" y N cambia con el catálogo y
+  // con las variables que excluya el tipo de trámite.
+  await expect(page.getByText(/^(\d+) de \1 preguntas respondidas$/)).toBeVisible();
+
+  await guardado;
 
   const enviar = page.getByRole("button", { name: "Enviar diagnóstico" });
   await expect(enviar).toBeEnabled();

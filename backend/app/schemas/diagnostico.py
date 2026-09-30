@@ -4,18 +4,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-# Fuente de verdad: ETIQUETA_MECANISMO en frontend/src/pages/Diagnostico.tsx
-# (docs/ux-brief.md línea 71) -- "otro, especifique" nunca es un valor guardable
-# per se, es una bandera de UI para que el funcionario elija/confirme uno de estos
-# cuatro antes de habilitar el envío. `respuestas` es un dict genérico (sin tipar
-# campo por campo), así que esta validación vive fuera del modelo de campos fijos
-# de abajo -- ver app/api/diagnosticos.py para dónde se aplica.
+# "otro, especifique" nunca es un valor guardable -- es una bandera de UI hasta
+# que el funcionario confirme uno de estos cuatro.
 MECANISMOS_IDENTIDAD_VALIDOS = frozenset({"llave_mx", "id_uruguay", "propio", "ninguno"})
 
-# H-05 (auditoría de seguridad): nginx ya limita el body a 1MB (H-08), pero un
-# payload de ~900KB en `respuestas` pasaba sin ninguna validación propia de la
-# app -- una respuesta real nunca pesa más que unos pocos KB.
-_RESPUESTAS_TAMANO_MAXIMO_BYTES = 100_000
+_RESPUESTAS_TAMANO_MAXIMO_BYTES = 100_000  # H-05: una respuesta real nunca pesa más que unos KB
 
 
 class _RespuestasConLimite(BaseModel):
@@ -51,3 +44,14 @@ class DiagnosticoOut(BaseModel):
     completado_en: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class SimulacionOut(BaseModel):
+    """Respuesta de POST /api/tramites/{id}/diagnostico/simular -- cálculo del
+    motor determinista (F2) sobre respuestas hipotéticas, sin persistir nada.
+    `indice_actual` es el índice YA guardado del diagnóstico (`None` si nunca se
+    envió); `indice_proyectado` es lo que resultaría de enviar `respuestas` tal
+    como están ahora mismo."""
+
+    indice_actual: int | None
+    indice_proyectado: int

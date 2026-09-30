@@ -251,6 +251,94 @@ Dos notas operativas:
 - Un `Job` de generación de plan que estuviera a medio proceso justo durante el `--force-recreate` se recupera solo vía el watchdog ya existente (`backend/app/jobs/plan_job.py`, hasta `job_umbral_obsoleto_minutos`, 15 minutos por default) — no requiere ninguna intervención manual.
 - El guard de `backend/app/core/config.py` atrapa un `JWT_SECRET` vacío o igual al placeholder de `.env.example`, pero **no** un typo parcial (secreto copiado a medias al pegar). Si tras rotar nadie puede loguearse aunque las credenciales sean correctas, lo primero a revisar es que el valor de `JWT_SECRET` se copió completo.
 
+## Límite de intentos de login
+
+El limitador de intentos (`backend/app/core/rate_limit.py`, compartido entre `/api/gobiernos` y `/api/auth/login`) vive en memoria del proceso `backend` — no en Redis ni en la base de datos. Cada reinicio del contenedor `backend` (`docker compose up -d --force-recreate backend`, un `deploy`, o un crash) resetea el contador para todos los usuarios y todas las IPs.
+
+Aceptable para el volumen de un piloto (pocos gobiernos, tráfico bajo); si el tráfico crece o se necesita resistencia a reinicios frecuentes del backend, migrar a un almacén persistente (Redis o una tabla de Postgres).
+
+## Vigilancia de `/health`
+
+El endpoint `/health` existe desde el día uno (usado por el healthcheck interno de Docker Compose, ver Paso 3), pero hasta ahora nada lo consultaba desde fuera de los contenedores — una caída solo se notaba si alguien la buscaba a mano. `backend/scripts/vigilar_salud.py` hace `GET` periódico contra la URL pública (el puerto 8090 de nginx, no la red interna de Compose) y avisa a un webhook genérico (Slack, Discord, o cualquier endpoint que reciba un POST con `{"text": "..."}`) tras varios chequeos **seguidos** fallando — evita una alerta falsa por un solo hiccup de red. Sin `ALERTA_WEBHOOK_URL`/`--webhook`, sigue registrando cada caída en su propio log, solo sin mandar el aviso — nunca falla por falta de configuración.
+
+Corre fuera de los contenedores (necesita su propio Python + `httpx`, no se copia a ninguna imagen), en la misma máquina donde ya está el stack:
+
+```
+python3 -m venv /opt/diagmuni-vigilancia
+/opt/diagmuni-vigilancia/bin/pip install httpx
+```
+
+**Opción systemd (recomendada si el servidor ya usa systemd, la mayoría de las distros modernas):** un timer que reinicia el servicio solo si el proceso muere, sin depender de que el script maneje su propio reintento de arranque.
+
+`/etc/systemd/system/diagmuni-vigilancia.service`:
+```ini
+[Unit]
+Description=Vigilancia de /health de DiagMuni
+
+[Service]
+Type=simple
+Environment=ALERTA_WEBHOOK_URL=https://hooks.slack.com/services/...
+ExecStart=/opt/diagmuni-vigilancia/bin/python /ruta/al/repo/DiagMuni/backend/scripts/vigilar_salud.py --url http://localhost:8090/health
+Restart=always
+RestartSec=10
+```
+
+```
+sudo systemctl daemon-reload
+sudo systemctl enable --now diagmuni-vigilancia.service
+sudo systemctl status diagmuni-vigilancia.service
+journalctl -u diagmuni-vigilancia.service -f
+```
+
+**Opción cron (más simple si no hay systemd):** el propio script ya corre su loop indefinido con `--intervalo`, así que cron solo necesita asegurarse de que esté vivo, no re-lanzarlo cada vez — un `@reboot` alcanza, con `nohup`/`disown` para que sobreviva al cierre de la sesión que lo lanzó:
+
+```
+@reboot ALERTA_WEBHOOK_URL=https://hooks.slack.com/services/... nohup /opt/diagmuni-vigilancia/bin/python /ruta/al/repo/DiagMuni/backend/scripts/vigilar_salud.py --url http://localhost:8090/health >> /var/log/diagmuni-vigilancia.log 2>&1 &
+```
+
+Con cron, si el proceso muere entre reinicios del servidor nadie lo vuelve a levantar hasta el próximo reboot — systemd (`Restart=always`) no tiene ese hueco, es la opción preferida si está disponible.
+
+## Observabilidad de errores (GlitchTip)
+
+`SENTRY_DSN` (`.env`) activa la captura de errores 5xx/excepciones no manejadas del backend (`backend/app/core/observabilidad.py`) hacia cualquier servidor que hable el protocolo de Sentry — el SDK no sabe ni le importa a quién le manda el evento, solo lee el DSN. El camino recomendado para este proyecto es **GlitchTip autohospedado**, no sentry.io: mismo protocolo, pero 100% open source (MIT) — coherente con el principio de "sin componentes privativos" del README raíz — y los datos de error (que pueden incluir rutas internas, nombres de tenant en el mensaje de una excepción, etc.) se quedan en infraestructura propia en vez de en un SaaS de terceros. Usar sentry.io en su lugar sigue siendo válido para quien lo prefiera (ej. no quiere operar un servicio más) — es un cambio de una sola variable, `SENTRY_DSN`, nada del código cambia.
+
+### Levantar GlitchTip
+
+Detrás de su propio profile (`observabilidad`), igual que Ollama (`ia-local`) — `docker compose up -d` normal **no** lo levanta, así que nadie paga el costo de recursos de una Postgres + Valkey + proceso web extra a menos que lo pida a propósito:
+
+```
+docker compose --profile observabilidad up -d
+```
+
+Primer arranque: descarga la imagen `glitchtip/glitchtip:6` y corre sus propias migraciones internas (puede tardar un minuto). Verificar que responde:
+
+```
+curl http://localhost:8091/_health/
+```
+
+Antes de usarlo en serio, en `.env`:
+- `GLITCHTIP_SECRET_KEY`: generar uno real, mismo comando que `JWT_SECRET` (Paso 2 de este runbook) — el placeholder de `.env.example` no es válido para un uso real.
+- `GLITCHTIP_DOMAIN`: la URL pública real si se va a exponer más allá de `localhost:8091` (ej. detrás de Caddy/nginx con su propio dominio — fuera del alcance de este runbook, GlitchTip no comparte el nginx del producto a propósito, ver el comentario en `docker-compose.yml`).
+- `GLITCHTIP_DEFAULT_FROM_EMAIL`: remitente de los correos que GlitchTip manda (invitaciones, alertas) — sin un `EMAIL_URL` real configurado (variable interna del servicio `glitchtip`, no expuesta todavía en `.env.example`), esos correos solo se imprimen en `docker compose logs glitchtip`, no salen de verdad.
+
+### Primer proyecto y DSN
+
+GlitchTip necesita su propio usuario/organización/proyecto antes de poder emitir un DSN — a diferencia del resto de esta plataforma, esto no lo automatiza ningún script del repo (es la propia app de GlitchTip, no algo que DiagMuni deba scriptear). Con el contenedor `glitchtip` arriba:
+
+1. Crear el primer usuario (superusuario) desde la propia UI en `http://localhost:8091` — con `ENABLE_ORGANIZATION_CREATION` (default de la imagen), la primera cuenta que se registra puede crear una organización.
+2. Dentro de la organización, crear un proyecto (ej. "backend-diagmuni", plataforma "Python").
+3. GlitchTip muestra el DSN del proyecto recién creado (Configuración del proyecto → Client Keys/DSN) — con la forma `http://<clave>@localhost:8091/<id>` en local, o `https://<clave>@tu-dominio/<id>` si `GLITCHTIP_DOMAIN` ya apunta a un dominio real.
+4. Pegar ese valor como `SENTRY_DSN` en `.env` y recrear el backend:
+   ```
+   docker compose up -d --force-recreate backend
+   ```
+
+Verificado de punta a punta en este repo (2026-09-17): con el perfil arriba, un error real generado por el backend con `SENTRY_DSN` apuntando a esa instancia local de GlitchTip aparece como Issue dentro de GlitchTip en segundos.
+
+### Por qué una Postgres separada de la de DiagMuni
+
+El servicio `glitchtip-db` (`docker-compose.yml`) es una instancia de Postgres propia, no la misma que usa `db` (los datos de los gobiernos). Compartir una sola instancia habría acoplado el ciclo de vida de dos productos distintos — una migración interna de GlitchTip corriendo contra la base que RLS protege, un backup/restore que de repente tiene que cuidar dos esquemas no relacionados — a cambio de ahorrarse un contenedor. En un stack ya pensado para un VPS modesto, aislar sale más barato que compartir y tener que desenredarlo después.
+
 ## Despliegue multi-servidor / alta disponibilidad
 
 El `docker-compose.yml` de este repositorio es para una sola máquina — no cubre balanceo de carga ni réplicas de la base de datos. Alcance futuro, no construido.

@@ -1,0 +1,14 @@
+# Fase A -- piloto estatal (LNETB). Verificado leyendo el texto oficial completo.
+# Solo México, sin rama `uy`.
+version: "1.0"
+variable: plazo_respuesta_publicado
+criterio_deteccion: "plazo_respuesta_publicado == false"
+acciones:
+  mx:
+    paso_administrativo: "Definir y publicar en el Portal Ciudadano Único el plazo que tiene el gobierno para resolver este trámite"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una definición administrativa que después se refleja en el portal del trámite"
+    paso_organizacional: "Capacitar al personal en el plazo definido y en el seguimiento de vencimientos"
+    prerrequisitos: []
+    por_que_importa: "La LNETB exige registrar explícitamente el plazo de resolución de cada trámite como parte de su registro obligatorio -- sin esto, el ciudadano no tiene certeza de cuándo esperar respuesta"
+    fuente_normativa: "LNETB art. 54, fracc. IX (plazo de resolución) -- marco general, aplicable a las 32 entidades por igual"
+    categoria_catalogo: "plazo_respuesta"

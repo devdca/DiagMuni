@@ -22,12 +22,20 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import select, text
 
+from app.adaptadores.llm import generador_plan, verificador
+from app.aplicacion import plan_job
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
-from app.engine.plantillas import generar_contenido_degradado
-from app.ia import generador_plan, verificador
-from app.jobs import plan_job
+from app.dominio.plantillas import generar_contenido_degradado
 from app.models import AccionSeguimiento, DiagnosticoTramite, Job, PlanModernizacion, Tenant, Tramite
+
+
+@pytest.fixture(autouse=True)
+def _sin_estimacion_recursos(monkeypatch):
+    # Ninguno de estos tests ejercita app/ia/estimacion_recursos.py -- fijarlo en
+    # None evita que dependan de env vars reales de proveedor LLM en este proceso.
+    monkeypatch.setattr(plan_job, "generar_estimacion_recursos", lambda *a, **k: None)
+
 
 RESPUESTAS_CON_BRECHAS = {
     "documentos_digitalizados": False,
@@ -44,8 +52,8 @@ def _mock_respuesta(texto: str) -> dict:
 
 
 def _mockear_generacion_exitosa(monkeypatch, narrativa: str = "prosa redactada por el mock de Claude") -> None:
-    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta, **_kw: "sk-test-calidad")
     monkeypatch.setattr(generador_plan.litellm, "completion", lambda *a, **k: _mock_respuesta(narrativa))
 
 
@@ -56,8 +64,9 @@ def _mockear_ruta_llm_disponible(monkeypatch) -> None:
     monkeypateado, no la resolución real de proveedor. `plan_job` y `generador_plan`
     importan `obtener_rutas_generacion` cada uno por su cuenta (dos nombres de
     módulo distintos) -- hay que fijar ambas copias, no una sola."""
-    monkeypatch.setattr(plan_job, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"])
-    monkeypatch.setattr(generador_plan, "obtener_rutas_generacion", lambda: ["calidad", "calidad_respaldo", "local"])
+    rutas = ["calidad", "calidad_respaldo", "local"]
+    monkeypatch.setattr(plan_job, "obtener_rutas_generacion", lambda **_kw: rutas)
+    monkeypatch.setattr(generador_plan, "obtener_rutas_generacion", lambda **_kw: rutas)
 
 
 def _mockear_completion_combinado(monkeypatch, narrativa: str, veredicto: str) -> None:
@@ -79,7 +88,7 @@ def _mockear_completion_combinado(monkeypatch, narrativa: str, veredicto: str) -
 
 
 def test_calidad_no_disponible_va_directo_a_degradado_sin_llamar_verificador(monkeypatch):
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: False)
 
     def _verificar_no_debe_llamarse(*args, **kwargs):
         raise AssertionError("verificar_contenido no debía invocarse sin ruta 'calidad' disponible")
@@ -95,19 +104,35 @@ def test_calidad_no_disponible_va_directo_a_degradado_sin_llamar_verificador(mon
 
     assert modo == "degradado"
     assert verificado is True
-    assert contenido == generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    # sugerencia_libre: None porque esta llamada no pasa `descripcion` (default "").
+    contenido_base = generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    esperado = plan_job._con_resumen(contenido_base, RESPUESTAS_CON_BRECHAS, "mx")
+    assert contenido == {**esperado, "sugerencia_libre": None, "estimacion_recursos": None}
+
+
+def test_generar_contenido_y_modo_agrega_brecha_propia_del_tipo_de_tramite(monkeypatch):
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: False)
+
+    respuestas = {**RESPUESTAS_CON_BRECHAS, "verificacion_duplicados_automatica": False}
+    modo, contenido, verificado = plan_job._generar_contenido_y_modo(respuestas, "mx", "registro_civil")
+
+    assert modo == "degradado"
+    assert verificado is True
+    variables = {b["variable"] for b in contenido["brechas"]}
+    assert "verificacion_duplicados_automatica" in variables
+    assert f"{len(contenido['brechas'])} brecha(s)" in contenido["resumen_narrativo"]
 
 
 # --- (b) verificación exitosa -> modo llm, verificado=True ----------------------
 
 
 def test_verificacion_exitosa_persiste_modo_llm(monkeypatch):
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: True)
     _mockear_ruta_llm_disponible(monkeypatch)
-    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test-economico")
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta, **_kw: "sk-test-calidad")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test-economico")
     _mockear_completion_combinado(
         monkeypatch, narrativa="prosa redactada por el mock de Claude", veredicto="SI"
     )
@@ -125,12 +150,12 @@ def test_verificacion_exitosa_persiste_modo_llm(monkeypatch):
 
 
 def test_verificacion_fallida_cae_a_degradado(monkeypatch):
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: True)
     _mockear_ruta_llm_disponible(monkeypatch)
-    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test-economico")
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta, **_kw: "sk-test-calidad")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test-economico")
     _mockear_completion_combinado(
         monkeypatch, narrativa="prosa redactada por el mock de Claude", veredicto="NO"
     )
@@ -139,7 +164,10 @@ def test_verificacion_fallida_cae_a_degradado(monkeypatch):
 
     assert modo == "degradado"
     assert verificado is True
-    assert contenido == generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    # sugerencia_libre: None porque esta llamada no pasa `descripcion` (default "").
+    contenido_base = generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    esperado = plan_job._con_resumen(contenido_base, RESPUESTAS_CON_BRECHAS, "mx")
+    assert contenido == {**esperado, "sugerencia_libre": None, "estimacion_recursos": None}
 
 
 # --- (d) verificador sin "economico" (sin key), contenido fiel -> modo llm igual ---
@@ -152,11 +180,11 @@ def test_verificacion_fallida_cae_a_degradado(monkeypatch):
 
 
 def test_verificador_sin_economico_contenido_fiel_persiste_modo_llm(monkeypatch):
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: True)
     _mockear_ruta_llm_disponible(monkeypatch)
     _mockear_generacion_exitosa(monkeypatch)
 
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: False)
 
     llamadas_auditoria = []
 
@@ -181,7 +209,7 @@ def test_verificador_sin_economico_contenido_con_cita_inventada_cae_a_degradado(
     """Misma ausencia de `economico` que el test anterior, pero la narrativa
     generada trae una cita fabricada -- la compuerta determinista rechaza sin
     necesitar ningún LLM disponible para contradecirla."""
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: True)
     _mockear_ruta_llm_disponible(monkeypatch)
     narrativa_con_cita_inventada = (
         "Este trámite debe completarse conforme al Artículo 999 de la Ley Federal "
@@ -189,7 +217,7 @@ def test_verificador_sin_economico_contenido_con_cita_inventada_cae_a_degradado(
     )
     _mockear_generacion_exitosa(monkeypatch, narrativa=narrativa_con_cita_inventada)
 
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: False)
 
     def _completion_no_debe_auditar(*args, **kwargs):
         prompt = kwargs["messages"][0]["content"]
@@ -203,19 +231,22 @@ def test_verificador_sin_economico_contenido_con_cita_inventada_cae_a_degradado(
 
     assert modo == "degradado"
     assert verificado is True
-    assert contenido == generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    # sugerencia_libre: None porque esta llamada no pasa `descripcion` (default "").
+    contenido_base = generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    esperado = plan_job._con_resumen(contenido_base, RESPUESTAS_CON_BRECHAS, "mx")
+    assert contenido == {**esperado, "sugerencia_libre": None, "estimacion_recursos": None}
 
 
 # --- (e) el verificador lanza una excepción (timeout/red) -> degradado, verificado=True ---
 
 
 def test_verificador_lanza_excepcion_cae_a_degradado(monkeypatch):
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: True)
     _mockear_ruta_llm_disponible(monkeypatch)
-    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test-calidad")
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test-economico")
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta, **_kw: "sk-test-calidad")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test-economico")
 
     def _completion(*args, **kwargs):
         prompt = kwargs["messages"][0]["content"]
@@ -229,7 +260,10 @@ def test_verificador_lanza_excepcion_cae_a_degradado(monkeypatch):
 
     assert modo == "degradado"
     assert verificado is True
-    assert contenido == generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    # sugerencia_libre: None porque esta llamada no pasa `descripcion` (default "").
+    contenido_base = generar_contenido_degradado(RESPUESTAS_CON_BRECHAS, "mx")
+    esperado = plan_job._con_resumen(contenido_base, RESPUESTAS_CON_BRECHAS, "mx")
+    assert contenido == {**esperado, "sugerencia_libre": None, "estimacion_recursos": None}
 
 
 # --- (f) nunca se produce verificado=False en ningún camino ---------------------
@@ -239,16 +273,16 @@ def test_verificado_nunca_es_false(monkeypatch):
     escenarios = []
 
     # calidad no disponible
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: False)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: False)
     escenarios.append(plan_job._generar_contenido_y_modo(RESPUESTAS_CON_BRECHAS, "mx"))
 
     # calidad disponible, verificador aprueba
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta: True)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda ruta, **_kw: True)
     _mockear_ruta_llm_disponible(monkeypatch)
-    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta: "sk-test")
-    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta: True)
-    monkeypatch.setattr(verificador, "api_key_de", lambda ruta: "sk-test")
+    monkeypatch.setattr(generador_plan, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(generador_plan, "api_key_de", lambda ruta, **_kw: "sk-test")
+    monkeypatch.setattr(verificador, "esta_disponible", lambda ruta, **_kw: True)
+    monkeypatch.setattr(verificador, "api_key_de", lambda ruta, **_kw: "sk-test")
     _mockear_completion_combinado(monkeypatch, narrativa="prosa mock", veredicto="SI")
     escenarios.append(plan_job._generar_contenido_y_modo(RESPUESTAS_CON_BRECHAS, "mx"))
 
@@ -331,7 +365,7 @@ class _SesionEspia:
     """Sesión mínima que registra `commit` -- extendida (sin cambiar el uso existente
     en los tests de `revisar_job_obsoleto` de este archivo, que solo pasan `orden`)
     para registrar `.add()` y admitir `.get()`/`.execute()`/`.flush()`/`.close()` como
-    no-op o devolviendo los objetos de prueba fijados en el constructor -- suficiente
+    sin hacer nada, o devolviendo los objetos de prueba fijados en el constructor -- suficiente
     para ejercitar `_persistir_plan_degradado` y `ejecutar_generacion_plan` completos
     sin ninguna infraestructura de Postgres real."""
 
@@ -466,7 +500,9 @@ def test_revisar_job_obsoleto_running_obsoleto_con_reintento_disponible_refija_c
 
 
 def _tramite_de_prueba(tramite_id: UUID, tenant_id: UUID) -> Tramite:
-    return Tramite(id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan")
+    return Tramite(
+        id=tramite_id, tenant_id=tenant_id, nombre="Trámite de prueba", estado="generando_plan", tipo="generico"
+    )
 
 
 def _diagnostico_de_prueba(diagnostico_id: UUID, tenant_id: UUID, tramite_id: UUID) -> DiagnosticoTramite:
@@ -476,7 +512,7 @@ def _diagnostico_de_prueba(diagnostico_id: UUID, tenant_id: UUID, tramite_id: UU
 
 
 def _tenant_de_prueba(tenant_id: UUID) -> Tenant:
-    return Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx")
+    return Tenant(id=tenant_id, nombre="Gobierno de prueba", clave="demo", pais="mx", nivel_gobierno="municipal")
 
 
 def _verificar_acciones_creadas_una_por_brecha(db: _SesionEspia, tenant_id: UUID) -> None:
@@ -535,7 +571,7 @@ def test_ejecutar_generacion_plan_camino_feliz_crea_una_accion_por_brecha(monkey
     monkeypatch.setattr(plan_job, "fijar_contexto_tenant", lambda _db, _tenant_id: None)
     # Fuerza el camino degradado -- ya cubierto por `_generar_contenido_y_modo` en
     # los tests de arriba; acá solo interesa la creación de `AccionSeguimiento`.
-    monkeypatch.setattr(plan_job, "esta_disponible", lambda _ruta: False)
+    monkeypatch.setattr(plan_job, "esta_disponible", lambda _ruta, **_kw: False)
 
     plan_job.ejecutar_generacion_plan(job_id, tenant_id, diagnostico_id)
 

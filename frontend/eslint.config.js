@@ -42,4 +42,15 @@ export default tseslint.config(
       globals: globals.node,
     },
   },
+  {
+    // Worker del preview de PR: corre en el runtime de Cloudflare, no en el
+    // navegador ni en Node -- sus globales son los de la plataforma web
+    // (fetch, Request, Response, URL).
+    files: ["worker/**/*.ts"],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.browser,
+    },
+  },
 );

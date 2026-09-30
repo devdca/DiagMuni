@@ -10,9 +10,8 @@ from app.core.config import settings
 
 _hasher = PasswordHasher()
 
-# Claims registrados fijos de emisor/audiencia -- no son secretos, son una defensa
-# adicional contra tokens de otro contexto/servicio firmados por error con el mismo
-# secreto (ver decode_access_token: se exigen y se validan, nunca se aceptan tácitos).
+# Claims fijos de emisor/audiencia -- defensa extra contra tokens de otro
+# servicio firmados por error con el mismo secreto.
 _JWT_ISSUER = "diagmuni-backend"
 _JWT_AUDIENCE = "diagmuni-api"
 
@@ -24,10 +23,9 @@ _TAMANO_BLOQUE_PASSWORD_LEGIBLE = 4
 
 
 def generar_password_legible() -> str:
-    """Contraseña aleatoria de arranque -- 16 caracteres del alfabeto de 55 símbolos
-    de arriba (~92.5 bits de entropía), agrupada en bloques de 4 separados por guion
-    para poder dictarla por teléfono o transcribirla sin ambigüedad. Los guiones son
-    parte literal de la contraseña, no un separador a limpiar antes de usarla."""
+    """16 caracteres del alfabeto de 55 símbolos (~92.5 bits), en bloques de 4
+    separados por guion para dictar por teléfono. Los guiones son parte
+    literal de la contraseña."""
     caracteres = [secrets.choice(_ALFABETO_PASSWORD_LEGIBLE) for _ in range(_LONGITUD_PASSWORD_LEGIBLE)]
     bloques = [
         "".join(caracteres[i : i + _TAMANO_BLOQUE_PASSWORD_LEGIBLE])
@@ -47,17 +45,18 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(usuario_id: UUID, tenant_id: UUID, rol: str, nombre_gobierno: str, pais: str) -> str:
-    # `pais` viaja en el JWT solo para que el frontend sepa qué mostrar (ej. qué
-    # opciones de mecanismo_identidad ofrecer) -- ningún endpoint puede usar este
-    # claim para decidir nada de seguridad: `pais` se vuelve a resolver siempre
-    # desde `Tenant` en el servidor (ver app/api/asistente_captura.py).
+def create_access_token(
+    usuario_id: UUID, tenant_id: UUID, rol: str, nombre_gobierno: str, pais: str, nivel_gobierno: str
+) -> str:
+    # pais/nivel_gobierno viajan en el JWT solo para la UI -- nunca se usan para
+    # decidir seguridad, siempre se resuelven de nuevo desde Tenant.
     expire = datetime.now(UTC) + timedelta(hours=settings.jwt_expire_hours)
     payload = {
         "sub": str(usuario_id),
         "tenant_id": str(tenant_id),
         "nombre_gobierno": nombre_gobierno,
         "pais": pais,
+        "nivel_gobierno": nivel_gobierno,
         "rol": rol,
         "iss": _JWT_ISSUER,
         "aud": _JWT_AUDIENCE,
@@ -67,13 +66,9 @@ def create_access_token(usuario_id: UUID, tenant_id: UUID, rol: str, nombre_gobi
 
 
 def decode_access_token(token: str) -> dict:
-    # `algorithms=["HS256"]` (una sola opción, nunca una lista con variantes
-    # asimétricas) ya cierra por diseño la clase de bug de confusión de algoritmo
-    # HMAC/JWK de CVE-2026-48526: este verificador nunca acepta RS/ES ni carga
-    # material JWK, así que no hay clave pública que un atacante pueda reusar como
-    # secreto HMAC. `issuer`/`audience` explícitos + `require` de los claims
-    # registrados hace que un token sin esos campos (o de otro emisor/audiencia)
-    # se rechace antes de llegar a app/api/deps.py, en vez de confiarse implícito.
+    # algorithms=["HS256"] fijo cierra la confusión de algoritmo de CVE-2026-48526
+    # (nunca acepta RS/ES). issuer/audience + require rechazan un token sin esos
+    # claims antes de llegar a deps.py.
     return jwt.decode(
         token,
         settings.jwt_secret,

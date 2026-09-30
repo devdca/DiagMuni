@@ -23,6 +23,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # Logos de gobierno (app/adaptadores/almacenamiento/logo_storage.py) -- sin
+      # esto, un `docker compose up -d --build`/`--force-recreate backend` (ver
+      # docs/runbook-despliegue.md) recrea el contenedor con un filesystem nuevo y
+      # se pierden todos los logos ya subidos, igual que pasaría con la base de
+      # datos sin `diagmuni_db_data` abajo.
+      - diagmuni_logos_data:/app/data/logos
     expose:
       - "8000"
     healthcheck:
@@ -35,6 +42,12 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+      # VITE_SENTRY_DSN (.env.example): pasa al build arg del mismo nombre en
+      # nginx/Dockerfile, que a su vez lo expone como variable de build de Vite
+      # al compilar el frontend -- default vacío, sin esta variable en `.env`
+      # el build no cambia respecto a hoy.
+      args:
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     ports:
       - "8090:80"
     depends_on:
@@ -66,6 +79,78 @@ services:
       timeout: 5s
       retries: 5
 
+  # Captura de errores 5xx del backend (SENTRY_DSN, backend/app/core/observabilidad.py)
+  # sin depender de un SaaS privativo -- GlitchTip es un fork/reimplementación open
+  # source (MIT) del Sentry pre-propietario, habla el mismo protocolo, así que el SDK
+  # ya integrado no cambia en absoluto: solo el DSN pasa a apuntar acá en vez de a
+  # sentry.io (ver docs/runbook-despliegue.md, "Observabilidad de errores (GlitchTip)",
+  # para cómo generar ese DSN una vez que el perfil está arriba).
+  #
+  # Detrás de su propio profile, mismo criterio que `ollama` arriba: sin
+  # `--profile observabilidad`, `docker compose up -d` no lo levanta -- GlitchTip
+  # exige su propia Postgres + Valkey (Redis-compatible) + proceso web, un salto de
+  # recursos real frente al piso de 2 vCPU/2 GB ya documentado para quien no lo activa.
+  # `backend` nunca depende de este perfil -- SENTRY_DSN vacío ya degrada sin romper
+  # nada (ver Settings.sentry_dsn), igual que OLLAMA_API_BASE con `ollama` arriba.
+  #
+  # Postgres PROPIA, separada de `db` (la de DiagMuni) -- decisión, no descuido: un
+  # esquema de GlitchTip viviendo en la misma instancia que los datos de los
+  # gobiernos acoplaría el ciclo de vida de los dos productos (una migración de
+  # GlitchTip corriendo contra la misma base que RLS protege, un backup/restore que
+  # ahora tiene que cuidar dos esquemas no relacionados) a cambio de ahorrarse un
+  # contenedor -- en un stack ya pensado para un VPS modesto, aislar es más barato
+  # que compartir sale caro después.
+  #
+  # Imagen y variables verificadas contra el compose de producción oficial
+  # (glitchtip.com/documentation/install, `compose.sample.yml`) -- `SERVER_ROLE:
+  # all_in_one` es lo que le permite a un solo contenedor `web` servir HTTP y
+  # procesar el ingreso de errores sin un worker/Celery aparte (arquitectura
+  # simplificada de GlitchTip 6, no la de versiones viejas basadas en Celery).
+  glitchtip-db:
+    image: postgres:18
+    profiles: ["observabilidad"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+    volumes:
+      - diagmuni_glitchtip_db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  glitchtip-valkey:
+    image: valkey/valkey:9
+    profiles: ["observabilidad"]
+
+  glitchtip:
+    image: glitchtip/glitchtip:6
+    profiles: ["observabilidad"]
+    restart: unless-stopped
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      glitchtip-valkey:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@glitchtip-db:5432/postgres
+      VALKEY_URL: redis://glitchtip-valkey:6379
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-cambia-esto-por-un-secreto-real-y-largo}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://localhost:8091}
+      DEFAULT_FROM_EMAIL: ${GLITCHTIP_DEFAULT_FROM_EMAIL:-glitchtip@localhost}
+      EMAIL_URL: consolemail://
+      SERVER_ROLE: all_in_one
+    ports:
+      # Directo al host, sin pasar por el nginx del producto (8090) -- es una
+      # herramienta de operación para el equipo de DiagMuni, no algo que un
+      # gobierno o ciudadano deba poder alcanzar.
+      - "8091:8000"
+    volumes:
+      - diagmuni_glitchtip_uploads:/code/uploads
+
 volumes:
   diagmuni_db_data:
   diagmuni_ollama_data:
+  diagmuni_logos_data:
+  diagmuni_glitchtip_db_data:
+  diagmuni_glitchtip_uploads:

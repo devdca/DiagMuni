@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import { completarDiagnosticoConUnaSolaBrechaYEnviar, crearTramiteYAbrirDiagnostico, iniciarSesion } from "./flujo";
+import { completarYEnviarDiagnostico, crearTramiteYAbrirDiagnostico } from "./flujo";
 
 // Margen sobre los 76-123s medidos contra phi3 sin GPU (docs/TRD.md) para UNA
-// sola llamada -- el diagnóstico de este test dispara una sola brecha a
-// propósito (completarDiagnosticoConUnaSolaBrechaYEnviar) para necesitar solo
-// una generación + una verificación, no 4-5 -- con varias brechas el tiempo
-// se multiplica y ni este margen alcanza (falló así en la primera corrida real).
+// sola llamada -- el diagnóstico de este test abre una sola brecha a propósito
+// (`brechas: [...]`) para necesitar solo una generación + una verificación, no
+// 4-5 -- con varias brechas el tiempo se multiplica y ni este margen alcanza
+// (falló así en la primera corrida real).
 const TIMEOUT_PLAN_LLM_MS = 300_000;
 
 async function ollamaConPhi3Disponible(): Promise<boolean> {
@@ -38,9 +38,13 @@ test("plan generado en modo llm no muestra el aviso de modo degradado", async ({
 
   const nombreTramite = `Licencia de funcionamiento E2E modo-llm ${Date.now()}`;
 
-  await iniciarSesion(page);
+  await page.goto("/");
   await crearTramiteYAbrirDiagnostico(page, nombreTramite);
-  await completarDiagnosticoConUnaSolaBrechaYEnviar(page, { timeoutPlanMs: TIMEOUT_PLAN_LLM_MS });
+  await completarYEnviarDiagnostico(page, {
+    brechas: ["firma_electronica_habilitada"],
+    mecanismo: "llave_mx",
+    timeoutPlanMs: TIMEOUT_PLAN_LLM_MS,
+  });
 
   await expect(page.getByText("Plan de modernización")).toBeVisible();
   // Único indicador que expone Plan.tsx (`data.modo === "degradado"`) -- su

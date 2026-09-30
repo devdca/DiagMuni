@@ -21,8 +21,8 @@ import pytest
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import select, text
 
-from app.api.deps import TokenData
-from app.api.diagnosticos import enviar_diagnostico, guardar_diagnostico
+from app.adaptadores.http.deps import TokenData
+from app.adaptadores.http.diagnosticos import enviar_diagnostico, guardar_diagnostico
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.models import DiagnosticoTramite, Job, Tenant, Tramite
@@ -43,6 +43,55 @@ def _postgres_real_disponible() -> bool:
         return False
     db.close()
     return True
+
+
+@pytest.mark.skipif(
+    not _postgres_real_disponible(),
+    reason="Requiere Postgres real alcanzable con el DATABASE_URL configurado (docker compose up db)",
+)
+def test_guardar_diagnostico_no_revierte_el_estado_mientras_se_genera_el_plan_contra_postgres_real():
+    """Contracara del test de abajo: volver a `en_progreso` es correcto desde
+    `plan_listo` (editar después), pero no mientras el job corre. El autoguardado
+    por campo dispara 1500 ms después del último cambio, así que un PUT en vuelo
+    cuando el funcionario pulsa "Enviar" llega después del POST."""
+    tenant_id = uuid4()
+    db = abrir_sesion_tenant(tenant_id)
+    try:
+        db.add(
+            Tenant(
+                id=tenant_id,
+                nombre="Tenant carrera autoguardado",
+                clave=f"prueba-carrera-{tenant_id}",
+                pais="mx",
+            )
+        )
+        db.flush()
+
+        tramite = Tramite(tenant_id=tenant_id, nombre="Trámite generando plan", estado="generando_plan")
+        db.add(tramite)
+        db.commit()
+        fijar_contexto_tenant(db, tenant_id)
+
+        token = TokenData(usuario_id=uuid4(), tenant_id=tenant_id, rol="funcionario")
+        resultado = guardar_diagnostico(tramite.id, DiagnosticoGuardar(respuestas={"algo": "tardio"}), token, db)
+
+        fijar_contexto_tenant(db, tenant_id)
+        db.refresh(tramite)
+        # Las respuestas sí se guardan; lo que no se toca es la máquina de estados.
+        assert tramite.estado == "generando_plan"
+        assert resultado.respuestas == {"algo": "tardio"}
+    finally:
+        try:
+            db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
 
 @pytest.mark.skipif(
@@ -76,6 +125,9 @@ def test_guardar_diagnostico_regresa_a_en_progreso_desde_plan_listo_contra_postg
     finally:
         try:
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -145,6 +197,9 @@ def test_enviar_diagnostico_no_revienta_rls_tras_commit_contra_postgres_real(cap
         try:
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -224,6 +279,9 @@ def test_enviar_diagnostico_repetido_con_job_pendiente_rechaza_con_409_sin_perde
         try:
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -290,6 +348,9 @@ def test_enviar_diagnostico_con_job_pending_obsoleto_lo_redispara_contra_postgre
         try:
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -308,7 +369,7 @@ def test_enviar_diagnostico_excede_cooldown_responde_429_contra_postgres_real():
     """Auditoría de seguridad H-11 (segunda mitad): el chequeo de job vigente no
     protege una vez que el job anterior ya terminó -- este cooldown acota cuántas
     generaciones nuevas puede disparar el mismo usuario en la ventana."""
-    from app.api import diagnosticos as diagnosticos_api
+    from app.adaptadores.http import diagnosticos as diagnosticos_api
 
     tenant_id = uuid4()
     db = abrir_sesion_tenant(tenant_id)
@@ -348,6 +409,9 @@ def test_enviar_diagnostico_excede_cooldown_responde_429_contra_postgres_real():
         try:
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -369,7 +433,7 @@ def test_enviar_diagnostico_de_varios_tramites_distintos_no_choca_con_el_cooldow
     de su municipio (decenas, cada uno un envío legítimo) topaba con un 429 al
     sexto trámite distinto. Se envían más trámites que `INTENTOS_MAXIMOS_POR_TRAMITE`
     para que la regresión reaparezca si la llave vuelve a ser solo el usuario."""
-    from app.api import diagnosticos as diagnosticos_api
+    from app.adaptadores.http import diagnosticos as diagnosticos_api
 
     cantidad = diagnosticos_api.INTENTOS_MAXIMOS_POR_TRAMITE + 3
     tenant_id = uuid4()
@@ -411,6 +475,9 @@ def test_enviar_diagnostico_de_varios_tramites_distintos_no_choca_con_el_cooldow
             db.execute(text("DELETE FROM plan_modernizacion WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            # historial_indice_global (migración 0015): enviar_diagnostico le escribe un
+            # punto en cada envío -- sin este DELETE, el de abajo revienta por FK.
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()
@@ -430,7 +497,7 @@ def test_enviar_diagnostico_respeta_el_techo_por_usuario(monkeypatch):
     trámites distintos dispararía una generación por cada uno. El techo por
     usuario existe para eso. Se monkeypatchea a 2 para no tener que hacer
     `INTENTOS_MAXIMOS_POR_USUARIO` envíos reales contra Postgres."""
-    from app.api import diagnosticos as diagnosticos_api
+    from app.adaptadores.http import diagnosticos as diagnosticos_api
     from app.core.rate_limit import LimitadorVentanaDeslizante
 
     monkeypatch.setattr(
@@ -479,6 +546,7 @@ def test_enviar_diagnostico_respeta_el_techo_por_usuario(monkeypatch):
             db.execute(text("DELETE FROM plan_modernizacion WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM job WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM diagnostico_tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            db.execute(text("DELETE FROM historial_indice_global WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tramite WHERE tenant_id = :t"), {"t": str(tenant_id)})
             db.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": str(tenant_id)})
             db.commit()

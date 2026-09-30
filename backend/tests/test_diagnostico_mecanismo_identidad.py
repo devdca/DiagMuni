@@ -18,8 +18,8 @@ import pytest
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import text
 
-from app.api.deps import TokenData
-from app.api.diagnosticos import _validar_mecanismo_identidad, enviar_diagnostico, guardar_diagnostico
+from app.adaptadores.http.deps import TokenData
+from app.adaptadores.http.diagnosticos import _validar_mecanismo_identidad, enviar_diagnostico, guardar_diagnostico
 from app.core.config import settings
 from app.db.rls import abrir_sesion_tenant, fijar_contexto_tenant
 from app.models import Tenant, Tramite

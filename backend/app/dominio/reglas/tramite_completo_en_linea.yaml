@@ -1,0 +1,22 @@
+# Distinta de documentos_digitalizados: aquí se evalúa el trámite completo de
+# principio a fin (incluida la entrega del resultado), no solo el expediente.
+version: "1.0"
+variable: tramite_completo_en_linea
+criterio_deteccion: "tramite_completo_en_linea == false"
+acciones:
+  mx:
+    paso_administrativo: "Rediseñar el flujo del trámite para que se pueda iniciar y concluir 100% en línea, incluyendo la entrega digital del resultado (constancia, permiso o resolución)"
+    paso_tecnico: "Portal transaccional de principio a fin (captura, pago si aplica, firma, entrega del documento final) -- categoría, no marca"
+    paso_organizacional: "Capacitar al personal para operar el trámite sin requerir que el ciudadano acuda en persona en ningún paso"
+    prerrequisitos: ["Documentos digitalizados", "Firma electrónica habilitada si el trámite la requiere"]
+    por_que_importa: "Bloquea de fondo la transaccionalidad completa del trámite -- de nada sirve digitalizar partes si el ciudadano igual tiene que acudir en persona en algún punto"
+    fuente_normativa: "LNETB art. 16 (digitalización de trámites)"
+    categoria_catalogo: "portal_transaccional_completo"
+  uy:
+    paso_administrativo: "Rediseñar el flujo del trámite para que se pueda iniciar y concluir 100% en línea, incluyendo la entrega digital del resultado"
+    paso_tecnico: "Portal transaccional de principio a fin -- categoría, no marca"
+    paso_organizacional: "Capacitar al personal para operar el trámite sin requerir presencia física del ciudadano"
+    prerrequisitos: ["Documentos digitalizados", "Firma electrónica habilitada si el trámite la requiere"]
+    por_que_importa: "Mismo criterio que la rama mx -- transaccionalidad completa"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- alineado al principio de trámites en línea de Agesic, revisar"
+    categoria_catalogo: "portal_transaccional_completo"

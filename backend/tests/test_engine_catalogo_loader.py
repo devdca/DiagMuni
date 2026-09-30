@@ -1,4 +1,4 @@
-from app.engine.catalogo_loader import cargar_catalogo_oss, componente_recomendado_para
+from app.dominio.catalogo_loader import cargar_catalogo_oss, componente_recomendado_para
 
 CATEGORIAS_ESPERADAS = {
     "modulo_cifrado_datos",

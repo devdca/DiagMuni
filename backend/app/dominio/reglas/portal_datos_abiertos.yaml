@@ -1,0 +1,22 @@
+# entregables/fase-2/variables-contexto-institucional.md (variable agregada) --
+# transversal, no gatilla un nivel del índice de ningún trámite.
+version: "1.0"
+variable: portal_datos_abiertos_existe
+criterio_deteccion: "portal_datos_abiertos_existe == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar un portal de datos abiertos del gobierno, conforme a los lineamientos de datos abiertos y gobierno abierto"
+    paso_tecnico: "Portal de datos abiertos (catálogo descargable en formatos abiertos, ej. CSV/JSON) -- categoría, no marca"
+    paso_organizacional: "Designar responsable de mantener actualizado el catálogo de conjuntos de datos publicados"
+    prerrequisitos: ["Inventariar qué conjuntos de datos del gobierno son públicos y reutilizables"]
+    por_que_importa: "Transversal a todos los trámites -- la LGTAIP establece datos abiertos y gobierno abierto como obligación general, aunque delega el detalle de implementación a lineamientos estatales (no se verificó una obligación municipal específica y exigible por sí sola)"
+    fuente_normativa: "LGTAIP, principio general de datos abiertos y gobierno abierto -- sin lineamiento municipal específico verificado, revisar contra la normativa estatal de la entidad correspondiente"
+    categoria_catalogo: "datos_abiertos"
+  uy:
+    paso_administrativo: "Publicar un portal de datos abiertos de la intendencia, alineado al catálogo nacional de datos abiertos de Uruguay (datos.gub.uy, operado por Agesic)"
+    paso_tecnico: "Portal de datos abiertos (catálogo descargable en formatos abiertos) -- categoría, no marca"
+    paso_organizacional: "Designar responsable de mantener actualizado el catálogo de conjuntos de datos publicados"
+    prerrequisitos: ["Inventariar qué conjuntos de datos de la intendencia son públicos y reutilizables"]
+    por_que_importa: "Transversal a todos los trámites -- Uruguay ya opera un catálogo nacional de datos abiertos centralizado; publicar en él (o enlazar desde él) es la vía de menor esfuerzo, no requiere infraestructura propia"
+    fuente_normativa: "Catálogo Nacional de Datos Abiertos (datos.gub.uy, Agesic) -- sin obligación legal específica verificada para intendencias, revisar"
+    categoria_catalogo: "datos_abiertos"

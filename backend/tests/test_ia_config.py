@@ -4,15 +4,18 @@ controlada."""
 
 import pytest
 
-from app.core.config import Settings
-from app.ia.config import (
+from app.adaptadores.llm.config import (
+    OverrideLlmTenant,
     api_base_de,
+    api_key_de,
     cargar_model_list,
     esta_disponible,
     obtener_proveedor_llm,
     obtener_ruta,
     obtener_rutas_generacion,
+    proveedores_soportados,
 )
+from app.core.config import Settings
 
 
 def _settings_sin_keys() -> Settings:
@@ -23,11 +26,16 @@ def _settings_con_keys(
     deepseek: str | None = "sk-deepseek-test",
     anthropic: str | None = "sk-anthropic-test",
     ollama_api_base: str | None = None,
+    llm_provider: str | None = None,
 ) -> Settings:
+    # `llm_provider=None` explícito -- sin esto, un LLM_PROVIDER real puesto en el
+    # entorno de quien corre la suite (ej. para probar la capa de IA en vivo) se
+    # filtra silenciosamente a estos tests.
     return Settings(
         deepseek_api_key=deepseek,
         anthropic_api_key=anthropic,
         ollama_api_base=ollama_api_base,
+        llm_provider=llm_provider,
     )
 
 
@@ -44,13 +52,13 @@ def test_ruta_economico_es_deepseek():
 
 def test_ruta_calidad_es_claude():
     ruta = obtener_ruta("calidad")
-    assert ruta.model == "anthropic/claude-sonnet-4-5"
+    assert ruta.model == "anthropic/claude-sonnet-5"
     assert ruta.env_var_api_key == "ANTHROPIC_API_KEY"
 
 
-def test_ruta_calidad_respaldo_es_claude_fable():
+def test_ruta_calidad_respaldo_es_claude_sonnet_5():
     ruta = obtener_ruta("calidad_respaldo")
-    assert ruta.model == "anthropic/claude-fable-5"
+    assert ruta.model == "anthropic/claude-sonnet-5"
     assert ruta.env_var_api_key == "ANTHROPIC_API_KEY"
 
 
@@ -88,7 +96,9 @@ def test_disponible_true_cuando_hay_ambas_keys():
 
 
 def test_obtener_proveedor_llm_default_es_local():
-    cfg = Settings(deepseek_api_key=None, anthropic_api_key=None, ollama_api_base="http://localhost:11434")
+    cfg = Settings(
+        deepseek_api_key=None, anthropic_api_key=None, ollama_api_base="http://localhost:11434", llm_provider=None
+    )
     assert obtener_proveedor_llm(cfg) == "local"
     assert obtener_rutas_generacion(cfg) == ["local"]
 
@@ -177,3 +187,71 @@ def test_settings_default_sin_keys_no_rompe():
     cfg = Settings(deepseek_api_key=None, anthropic_api_key=None, jwt_secret="x")
     assert esta_disponible("economico", cfg=cfg) is False
     assert esta_disponible("calidad", cfg=cfg) is False
+
+
+# --- BYOK: override por tenant (app/adaptadores/llm/config.py::OverrideLlmTenant) ---
+
+
+def _override(
+    proveedor: str | None = None,
+    deepseek_api_key: str | None = None,
+    anthropic_api_key: str | None = None,
+    ollama_api_base: str | None = None,
+) -> OverrideLlmTenant:
+    return OverrideLlmTenant(
+        proveedor=proveedor,
+        deepseek_api_key=deepseek_api_key,
+        anthropic_api_key=anthropic_api_key,
+        ollama_api_base=ollama_api_base,
+    )
+
+
+def test_proveedores_soportados_refleja_las_claves_reales():
+    assert set(proveedores_soportados()) == {"anthropic", "deepseek", "local"}
+
+
+def test_obtener_proveedor_llm_override_gana_sobre_llm_provider_global():
+    cfg = _settings_con_keys(llm_provider="deepseek")
+    override = _override(proveedor="anthropic")
+    assert obtener_proveedor_llm(cfg, override=override) == "anthropic"
+    assert obtener_rutas_generacion(cfg, override=override) == ["calidad", "calidad_respaldo", "local"]
+
+
+def test_obtener_proveedor_llm_override_no_soportado_lanza_valueerror():
+    cfg = _settings_con_keys()
+    with pytest.raises(ValueError):
+        obtener_proveedor_llm(cfg, override=_override(proveedor="openai"))
+
+
+def test_obtener_proveedor_llm_sin_override_mantiene_comportamiento_previo():
+    cfg = _settings_con_keys(llm_provider="deepseek")
+    assert obtener_proveedor_llm(cfg, override=None) == obtener_proveedor_llm(cfg)
+    assert obtener_proveedor_llm(cfg, override=_override()) == obtener_proveedor_llm(cfg)
+
+
+def test_api_key_de_override_gana_sobre_settings():
+    cfg = _settings_con_keys(deepseek="sk-operador")
+    ruta = obtener_ruta("economico")
+    override = _override(deepseek_api_key="sk-propia-del-tenant")
+    assert api_key_de(ruta, cfg=cfg, override=override) == "sk-propia-del-tenant"
+
+
+def test_api_key_de_sin_credencial_en_override_cae_a_settings():
+    cfg = _settings_con_keys(deepseek="sk-operador")
+    ruta = obtener_ruta("economico")
+    assert api_key_de(ruta, cfg=cfg, override=_override()) == "sk-operador"
+    assert api_key_de(ruta, cfg=cfg, override=None) == "sk-operador"
+
+
+def test_api_base_de_override_gana_sobre_settings():
+    cfg = _settings_con_keys(ollama_api_base="http://operador:11434")
+    ruta = obtener_ruta("local")
+    override = _override(ollama_api_base="http://tenant:11434")
+    assert api_base_de(ruta, cfg=cfg, override=override) == "http://tenant:11434"
+
+
+def test_esta_disponible_true_con_solo_credencial_del_tenant_sin_key_de_operador():
+    cfg = _settings_sin_keys()
+    override = _override(deepseek_api_key="sk-propia-del-tenant")
+    assert esta_disponible("economico", cfg=cfg, override=override) is True
+    assert esta_disponible("calidad", cfg=cfg, override=override) is False

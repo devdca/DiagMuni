@@ -15,16 +15,19 @@ function RadioGroupItem({ className, ...props }: React.ComponentProps<typeof Rad
     <RadioGroupPrimitive.Item
       data-slot="radio-group-item"
       className={cn(
-        "aspect-square size-5 shrink-0 rounded-full border border-input bg-background outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+        // QA (ronda 2, hallazgo #3): el indicador nunca se veía -- su único
+        // hijo estaba en `absolute`, así que no le daba tamaño al contenedor
+        // flex del indicador (colapsaba a height:0). Ahora el indicador llena
+        // el propio botón (`size-full`, ya no `relative`+`absolute`) y,
+        // además del punto, el borde también cambia de color al seleccionar
+        // -- dos señales visuales, no una sola que dependía de un bug.
+        "aspect-square size-5 shrink-0 rounded-full border border-input bg-background outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary",
         className,
       )}
       {...props}
     >
-      <RadioGroupPrimitive.Indicator
-        data-slot="radio-group-indicator"
-        className="relative flex items-center justify-center"
-      >
-        <span className="absolute inset-1 rounded-full bg-primary" />
+      <RadioGroupPrimitive.Indicator data-slot="radio-group-indicator" className="flex size-full items-center justify-center">
+        <span className="radio-indicador-animado size-2.5 rounded-full bg-primary" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
   );

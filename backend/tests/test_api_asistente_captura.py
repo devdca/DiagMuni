@@ -3,7 +3,7 @@
 Enfoque elegido para esta tarea: `TestClient` real sobre `app.main.app`, con
 `dependency_overrides` de `get_current_token`/`get_db` (evita depender de Postgres
 real -- estos endpoints solo necesitan resolver `Tenant.pais`, no todo el resto del
-esquema) y monkeypatch de las dos funciones de `app.ia.asistente_captura` para no
+esquema) y monkeypatch de las dos funciones de `app.adaptadores.llm.asistente_captura` para no
 llamar nunca a un LLM real, mismo principio que
 `backend/tests/test_asistente_captura.py` pero a nivel HTTP en vez de función pura
 -- este módulo sí depende del grafo de dependencias de FastAPI (auth + Tenant), a
@@ -15,8 +15,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import asistente_captura as asistente_captura_api
-from app.api.deps import TokenData, get_current_token, get_db
+from app.adaptadores.http import asistente_captura as asistente_captura_api
+from app.adaptadores.http.deps import TokenData, get_current_token, get_db
+from app.adaptadores.llm.asistente_captura import ResultadoClasificacion
 from app.main import app
 
 client = TestClient(app)
@@ -25,6 +26,13 @@ client = TestClient(app)
 class _TenantFalso:
     def __init__(self, pais: str) -> None:
         self.pais = pais
+        # BYOK (ver app/aplicacion/preferencia_modelo_ia.py::resolver_override) --
+        # sin preferencia/credencial propia configurada en estos tests, mismo
+        # comportamiento que un tenant recién creado.
+        self.proveedor_llm_preferido = None
+        self.deepseek_api_key_cifrada = None
+        self.anthropic_api_key_cifrada = None
+        self.ollama_api_base = None
 
 
 class _SesionFalsa:
@@ -70,7 +78,9 @@ def test_consistencia_booleana_devuelve_categoria(monkeypatch: pytest.MonkeyPatc
     _autenticar()
     _sesion_con_tenant("mx")
     monkeypatch.setattr(
-        asistente_captura_api, "clasificar_consistencia_booleana", lambda texto, valor: "consistente"
+        asistente_captura_api,
+        "clasificar_consistencia_booleana",
+        lambda texto, valor, **_kw: ResultadoClasificacion("consistente", "economico"),
     )
 
     respuesta = client.post(
@@ -80,20 +90,34 @@ def test_consistencia_booleana_devuelve_categoria(monkeypatch: pytest.MonkeyPatc
     )
 
     assert respuesta.status_code == 200
-    assert respuesta.json() == {"categoria": "consistente"}
+    assert respuesta.json() == {"categoria": "consistente", "ruta_llm": "economico"}
 
 
-def test_consistencia_booleana_nunca_persiste_nada_no_toca_la_sesion(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Este endpoint nunca debe llamar db.get/add/commit -- solo clasifica."""
+def test_consistencia_booleana_resuelve_tenant_pero_nunca_escribe_en_la_sesion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Antes de BYOK (app/aplicacion/preferencia_modelo_ia.py) este endpoint nunca
+    tocaba la sesión -- ahora sí necesita `db.get(Tenant, ...)` para resolver la
+    credencial propia del gobierno antes de clasificar. Lo que sigue siendo
+    invariante: nunca escribe (`add`/`commit`), solo lee para armar el override."""
     _autenticar()
+    _sesion_con_tenant("mx")
 
-    class _SesionQueFallaSiSeUsa:
+    class _SesionQueFallaSiEscribe:
         def get(self, *args, **kwargs):
-            raise AssertionError("consistencia-booleana no debería tocar la sesión")
+            return _TenantFalso("mx")
 
-    app.dependency_overrides[get_db] = lambda: _SesionQueFallaSiSeUsa()
+        def add(self, *args, **kwargs):
+            raise AssertionError("consistencia-booleana no debería escribir en la sesión")
+
+        def commit(self, *args, **kwargs):
+            raise AssertionError("consistencia-booleana no debería escribir en la sesión")
+
+    app.dependency_overrides[get_db] = lambda: _SesionQueFallaSiEscribe()
     monkeypatch.setattr(
-        asistente_captura_api, "clasificar_consistencia_booleana", lambda texto, valor: "no_concluyente"
+        asistente_captura_api,
+        "clasificar_consistencia_booleana",
+        lambda texto, valor, **_kw: ResultadoClasificacion("no_concluyente", None),
     )
 
     respuesta = client.post(
@@ -102,7 +126,7 @@ def test_consistencia_booleana_nunca_persiste_nada_no_toca_la_sesion(monkeypatch
         headers={"Authorization": "Bearer x"},
     )
     assert respuesta.status_code == 200
-    assert respuesta.json() == {"categoria": "no_concluyente"}
+    assert respuesta.json() == {"categoria": "no_concluyente", "ruta_llm": None}
 
 
 # === /mecanismo-identidad ==========================================================
@@ -122,9 +146,9 @@ def test_mecanismo_identidad_resuelve_pais_desde_tenant(monkeypatch: pytest.Monk
 
     paises_recibidos = []
 
-    def _espia(texto: str, pais: str) -> str:
+    def _espia(texto: str, pais: str, **_kw) -> ResultadoClasificacion:
         paises_recibidos.append(pais)
-        return "id_uruguay"
+        return ResultadoClasificacion("id_uruguay", "economico")
 
     monkeypatch.setattr(asistente_captura_api, "clasificar_mecanismo_identidad", _espia)
 
@@ -135,7 +159,7 @@ def test_mecanismo_identidad_resuelve_pais_desde_tenant(monkeypatch: pytest.Monk
     )
 
     assert respuesta.status_code == 200
-    assert respuesta.json() == {"categoria": "id_uruguay"}
+    assert respuesta.json() == {"categoria": "id_uruguay", "ruta_llm": "economico"}
     assert paises_recibidos == ["uy"]
 
 
@@ -148,9 +172,9 @@ def test_mecanismo_identidad_ignora_cualquier_pais_que_mande_el_cliente(monkeypa
 
     paises_recibidos = []
 
-    def _espia(texto: str, pais: str) -> str:
+    def _espia(texto: str, pais: str, **_kw) -> ResultadoClasificacion:
         paises_recibidos.append(pais)
-        return "propio"
+        return ResultadoClasificacion("propio", "economico")
 
     monkeypatch.setattr(asistente_captura_api, "clasificar_mecanismo_identidad", _espia)
 

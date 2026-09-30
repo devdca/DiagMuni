@@ -1,0 +1,20 @@
+version: "1.0"
+variable: medicion_tiempo_satisfaccion
+criterio_deteccion: "medicion_tiempo_satisfaccion == false"
+acciones:
+  mx:
+    paso_administrativo: "Implementar la medición del tiempo real de resolución y/o la satisfacción ciudadana de este trámite"
+    paso_tecnico: "Encuesta de satisfacción al concluir el trámite + registro automático de tiempos de resolución -- categoría, no marca"
+    paso_organizacional: "Revisar periódicamente los resultados y usarlos como insumo de la Agenda de Simplificación y Digitalización"
+    prerrequisitos: []
+    por_que_importa: "Sin medición, no hay forma de saber si el trámite realmente mejoró tras las acciones de este plan, ni de priorizar la siguiente iteración de mejora"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "medicion_desempeno"
+  uy:
+    paso_administrativo: "Implementar la medición del tiempo real de resolución y/o la satisfacción ciudadana de este trámite"
+    paso_tecnico: "Encuesta de satisfacción + registro automático de tiempos de resolución -- categoría, no marca"
+    paso_organizacional: "Revisar periódicamente los resultados"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "medicion_desempeno"

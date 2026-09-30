@@ -1,0 +1,14 @@
+# Fase A -- piloto federal, tipo_tramite="sat_rfc". Verificado contra fuente
+# oficial (sat.gob.mx, texto del CFF). Solo México, sin rama `uy`.
+version: "1.0"
+variable: notificaciones_automaticas
+criterio_deteccion: "notificaciones_automaticas == false"
+acciones:
+  mx:
+    paso_administrativo: "Habilitar el buzón tributario del contribuyente"
+    paso_tecnico: "Integración con el buzón tributario del SAT (obligatorio para inscritos en el RFC) para notificaciones electrónicas"
+    paso_organizacional: "Informar al contribuyente que las notificaciones se consideran hechas al generarse el acuse electrónico, o al cuarto día si no se abre en los 3 días siguientes"
+    prerrequisitos: []
+    por_que_importa: "El buzón tributario es obligatorio por ley para todo inscrito en el RFC -- sin habilitarlo, el contribuyente puede perderse notificaciones con efectos legales"
+    fuente_normativa: "Código Fiscal de la Federación, art. 17-K (buzón tributario obligatorio; reglas de cuándo se tiene por hecha la notificación)"
+    categoria_catalogo: "notificaciones_automaticas"

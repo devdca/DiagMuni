@@ -1,0 +1,20 @@
+version: "1.0"
+variable: fundamento_juridico_vigente
+criterio_deteccion: "fundamento_juridico_vigente == false"
+acciones:
+  mx:
+    paso_administrativo: "Identificar y confirmar la vigencia del fundamento jurídico (ley, reglamento o norma) que rige este trámite"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una revisión jurídica"
+    paso_organizacional: "Asignar al área jurídica la revisión periódica de vigencia normativa de cada trámite"
+    prerrequisitos: []
+    por_que_importa: "Un trámite sin fundamento jurídico claro o con uno derogado expone al gobierno a que el trámite mismo sea impugnable"
+    fuente_normativa: "Sin mandato legal específico verificado -- principio general de legalidad administrativa, revisar"
+    categoria_catalogo: "fundamento_juridico"
+  uy:
+    paso_administrativo: "Identificar y confirmar la vigencia del fundamento jurídico que rige este trámite"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Asignar al área jurídica la revisión periódica de vigencia normativa de cada trámite"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal específico verificado -- principio general de legalidad administrativa, revisar"
+    categoria_catalogo: "fundamento_juridico"

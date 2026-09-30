@@ -1,11 +1,10 @@
 import { apiFetch } from "./httpClient";
 
-// Cliente de los dos endpoints de asistencia de captura F1
-// (backend/app/api/asistente_captura.py) -- nunca persisten nada, solo devuelven
-// una categoría sugerida que el funcionario debe confirmar o descartar en la UI.
-
+// Nunca persisten nada -- solo devuelven una categoría sugerida que el
+// funcionario debe confirmar o descartar en la UI.
 export interface ClasificacionResponse {
   categoria: string;
+  ruta_llm?: string | null;
 }
 
 export function clasificarConsistenciaBooleana(
@@ -18,8 +17,7 @@ export function clasificarConsistenciaBooleana(
   });
 }
 
-// Nunca se envía `pais`: el backend lo resuelve siempre desde `Tenant`
-// (backend/app/api/asistente_captura.py::clasificar_identidad).
+// Nunca se envía `pais`: el backend lo resuelve siempre desde `Tenant`.
 export function clasificarMecanismoIdentidad(textoAclaracion: string): Promise<ClasificacionResponse> {
   return apiFetch<ClasificacionResponse>("/api/asistente-captura/mecanismo-identidad", {
     method: "POST",

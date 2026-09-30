@@ -10,6 +10,14 @@ COPY backend/app ./app
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini .
 
+# Directorio del volumen `diagmuni_logos_data` (docker-compose.yml) -- se crea acá,
+# antes del chown de abajo, para que cuando Docker monte el volumen por primera vez
+# copie el contenido/permisos de ESTE directorio (vacío, dueño appuser) en vez de
+# quedar con el dueño root por defecto de un volumen nombrado nuevo -- appuser
+# (sin privilegios de superusuario, ver USER abajo) no podría escribir el logo si
+# el volumen quedara con permisos de root.
+RUN mkdir -p /app/data/logos
+
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 

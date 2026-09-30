@@ -2,7 +2,25 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!-- Mismo ícono del login (IconoCiudadesInteligentes.tsx), recoloreado a
+         tinta neutra -- claro/oscuro vía prefers-color-scheme dentro del
+         propio SVG (favicon.svg no tiene acceso a las variables CSS de la
+         página). Soportado en Chrome/Firefox/Edge; Safari todavía no rota
+         favicons SVG y cae sin ícono -- aceptable para el alcance de hoy. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>DiagMuni</title>
+    <script>
+      // Duplicado intencional de frontend/src/lib/theme.ts (obtenerTemaActivo +
+      // aplicarTema) -- tiene que correr ANTES de que React monte para evitar un
+      // parpadeo del tema equivocado (leer localStorage/prefers-color-scheme y
+      // recién ahí aplicar la clase sería visible como un flash). Si la lógica
+      // de ahí cambia, actualizar también aquí.
+      (function () {
+        var guardado = localStorage.getItem("diagmuni_tema");
+        var oscuro = guardado === "dark" || (guardado !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (oscuro) document.documentElement.classList.add("dark");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

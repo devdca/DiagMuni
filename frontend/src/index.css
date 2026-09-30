@@ -1,9 +1,8 @@
 @import "tailwindcss";
 
-/* Modo oscuro por clase (".dark" en <html>) -- Tailwind v4 usa prefers-color-scheme
-   por default, pero docs/ux-brief.md ya fija valores hex de claro Y oscuro para la
-   paleta base, así que se deja el mecanismo listo. No hay todavía un interruptor de
-   UI que agregue la clase ".dark" -- pendiente, ver nota abajo. */
+/* Modo oscuro por clase (".dark" en <html>) -- alternado por el interruptor real
+   de frontend/src/lib/theme.ts (antes este mecanismo existía en el CSS pero sin
+   ninguna UI que lo activara; ver ese archivo y ThemeToggle.tsx). */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -25,55 +24,133 @@
   --color-destructive-foreground: var(--destructive-foreground);
 }
 
-/* Paleta neutral validada, docs/ux-brief.md sección "Paleta -- validada, no elegida
-   a ojo" -- sin marca INAP definida todavía, se sustituye cuando exista identidad
-   oficial sin tocar la estructura de componentes (mismo documento, principio 4). */
+/* Sistema de diseño "Fría/técnica" (docs/design-system.md, dirección elegida por
+   Ricardo, referencia Linear) -- reemplaza "Tinta neutra" de docs/ux-brief.md.
+   Escalera de superficie (background -> card -> muted) en vez de sombra para dar
+   jerarquía; un solo acento de marca (el mismo azul ya validado de la rampa de
+   madurez, nivel 2 -- nunca uno nuevo) reservado para toques de marca puntuales
+   (línea activa de nav, anillo del logo) -- la acción primaria (botones) se queda
+   en tinta neutra, nunca en el acento, por la misma razón que "Tinta neutra" ya
+   documentó: dos sistemas de azul compitiendo se leen "todo azul, sin jerarquía".
+   Todo par de texto/borde revalidado con `validate_palette.js`. */
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  --background: #f4f3ee; /* superficie de página */
-  --card: #fcfcf9; /* superficie de tarjeta/panel */
-  --card-foreground: #1b1b18;
-  --foreground: #1b1b18; /* texto primario */
-  --muted: #f7f6f2;
-  --muted-foreground: #5b584f; /* texto secundario */
-  --atenuado: #7f7c73; /* texto atenuado: ayudas, placeholders */
-  --border: #d8d0c1; /* línea divisoria */
-  --input: #ece7db;
-  --ring: #5e6a79;
+  --background: #fafafa;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --foreground: #171717;
+  --muted: #f0f0f1;
+  --muted-foreground: #5c5f66;
+  --atenuado: #6b6e75; /* AA 4.5:1 -- más oscuro que el "hairline" de Vercel a propósito, ver validate_palette.js */
+  --border: #8c8c90; /* AA no-texto 3:1 */
+  --input: #e2e2e4;
+  --ring: #171717;
 
-  --primary: #243447;
-  --primary-foreground: #f8f6f1;
-  --secondary: #e9e3d6;
-  --secondary-foreground: #1b1b18;
+  --primary: #171717;
+  --primary-foreground: #fafafa;
+  --secondary: #f0f0f1;
+  --secondary-foreground: #171717;
 
-  /* No forma parte de la paleta neutral de docs/ux-brief.md -- se toma prestado el
-     "critical" del semáforo de seguimiento (#d03b3b, misma sección del documento)
-     únicamente para el estado de error de formulario (borde/texto), nunca como
-     color de un badge de estado (esa regla es específica de F6). */
-  --destructive: #d03b3b;
-  --destructive-foreground: #fcfcfb;
+  --destructive: #ad2a24;
+  --destructive-foreground: #fff5f4;
+
+  /* Rampa ordinal de madurez (0-4), variante "texto" -- sin cambios de valor
+     respecto a docs/ux-brief.md, solo de contexto (ahora vive en un fondo
+     #fafafa en vez de #f1f1ef, ambos casi blancos, la razón de AA no cambia). */
+  --madurez-nivel-0-texto: #2d3ea9;
+  --madurez-nivel-1-texto: #253393;
+  --madurez-nivel-2-texto: #1c297d;
+  --madurez-nivel-3-texto: #141e61;
+  --madurez-nivel-4-texto: #0b1341;
+
+  --semaforo-completado: #0d770d;
+  --semaforo-en-progreso: #fab219;
+  --semaforo-atrasado: #d03b3b;
+
+  /* Acento de marca -- mismo azul de la rampa (nivel 2), nunca un tono nuevo
+     (docs/design-system.md, "Dirección 1"). Reservado para: línea activa de
+     nav, anillo del logo, foco de marca puntual -- nunca para botones/acción
+     genérica (esos son tinta neutra, arriba). */
+  --marca-acento: var(--madurez-nivel-2-texto);
+  --marca-acento-decorativo: #6674d6; /* piso 2:1, solo swatch/relleno, nunca texto */
+
+  /* 4 roles de estado con nombre propio (docs/design-system.md, sección 2) --
+     "éxito" y "atrasado/crítico" reutilizan los mismos hex ya validados del
+     semáforo (mismo significado, un solo valor de verdad); "alerta" e "info"
+     son nuevos, para reemplazar los admonition boxes que hoy usan amber-500/
+     emerald-500 de Tailwind sin editar (Plan.tsx, ComparadorPlan.tsx). Cada uno
+     con una variante "-suave" (tinte de fondo ~8%) para el fondo del aviso,
+     nunca el mismo tono sólido de texto como fondo. */
+  --estado-exito: #0d770d;
+  --estado-exito-suave: color-mix(in srgb, var(--estado-exito) 8%, var(--card));
+  --estado-alerta: #92620a;
+  --estado-alerta-suave: color-mix(in srgb, var(--estado-alerta) 10%, var(--card));
+  --estado-critico: #ad2a24;
+  --estado-critico-suave: color-mix(in srgb, var(--estado-critico) 8%, var(--card));
+  --estado-info: #33578a;
+  --estado-info-suave: color-mix(in srgb, var(--estado-info) 8%, var(--card));
+
+  /* Sombras -- Linear/Vercel: la jerarquía la da el paso de superficie y el
+     borde de 1px, no una sombra genérica (docs/design-system.md, sección 2).
+     Solo la pieza "hero" de cada pantalla (índice global, franja principal)
+     se permite una elevación real. */
+  --shadow-card: none;
+  --shadow-hero: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -8px rgba(0, 0, 0, 0.10);
 }
 
 .dark {
-  --background: #121212;
-  --card: #1b1b1a;
-  --card-foreground: #f7f4eb;
-  --foreground: #f7f4eb;
-  --muted: #1b1b1a;
-  --muted-foreground: #c9c4b4;
-  --atenuado: #8b887f;
-  --border: #2f2f2c;
-  --input: #2a2927;
-  --ring: #95a1b1;
+  --background: #0a0a0c;
+  --card: #131316;
+  --card-foreground: #f2f2f3;
+  --foreground: #f2f2f3;
+  --muted: #1a1a1f;
+  --muted-foreground: #a8acb8;
+  --atenuado: #8b8e96; /* AA 4.5:1 */
+  --border: #606067; /* AA no-texto 3:1 */
+  --input: #202024;
+  --ring: #f2f2f3;
 
-  --primary: #f2eee1;
-  --primary-foreground: #121212;
-  --secondary: #23211f;
-  --secondary-foreground: #f7f4eb;
+  --primary: #f2f2f3;
+  --primary-foreground: #0a0a0c;
+  --secondary: #1a1a1f;
+  --secondary-foreground: #f2f2f3;
 
-  --destructive: #d03b3b;
-  --destructive-foreground: #0d0d0d;
+  --destructive: #e8635c;
+  --destructive-foreground: #280604;
+
+  --madurez-nivel-0-texto: #cad0f6;
+  --madurez-nivel-1-texto: #b1baf1;
+  --madurez-nivel-2-texto: #98a3eb;
+  --madurez-nivel-3-texto: #808de5;
+  --madurez-nivel-4-texto: #7583e1;
+
+  --semaforo-completado: #4dcb4d;
+  --semaforo-en-progreso: #fab219;
+  --semaforo-atrasado: #d03b3b;
+
+  --marca-acento-decorativo: #6674d6;
+
+  --estado-exito: #4dcb4d;
+  --estado-alerta: #e0a83e;
+  --estado-critico: #e8635c;
+  --estado-info: #7fa6d9;
+
+  --shadow-hero: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
+
+/* Variante "sobre oscuro" de la rampa -- para superficies que son SIEMPRE
+   oscuras sin importar el tema de la página (franja hero cuando se usa la
+   imagen del gobierno como fondo, docs/ux-brief.md "ronda 2"). Fija en :root
+   Y en .dark (mismo valor) a propósito -- no es theme-aware, es "sobre negro
+   siempre". frontend/src/lib/madurez.ts, campo `varTextoSobreOscuro`. */
+:root,
+.dark {
+  --madurez-nivel-0-texto-sobre-oscuro: #cad0f6;
+  --madurez-nivel-1-texto-sobre-oscuro: #b1baf1;
+  --madurez-nivel-2-texto-sobre-oscuro: #98a3eb;
+  --madurez-nivel-3-texto-sobre-oscuro: #808de5;
+  --madurez-nivel-4-texto-sobre-oscuro: #7583e1;
 }
 
 @layer base {
@@ -83,6 +160,10 @@
 
   html {
     color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -96,19 +177,15 @@
       BlinkMacSystemFont,
       "Helvetica Neue",
       sans-serif;
-    background-image:
-      radial-gradient(circle at top left, rgba(36, 52, 71, 0.06) 0%, transparent 30%),
-      linear-gradient(135deg, #f6f5ef 0%, #efece3 100%);
-    background-attachment: fixed;
     min-height: 100vh;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.005em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background-color: rgba(36, 52, 71, 0.16);
+    background-color: color-mix(in srgb, var(--marca-acento-decorativo) 30%, transparent);
     color: var(--foreground);
   }
 
@@ -129,30 +206,23 @@
   [type="submit"],
   [type="reset"] {
     transition:
-      transform 160ms ease,
-      box-shadow 160ms ease,
-      background-color 160ms ease,
-      border-color 160ms ease;
-  }
-
-  button:hover:not(:disabled),
-  [type="button"]:hover:not(:disabled),
-  [type="submit"]:hover:not(:disabled),
-  [type="reset"]:hover:not(:disabled) {
-    transform: translateY(-1px);
+      box-shadow 140ms ease,
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease;
   }
 
   input,
   select,
   textarea {
-    background-color: rgba(255, 255, 255, 0.82);
+    background-color: var(--card);
     border: 1px solid var(--border);
-    border-radius: 0.75rem;
+    border-radius: 8px;
     color: var(--foreground);
     transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease,
-      background-color 160ms ease;
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease;
   }
 
   input::placeholder,
@@ -165,45 +235,85 @@
   textarea:focus {
     outline: none;
     border-color: var(--ring);
-    box-shadow: 0 0 0 3px rgba(94, 106, 121, 0.16);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 18%, transparent);
   }
 }
 
 @layer components {
   .bg-card,
   .bg-white {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 246, 240, 0.96) 100%);
-    backdrop-filter: blur(6px);
+    background: var(--card);
   }
 
   .bg-background {
-    background: linear-gradient(135deg, #f6f5ef 0%, #efece3 100%);
+    background: var(--background);
   }
 
-  .shadow-sm {
-    box-shadow: 0 1px 2px rgba(20, 30, 43, 0.04), 0 10px 24px rgba(20, 30, 43, 0.06);
-  }
-
+  /* Linear/Vercel: sin sombra genérica -- la separación de superficie la da
+     el borde de 1px + el paso background->card (docs/design-system.md). */
+  .shadow-sm,
   .shadow {
-    box-shadow: 0 12px 30px rgba(20, 30, 43, 0.08);
+    box-shadow: var(--shadow-card);
   }
 
-  .rounded-xl {
-    border-radius: 1rem;
+  .shadow-hero {
+    box-shadow: var(--shadow-hero);
+  }
+
+  /* Escala de radios de 3 pasos (docs/design-system.md, sección 2) -- se
+     sobreescriben las clases de Tailwind que ya usan los componentes de
+     shadcn/ui en vez de tocar cada uno (mismo mecanismo que ya existía). */
+  .rounded-sm {
+    border-radius: 6px;
+  }
+
+  .rounded-md {
+    border-radius: 8px;
   }
 
   .rounded-lg {
-    border-radius: 0.8rem;
+    border-radius: 10px;
+  }
+
+  .rounded-xl {
+    border-radius: 12px;
+  }
+
+  .rounded-2xl {
+    border-radius: 14px;
   }
 
   .border-border {
-    border-color: #d8d0c1;
+    border-color: var(--border);
   }
 
   .text-muted-foreground {
     color: var(--muted-foreground);
   }
 
+  /* Admonition boxes de estado (Plan.tsx, ComparadorPlan.tsx) -- reemplazan
+     border-amber-500/bg-emerald-500/etc. de Tailwind sin editar. */
+  .aviso-exito {
+    border: 1px solid color-mix(in srgb, var(--estado-exito) 35%, var(--border));
+    background: var(--estado-exito-suave);
+  }
+  .aviso-alerta {
+    border: 1px solid color-mix(in srgb, var(--estado-alerta) 35%, var(--border));
+    background: var(--estado-alerta-suave);
+  }
+  .aviso-critico {
+    border: 1px solid color-mix(in srgb, var(--estado-critico) 35%, var(--border));
+    background: var(--estado-critico-suave);
+  }
+  .aviso-info {
+    border: 1px solid color-mix(in srgb, var(--estado-info) 35%, var(--border));
+    background: var(--estado-info-suave);
+  }
+
+  /* Nav superior -- ya no es una barra de identidad propia con navy fijo
+     (docs/ux-brief.md, versión anterior): en el sistema "Fría/técnica" la nav
+     es un paso más de la escalera de superficie (--card), con el acento de
+     marca reservado para el link activo y el anillo del logo. */
   .app-navbar {
     position: fixed;
     inset: 0 auto auto 0;
@@ -211,15 +321,8 @@
     left: 0;
     right: 0;
     z-index: 50;
-    border-bottom: 1px solid rgba(216, 208, 193, 0.85);
-    background: rgba(252, 252, 249, 0.96);
-    backdrop-filter: blur(16px);
-    box-shadow: 0 10px 30px rgba(20, 30, 43, 0.08);
-  }
-
-  .app-navbar.dark {
-    background: rgba(26, 26, 25, 0.92);
-    border-bottom-color: rgba(47, 47, 44, 0.85);
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
   }
 
   .app-navbar-inner {
@@ -229,40 +332,116 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.9rem 1.5rem;
-    min-height: 5.5rem;
+    /* Padding vertical más generoso que antes (0.75rem -> 1rem) a propósito:
+       el logo pasó a 5.5rem, necesita aire real alrededor, no solo un
+       aumento de la propia imagen (pedido explícito: "que no se vea
+       apretado"). Altura total resultante (logo + padding) = 7.5rem -- ver
+       ProtectedLayout.tsx, que reserva ese mismo alto exacto para que el
+       contenido de cada pantalla no quede tapado debajo de la barra fija. */
+    padding: 1rem 1.5rem;
+    min-height: 7.5rem;
   }
 
   .app-navbar-brand {
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--primary);
-    text-transform: uppercase;
-    opacity: 0.95;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+    min-width: 0;
+  }
+
+  .app-navbar-brand-nombre {
+    /* min-width:0 (heredado del padre flex) + esto -- un nombre de gobierno
+       largo corta con "…" en vez de forzar el logo/el resto de la barra a
+       encogerse o partir el texto en varias líneas (ventana angosta,
+       DiagMuni sigue siendo desktop-only pero no debe verse roto). */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Logo del gobierno -- segunda vuelta, pedido explícito de Ricardo: 44px
+     seguía viéndose chico, quiere un salto notorio para que el escudo real
+     (colores, figura, texto "Cuajimalpa de Morelos") se aprecie de verdad,
+     no un ajuste de unos px. 5.5rem (88px), más del doble de la vuelta
+     anterior -- la barra completa creció alrededor para acomodarlo (ver
+     .app-navbar-inner arriba y ProtectedLayout.tsx), en vez de apretarlo en
+     la misma altura de antes. flex-shrink:0 para que sea siempre lo primero
+     en mantener su tamaño (el nombre es lo que cede espacio en ventana
+     angosta, vía la regla de arriba). El aro (box-shadow) usa --border, ya
+     theme-aware, se ve bien en claro y oscuro sin tocar nada más. */
+  .app-navbar-logo {
+    width: 5.5rem;
+    height: 5.5rem;
+    border-radius: 14px;
+    object-fit: cover;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1.5px var(--border);
+  }
+
+  /* Ventana de escritorio angosta pero todavía >= el breakpoint `lg` (nav de
+     texto completo, sin hamburguesa) -- pedido explícito de una segunda
+     ronda de feedback, ajuste fino solo acá, sin tocar la vista ancha ya
+     aprobada: por debajo de 1200px, `.app-navbar-inner` deja de centrarse
+     (max-width:1200px dejó de topar), así que ya no hay margen extra por
+     ese lado -- el padding-izquierdo fijo de 1.5rem es lo único que separa
+     el logo del borde. Se reduce ese padding y se sube un poco el logo
+     (nunca el salto agresivo de la ronda anterior). El alto total sube de
+     7.5rem a 8rem -- ver el `max-[1200px]:pt-32` correspondiente en
+     ProtectedLayout.tsx, tiene que coincidir siempre con logo + padding
+     vertical de este bloque. */
+  @media (max-width: 1200px) {
+    .app-navbar-inner {
+      padding-left: 1rem;
+    }
+    .app-navbar-logo {
+      width: 6rem;
+      height: 6rem;
+    }
   }
 
   .app-navbar-links {
     display: flex;
     align-items: center;
-    gap: 1.15rem;
+    gap: 0.25rem;
     flex-wrap: wrap;
   }
 
   .app-navbar-links a,
   .app-navbar-logout {
-    font-size: 0.95rem;
-    color: var(--foreground);
-    padding: 0.6rem 0.85rem;
-    border-radius: 0.75rem;
-    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    border-bottom: 2px solid transparent;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
   }
 
-  .app-navbar-links a:hover,
-  .app-navbar-logout:hover {
-    background-color: rgba(36, 52, 71, 0.08);
-    color: var(--primary);
-    transform: translateY(-1px);
+  .app-navbar-links a.app-navbar-link-activo {
+    color: var(--foreground);
+    border-bottom-color: var(--marca-acento);
+    font-weight: 600;
+  }
+
+  .app-navbar-links a svg {
+    color: var(--atenuado);
+    transition: color 140ms ease;
+  }
+
+  .app-navbar-links a:hover svg,
+  .app-navbar-links a.app-navbar-link-activo svg {
+    color: var(--foreground);
+  }
+
+  .app-navbar-links a:hover {
+    background-color: var(--muted);
+    color: var(--foreground);
   }
 
   .app-navbar-links a {
@@ -281,41 +460,208 @@
   }
 
   .app-navbar-logout:hover {
-    background-color: #1f3147;
-    color: #f7f4eb;
+    opacity: 0.85;
+  }
+
+  .app-navbar-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.15rem;
+    height: 2.15rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    background-color: var(--muted);
+    color: var(--foreground);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: opacity 140ms ease;
+  }
+
+  .app-navbar-avatar:hover {
+    opacity: 0.8;
   }
 
   .app-navbar a {
     text-decoration: none;
   }
+
+  /* Interruptor de tema (ThemeToggle.tsx) -- mismo tratamiento que el resto
+     de los botones "ghost" de la nav, sin marco propio. */
+  .app-navbar-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 8px;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease;
+  }
+
+  .app-navbar-theme-toggle:hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
 }
 
-.dark {
-  color-scheme: dark;
-}
-
-.dark body {
+/* Fondo del login (pantalla 1, docs/ux-brief.md) -- sin cambios de este
+   rediseño, Ricardo no pidió tocar el login. */
+.login-fondo {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
   background-image:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08) 0%, transparent 30%),
-    linear-gradient(135deg, #111111 0%, #171717 100%);
+    linear-gradient(180deg, rgba(18, 18, 17, 0.55) 0%, rgba(18, 18, 17, 0.72) 100%),
+    url("/branding/login-fondo.png");
+  background-size: cover;
+  background-position: center;
 }
 
-.dark .bg-card,
-.dark .bg-white {
-  background: linear-gradient(180deg, rgba(26, 26, 25, 0.98) 0%, rgba(18, 18, 18, 0.96) 100%);
+.login-card-glass {
+  --card-glass: color-mix(in srgb, var(--card) 92%, transparent);
+  background: var(--card-glass);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.45);
 }
 
-.dark .bg-background {
-  background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
+/* Franja "hero" del índice (Panel resumen) -- entrada de una sola vez al
+   llegar el dato real (nunca en loop), respeta prefers-reduced-motion sin
+   excepción. Sin cambios de esta ronda, ver docs/ux-brief.md "ronda 2". */
+.hero-indice-cifra {
+  animation: hero-aparece 500ms ease-out both;
 }
 
-.dark input,
-.dark select,
-.dark textarea {
-  background-color: rgba(26, 26, 25, 0.86);
-  border-color: var(--border);
+.hero-spark-linea {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  animation: hero-dibuja 900ms 150ms ease-out forwards;
 }
 
-.dark .border-border {
-  border-color: #2f2f2c;
+@keyframes hero-aparece {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-dibuja {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-indice-cifra,
+  .hero-spark-linea {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* --- Estados nativos de Radix (docs/design-system.md, sección 2) --------- */
+
+/* Accordion: apertura por altura real (Radix expone --radix-accordion-content-height,
+   no hace falta JS ni librería de animación) en vez de solo la rotación del
+   chevron que ya había. */
+.accordion-content-animado {
+  overflow: hidden;
+  height: var(--radix-accordion-content-height);
+  transition: height 220ms ease;
+}
+.accordion-content-animado[data-state="closed"] {
+  height: 0;
+}
+
+/* Tabs: indicador deslizante -- Radix ya expone `data-state` en el trigger;
+   el deslizamiento es puro CSS sobre el fondo/color, sin JS de por medio. */
+.tabs-trigger-animado {
+  position: relative;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+/* DropdownMenu: entrada con origen calculado desde `data-side` (Radix ya lo
+   expone) -- antes no había ninguna transición de apertura/cierre. */
+.dropdown-content-animado {
+  transform-origin: var(--radix-popper-transform-origin);
+  animation: dropdown-entra 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-content-animado[data-state="closed"] {
+  animation: dropdown-sale 100ms ease-in forwards;
+}
+
+@keyframes dropdown-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes dropdown-sale {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* RadioGroup: el indicador entra con un pequeño scale-in -- Radix ya lo
+   monta/desmonta vía data-state, la animación corre sola al aparecer. */
+.radio-indicador-animado {
+  animation: radio-marca 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes radio-marca {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Progress: única animación en loop de todo el sistema, y solo mientras hay
+   una operación real en curso (value < 100) -- diferencia "cargando" de
+   "completo y quieto" (docs/design-system.md, sección 2). */
+.progress-en-curso {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--primary-foreground) 25%, transparent) 0,
+    color-mix(in srgb, var(--primary-foreground) 25%, transparent) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  background-size: 17px 17px;
+  animation: progress-stripes 900ms linear infinite;
+}
+@keyframes progress-stripes {
+  to {
+    background-position: 17px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-content-animado,
+  .dropdown-content-animado,
+  .radio-indicador-animado,
+  .progress-en-curso {
+    transition: none;
+    animation: none;
+  }
 }

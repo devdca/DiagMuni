@@ -1,0 +1,22 @@
+# entregables/fase-2/variables-contexto-institucional.md (variable agregada) --
+# transversal, no gatilla un nivel del índice de ningún trámite.
+version: "1.0"
+variable: linea_atencion_ciudadana_centralizada
+criterio_deteccion: "linea_atencion_ciudadana_centralizada == false"
+acciones:
+  mx:
+    paso_administrativo: "Establecer un canal único de atención ciudadana (línea telefónica, chat o correo centralizado) para dudas sobre cualquier trámite del gobierno"
+    paso_tecnico: "Sistema de mesa de ayuda o chat centralizado, con seguimiento de folios de consulta"
+    paso_organizacional: "Capacitar a un equipo de atención ciudadana para resolver o canalizar dudas de cualquier trámite, no solo el de su propia área"
+    prerrequisitos: []
+    por_que_importa: "Transversal -- alineado al espíritu del Portal Ciudadano Único de la LNETB (un solo punto de contacto en vez de que el ciudadano tenga que saber a qué área acudir), aunque no se verificó un artículo específico que obligue este canal en particular"
+    fuente_normativa: "LNETB, principio de Portal Ciudadano Único de Trámites y Servicios -- sin artículo específico verificado para un canal de atención telefónica/chat, revisar"
+    categoria_catalogo: "atencion_ciudadana"
+  uy:
+    paso_administrativo: "Establecer un canal único de atención ciudadana para dudas sobre cualquier trámite de la intendencia"
+    paso_tecnico: "Sistema de mesa de ayuda o chat centralizado, con seguimiento de folios de consulta"
+    paso_organizacional: "Capacitar a un equipo de atención ciudadana para resolver o canalizar dudas de cualquier trámite"
+    prerrequisitos: []
+    por_que_importa: "Transversal -- buena práctica de atención ciudadana centralizada, sin verificar un mandato legal uruguayo específico"
+    fuente_normativa: "Sin obligación legal uruguaya específica verificada -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "atencion_ciudadana"

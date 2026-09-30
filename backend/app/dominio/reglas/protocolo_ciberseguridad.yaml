@@ -1,0 +1,22 @@
+# entregables/fase-2/variables-contexto-institucional.md (variable agregada) --
+# transversal, no gatilla un nivel del índice de ningún trámite.
+version: "1.0"
+variable: protocolo_ciberseguridad_existe
+criterio_deteccion: "protocolo_ciberseguridad_existe == false"
+acciones:
+  mx:
+    paso_administrativo: "Formalizar un protocolo de respuesta a incidentes de ciberseguridad (qué hacer ante una fuga de datos o una caída de sistemas por un ataque)"
+    paso_tecnico: "Protocolo documentado + respaldo periódico de los sistemas que sirven trámites -- categoría, no marca"
+    paso_organizacional: "Designar un responsable de ciberseguridad (puede ser la misma Autoridad/Enlace de simplificación y digitalización) y capacitar al personal de TIC en el protocolo"
+    prerrequisitos: []
+    por_que_importa: "Transversal -- especialmente relevante para un gobierno que empieza a digitalizar trámites con datos personales de la ciudadanía (ver también proteccion_datos_incompleta); sin mandato legal específico verificado que obligue un protocolo formal"
+    fuente_normativa: "Sin mandato legal específico verificado -- recomendación de buena práctica, revisar"
+    categoria_catalogo: "ciberseguridad"
+  uy:
+    paso_administrativo: "Formalizar un protocolo de respuesta a incidentes de ciberseguridad"
+    paso_tecnico: "Protocolo documentado + respaldo periódico de los sistemas que sirven trámites -- categoría, no marca"
+    paso_organizacional: "Designar un responsable de ciberseguridad y capacitar al personal de TIC en el protocolo"
+    prerrequisitos: []
+    por_que_importa: "Transversal -- mismo criterio que la rama mx; Uruguay tiene un CERT nacional (CERTuy, bajo Agesic) al que este protocolo podría alinearse, aunque no se verificó una obligación específica para intendencias"
+    fuente_normativa: "CERTuy (Agesic) como referencia nacional -- sin obligación legal específica verificada para intendencias, revisar"
+    categoria_catalogo: "ciberseguridad"

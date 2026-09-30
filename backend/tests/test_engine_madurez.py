@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from app.engine import madurez
-from app.engine.madurez import calcular_indice_global, calcular_indice_madurez
+from app.dominio import madurez
+from app.dominio.madurez import calcular_indice_global, calcular_indice_madurez
 
 CASOS = [
     # (respuestas, indice_esperado, motivo)
@@ -158,7 +158,7 @@ def test_config_real_se_carga_desde_archivo(tmp_path):
     el test) es el que efectivamente se lee: se apunta el loader directamente al
     archivo de producción vía su ruta absoluta y se valida que produce el mismo
     índice que devuelve calcular_indice_madurez sobre casos ya cubiertos en CASOS."""
-    ruta_real = Path(__file__).resolve().parents[1] / "app" / "engine" / "indice_madurez.yaml"
+    ruta_real = Path(__file__).resolve().parents[1] / "app" / "dominio" / "indice_madurez.yaml"
     assert ruta_real == madurez.INDICE_MADUREZ_YAML.resolve()
     assert ruta_real.exists()
 

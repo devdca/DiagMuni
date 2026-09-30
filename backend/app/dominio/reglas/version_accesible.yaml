@@ -1,0 +1,20 @@
+version: "1.0"
+variable: version_accesible
+criterio_deteccion: "version_accesible == false"
+acciones:
+  mx:
+    paso_administrativo: "Adaptar la versión digital de este trámite para que sea accesible (lector de pantalla, contraste, navegación por teclado)"
+    paso_tecnico: "Cumplimiento de pautas de accesibilidad web (ej. WCAG) en el portal del trámite -- categoría, no marca"
+    paso_organizacional: "Capacitar al equipo de desarrollo/contenido en criterios de accesibilidad digital"
+    prerrequisitos: ["Trámite disponible en línea"]
+    por_que_importa: "Sin esto, una persona con discapacidad queda excluida de la versión digital del trámite, aunque exista para el resto de la ciudadanía"
+    fuente_normativa: "Ley General para la Inclusión de las Personas con Discapacidad (accesibilidad a la información y comunicaciones -- sin artículo específico de trámites digitales verificado, revisar)"
+    categoria_catalogo: "accesibilidad_digital"
+  uy:
+    paso_administrativo: "Adaptar la versión digital de este trámite para que sea accesible"
+    paso_tecnico: "Cumplimiento de pautas de accesibilidad web (ej. WCAG) en el portal del trámite -- categoría, no marca"
+    paso_organizacional: "Capacitar al equipo de desarrollo/contenido en criterios de accesibilidad digital"
+    prerrequisitos: ["Trámite disponible en línea"]
+    por_que_importa: "Mismo criterio que la rama mx"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar contra la Ley 18.651 (protección integral de personas con discapacidad)"
+    categoria_catalogo: "accesibilidad_digital"

@@ -1,0 +1,19 @@
+# Fase A -- piloto estatal (LNETB). Verificado leyendo el texto oficial completo:
+# art. 64 ("Llave MX es el mecanismo de autenticación e identificación de las
+# personas en medios digitales"), art. 65 (toda cuenta Llave MX se asocia a la
+# CURP), art. 67 (CURP con datos biométricos = documento nacional de
+# identificación, obligatorio aceptarla), art. 68 (las entidades federativas
+# PUEDEN implementar su propio mecanismo local, siempre que sea interoperable
+# con Llave MX). Solo México, sin rama `uy`.
+version: "1.0"
+variable: mecanismo_identidad
+criterio_deteccion: 'mecanismo_identidad == "ninguno"'
+acciones:
+  mx:
+    paso_administrativo: "Adoptar Llave MX como acceso único, o -- si la entidad federativa ya tiene o prefiere un mecanismo propio -- garantizar su interoperabilidad con Llave MX conforme lo establezca la Autoridad Nacional"
+    paso_tecnico: "Integración con Llave MX (protocolo de autenticación digital nacional, art. 69 LNETB), o con el mecanismo local propio ya interoperable"
+    paso_organizacional: "Informar al ciudadano el nuevo mecanismo de acceso al trámite"
+    prerrequisitos: ["Trámite con canal digital habilitado"]
+    por_que_importa: "La LNETB exige que cualquier mecanismo de autenticación local sea interoperable con Llave MX -- sin esto, el gobierno arriesga construir un mecanismo de identidad aislado que no cumple la ley"
+    fuente_normativa: "LNETB arts. 64-65 (Llave MX, asociado a CURP), 67 (CURP biométrica como identificación oficial obligatoria), 68 (mecanismo propio estatal, condicionado a interoperabilidad con Llave MX) -- marco general, aplicable a las 32 entidades por igual"
+    categoria_catalogo: "identidad_federada"

@@ -1,0 +1,20 @@
+version: "1.0"
+variable: registrado_portal_ciudadano_unico
+criterio_deteccion: "registrado_portal_ciudadano_unico == false"
+acciones:
+  mx:
+    paso_administrativo: "Registrar el trámite en el Portal Ciudadano Único de Trámites y Servicios / Registro Nacional de Trámites y Servicios"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es un registro administrativo en una plataforma federal ya existente"
+    paso_organizacional: "Asignar al Enlace de Simplificación y Digitalización la actualización periódica de este registro"
+    prerrequisitos: []
+    por_que_importa: "Sin este registro, el trámite no es visible para el ciudadano en el punto de consulta único que la LNETB establece a nivel nacional"
+    fuente_normativa: "LNETB (Portal Ciudadano Único de Trámites y Servicios; obligación del Enlace de mantener el inventario de trámites, arts. 14-15)"
+    categoria_catalogo: "registro_portal_unico"
+  uy:
+    paso_administrativo: "Registrar el trámite en el catálogo nacional de trámites correspondiente, si existe uno equivalente"
+    paso_tecnico: "No aplica un componente tecnológico específico"
+    paso_organizacional: "Designar responsable de mantener actualizado este registro"
+    prerrequisitos: []
+    por_que_importa: "Mismo criterio que la rama mx -- visibilidad centralizada del trámite"
+    fuente_normativa: "Sin mandato legal uruguayo específico verificado -- revisar si existe un catálogo nacional equivalente al Portal Ciudadano Único"
+    categoria_catalogo: "registro_portal_unico"

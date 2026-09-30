@@ -1,0 +1,17 @@
+# Fase A -- piloto federal, tipo_tramite="sat_rfc". Verificado contra el texto
+# oficial vigente de la LFPA (diputados.gob.mx/LeyesBiblio/pdf/LFPA.pdf,
+# "Última Reforma DOF 14-11-2025") -- confirmados los 3 meses, ya no hace
+# falta la advertencia de revisar el paquete económico 2026. Solo México, sin
+# rama `uy`.
+version: "1.0"
+variable: plazo_respuesta_publicado
+criterio_deteccion: "plazo_respuesta_publicado == false"
+acciones:
+  mx:
+    paso_administrativo: "Definir y publicar el plazo máximo de 3 meses (supletorio de la LFPA) para resolver este trámite, salvo que exista un plazo específico distinto"
+    paso_tecnico: "No aplica un componente tecnológico específico -- es una definición administrativa"
+    paso_organizacional: "Capacitar al personal en el plazo definido y en el seguimiento de vencimientos"
+    prerrequisitos: []
+    por_que_importa: "Sin un plazo publicado, el contribuyente no tiene certeza de cuándo esperar respuesta"
+    fuente_normativa: "Ley Federal de Procedimiento Administrativo, art. 17 (plazo supletorio de 3 meses -- verificado contra texto oficial vigente, última reforma DOF 14-11-2025)"
+    categoria_catalogo: "plazo_respuesta"

@@ -1,0 +1,14 @@
+# Fase A -- piloto estatal (LNETB). Verificado leyendo el texto oficial completo.
+# Solo México, sin rama `uy`.
+version: "1.0"
+variable: costo_publicado_en_linea
+criterio_deteccion: "costo_publicado_en_linea == false"
+acciones:
+  mx:
+    paso_administrativo: "Publicar en el Portal Ciudadano Único el monto de los derechos o aprovechamientos aplicables a este trámite, o la forma de determinarlo"
+    paso_tecnico: "Sección de costos en el portal del trámite, con el monto vigente y las alternativas de pago"
+    paso_organizacional: "Mantener actualizado el monto publicado cuando cambie la ley de ingresos correspondiente"
+    prerrequisitos: []
+    por_que_importa: "La LNETB exige registrar explícitamente el monto de derechos/aprovechamientos y las alternativas de pago como parte del registro obligatorio del trámite"
+    fuente_normativa: "LNETB art. 54, fracc. XI (monto de derechos/aprovechamientos y alternativas de pago) -- marco general, aplicable a las 32 entidades por igual"
+    categoria_catalogo: "costo_publicado"

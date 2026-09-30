@@ -4,7 +4,7 @@ test_rate_limit.py; aquí solo se verifica que este endpoint la configure con
 los parámetros documentados (entregables/fase-2/identificacion-gobierno-login.md,
 sección 3)."""
 
-from app.api.gobiernos import INTENTOS_MAXIMOS_POR_VENTANA, VENTANA_SEGUNDOS, _limitador
+from app.adaptadores.http.gobiernos import INTENTOS_MAXIMOS_POR_VENTANA, VENTANA_SEGUNDOS, _limitador
 from app.core.rate_limit import LimitadorVentanaDeslizante
 
 

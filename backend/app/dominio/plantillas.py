@@ -1,0 +1,52 @@
+"""Motor de plantillas deterministas: convierte el catálogo brecha->acción en el
+`contenido` que vería el funcionario, sin ningún LLM. Es el modo `degradado` --
+debe producir un plan sustantivo por sí solo, sin ninguna key de API."""
+
+from app.dominio.catalogo_loader import componente_recomendado_para
+from app.dominio.reglas_loader import AccionPais, cargar_catalogo, criterio_se_cumple
+
+
+def _narrativa_plantilla(accion: AccionPais) -> str:
+    return (
+        f"{accion.paso_administrativo}. {accion.paso_tecnico}. {accion.paso_organizacional}. "
+        f"{accion.por_que_importa} (fuente: {accion.fuente_normativa})."
+    )
+
+
+def generar_contenido_degradado(
+    respuestas: dict, pais: str, nivel_gobierno: str = "municipal", tipo_tramite: str | None = None
+) -> dict:
+    """Evalúa qué brechas aplican para `respuestas` y arma el `contenido` con
+    texto de plantilla -- nunca decide una acción fuera del YAML.
+    `nivel_gobierno`/`tipo_tramite` seleccionan la carpeta del catálogo (ver
+    `reglas_loader.cargar_catalogo`)."""
+    catalogo = cargar_catalogo(nivel_gobierno, tipo_tramite)
+    brechas = []
+    for regla in catalogo.values():
+        if not criterio_se_cumple(regla.criterio_deteccion, respuestas):
+            continue
+        if pais not in regla.acciones:
+            continue
+        accion = regla.acciones[pais]
+        brechas.append(
+            {
+                "variable": regla.variable,
+                "categoria_catalogo": accion.categoria_catalogo,
+                "paso_administrativo": accion.paso_administrativo,
+                "paso_tecnico": accion.paso_tecnico,
+                "paso_organizacional": accion.paso_organizacional,
+                "prerrequisitos": accion.prerrequisitos,
+                "por_que_importa": accion.por_que_importa,
+                "fuente_normativa": accion.fuente_normativa,
+                "narrativa": _narrativa_plantilla(accion),
+                "componente_recomendado": componente_recomendado_para(accion.categoria_catalogo, pais),
+                "requiere_nueva_norma": accion.requiere_nueva_norma,
+            }
+        )
+
+    if not brechas:
+        resumen = "No hay brechas pendientes: todas las variables evaluadas ya cumplen el nivel máximo."
+    else:
+        resumen = f"Se detectaron {len(brechas)} brecha(s) de modernización. Ver detalle de cada una a continuación."
+
+    return {"resumen_narrativo": resumen, "brechas": brechas}

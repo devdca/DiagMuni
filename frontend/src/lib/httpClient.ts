@@ -1,23 +1,15 @@
-// Envoltorio delgado sobre fetch nativo (docs/stack-tecnologico.md línea 22-23
-// fija TanStack Query como capa de data fetching, no un cliente HTTP nuevo —
-// no se agrega axios).
-//
-// Rutas relativas "/api/..." funcionan igual en desarrollo (proxy de Vite,
-// ver vite.config.ts) y en producción (nginx ya proxea /api al backend real,
-// docker-compose.yml + nginx/nginx.conf), sin variables de entorno.
+// Envoltorio delgado sobre fetch nativo -- sin axios, TanStack Query ya es la
+// capa de data fetching. Rutas relativas "/api/..." funcionan igual en dev
+// (proxy de Vite) y en producción (nginx proxea /api al backend).
 
 import { cerrarSesion, obtenerToken } from "./session";
 
-// Se dispara cuando el backend responde 401 en cualquier llamada — el guard
-// de sesión de cada pantalla protegida escucha este evento para redirigir a
-// /login sin que cada llamada tenga que saber cómo navegar.
+// El guard de sesión de cada pantalla protegida escucha este evento para
+// redirigir a /login sin que cada llamada sepa cómo navegar.
 export const EVENTO_SESION_EXPIRADA = "diagmuni:sesion-expirada";
 
 export class ApiError extends Error {
-  // Expuesto para quien necesite distinguir 404 (ej. "el plan todavía no existe",
-  // usado en el polling de Diagnostico.tsx) de cualquier otro fallo real -- el
-  // resto del código sigue tratando ApiError.message como el texto en lenguaje
-  // llano de siempre.
+  /** Para distinguir 404 (ej. "el plan todavía no existe") de un fallo real. */
   status: number;
 
   constructor(message: string, status: number) {
@@ -43,9 +35,7 @@ export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Pro
     },
   });
 
-  // Un 401 con sinAuth=true (ej. login con credenciales inválidas) no es una
-  // sesión que expira -- nunca hubo sesión. Disparar el evento global aquí
-  // provocaría una navegación espuria sobre la propia pantalla de login.
+  // Un 401 con sinAuth=true (ej. login fallido) nunca hubo sesión que expirar.
   if (respuesta.status === 401 && !sinAuth) {
     cerrarSesion();
     window.dispatchEvent(new CustomEvent(EVENTO_SESION_EXPIRADA));
@@ -62,11 +52,8 @@ export async function apiFetch<T>(ruta: string, opciones: OpcionesApi = {}): Pro
   }
 
   if (!respuesta.ok) {
-    // El backend a veces responde "detail" como texto llano (ej. 401 de
-    // credenciales inválidas) y a veces como lista de errores de validación
-    // (422 de Pydantic, un objeto/array por campo) -- solo el primer caso es
-    // apto para mostrarse tal cual; el segundo cae al mensaje genérico para
-    // no exponer texto crudo al funcionario.
+    // "detail" a veces es texto llano y a veces errores de validación (422 de
+    // Pydantic) -- solo el texto plano es apto para mostrarse tal cual.
     const detalleCrudo = cuerpo && typeof cuerpo === "object" && "detail" in cuerpo ? cuerpo.detail : null;
     const detalle =
       typeof detalleCrudo === "string" ? detalleCrudo : "No se pudo completar la operación. Intenta de nuevo.";
