@@ -62,4 +62,4 @@ python-multipart==0.0.32
 # -- captura de excepciones/errores 5xx en producción (app/main.py). El extra
 # `[fastapi]` trae la integración nativa de Starlette/FastAPI (ya cubierta por
 # fastapi>=0.79.0/starlette>=0.46.0, ambos ya fijados arriba, sin bajar versión).
-sentry-sdk[fastapi]==2.69.2
+sentry-sdk[fastapi]==2.70.0
