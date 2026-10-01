@@ -1,16 +1,16 @@
 # actualizado por CVEs conocidos en la versión anterior de starlette
 fastapi==0.141.1
-starlette==1.6.0
-uvicorn[standard]==0.34.0
-sqlalchemy==2.0.36
-alembic==1.14.0
+starlette==1.7.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.1
+alembic==1.20.0
 # psycopg es LGPL-3.0, no GPL — LGPL permite explícitamente el linking dinámico sin
 # obligar a que el proyecto que lo usa también sea GPL (a diferencia de GPL a secas).
 # Es más permisivo que el carve-out "GPL solo como servicio separado" del Principio 2
 # de docs/stack-tecnologico.md, no una excepción a él.
-psycopg[binary]==3.2.10
-pydantic==2.10.4
-pydantic-settings==2.7.1
+psycopg[binary]==3.3.6
+pydantic==2.13.5
+pydantic-settings==2.15.0
 # 2.14.0 -- corrige CVE-2026-102274: de 2.9.0 a 2.13.0, `PyJWKSet` no atrapaba el
 # `ValueError` que lanza `RSAAlgorithm.from_jwk` ante componentes RSA malformados,
 # así que una sola clave mal formada en un JWK Set abortaba la construcción del
@@ -21,9 +21,9 @@ pydantic-settings==2.7.1
 # CVE-2026-48526, más los avisos que esa release agrupaba): es la única
 # dependencia que firma y verifica la autenticación de la plataforma, y el gate
 # de CVEs del CI no distingue vectores aplicables de los que no lo son.
-pyjwt==2.14.0
+pyjwt==2.15.0
 argon2-cffi==23.1.0
-pyyaml==6.0.2
+pyyaml==6.0.3
 # litellm: MIT (docs/stack-tecnologico.md, "Nota sobre LiteLLM (licencia)"), verificado
 # contra github.com/BerriAI/litellm/LICENSE -- DiagMuni solo usa el SDK core
 # (litellm.completion), nunca el paquete separado `enterprise/` (licencia propietaria).
@@ -35,12 +35,12 @@ pyyaml==6.0.2
 # versiones puntuales (1.82.7 y 1.82.8) fueron comprometidas en PyPI mediante
 # credenciales de CI robadas y puestas en cuarentena ~40 minutos después de su
 # publicación; no afecta a 1.94.0 (muy posterior) ni a ninguna versión fijada aquí.
-litellm==1.94.0
+litellm==1.103.0
 # fpdf2: LGPL-3.0 (github.com/py-pdf/fpdf2/blob/master/LICENSE) -- mismo criterio
 # que psycopg[binary] arriba: uso dinámico vía pip install, no modificación ni
 # linking estático de la librería. Python puro, sin librerías nativas del SO
 # (a diferencia de WeasyPrint/Pango-Cairo) -- Docker de backend no cambia.
-fpdf2==2.8.7
+fpdf2==2.8.8
 # cryptography: licencia dual Apache-2.0 OR BSD-3-Clause (verificado vía
 # `pip show cryptography`, campo License-Expression) -- ambas permisivas, ninguna
 # alcanzada por el gate de licencias GPL/AGPL de CI. Cifra las credenciales de IA
@@ -62,4 +62,4 @@ python-multipart==0.0.32
 # -- captura de excepciones/errores 5xx en producción (app/main.py). El extra
 # `[fastapi]` trae la integración nativa de Starlette/FastAPI (ya cubierta por
 # fastapi>=0.79.0/starlette>=0.46.0, ambos ya fijados arriba, sin bajar versión).
-sentry-sdk[fastapi]==2.69.2
+sentry-sdk[fastapi]==2.70.0
