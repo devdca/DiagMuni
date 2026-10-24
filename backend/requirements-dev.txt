@@ -9,7 +9,7 @@ pip-licenses==5.0.0
 # plan de producción integrada ("escaneo de dependencias en cada PR"). Sin
 # vulnerabilidades conocidas en requirements.txt al fijar esto (2026-09-10).
 pip-audit==2.10.1
-types-PyYAML==6.0.12.20241230
+types-PyYAML==6.0.12.20260906
 # pypdf: MIT -- solo para extraer texto del PDF generado en tests, dev-only, no
 # entra a la imagen de producción (backend/Dockerfile no instala requirements-dev.txt).
 # 6.16.1 -- versión con más CVEs corregidas al momento de fijar esto (pip-audit
